@@ -17,7 +17,7 @@ class Report(models.Model):
     """
     Object model for grooming report
     """
-    date = models.DateTimeField("Date of Grooming Report")
+    date = models.DateField("Date of Grooming Report")
     resort = models.ForeignKey(Resort, on_delete=models.CASCADE)
 
     def __str__(self):

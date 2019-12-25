@@ -35,12 +35,13 @@ def get_grooming_report(url: str) -> Tuple[Union[None, dt.datetime], List[str]]:
     return date, runs
 
 
-def create_report(date: dt.datetime, groomed_runs: List[str]) -> None:
+def create_report(date: dt.datetime, groomed_runs: List[str], resort: Resort) -> None:
     """
     Create the grooming report object and save
 
     :param date: grooming report date
     :param groomed_runs: list of groomed run names
+    :param resort: ski resort this grooming report corresponds to
     """
     rpt = Report.objects.create(date=date, resort=resort)
     rpt.save()
@@ -64,6 +65,8 @@ if __name__ == "__main__":
     # Store the report in the db
     for resort in Resort.objects.all():
         date, groomed_runs = get_grooming_report(resort.report_url)
+        print('Got grooming report for {} on {}'.format(resort, date.strftime('%Y-%m-%d')))
 
         if Report.objects.count() == 0 or len(Report.objects.filter(date=date)) == 0:
-            create_report(date, groomed_runs)
+            create_report(date, groomed_runs, resort)
+            print('Saved grooming report to DB')
