@@ -40,5 +40,11 @@ class RunTestCase(TestCase):
                                            location='Avon, CO')
         cls.report = Report.objects.create(date=dt.datetime.strptime('2019-01-09', '%Y-%m-%d'),
                                            resort=cls.resort)
+        cls.run_obj = Run.objects.create(name='Cabin Fever', difficulty='green', resort=cls.resort)
+        cls.report.run_set.add(cls.run_obj)
 
-    def test_str
+    def test_str(self) -> None:
+        """
+        Test __str__ method of model works correctly
+        """
+        self.assertEqual(str(self.run_obj), 'Cabin Fever')
