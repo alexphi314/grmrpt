@@ -8,7 +8,7 @@ class ResortSerializer(serializers.ModelSerializer):
     """
     class Meta:
         model = Resort
-        fields = ['id', 'name', 'location']
+        fields = ['name', 'location']
 
 
 class ReportSerializer(serializers.ModelSerializer):
@@ -17,7 +17,7 @@ class ReportSerializer(serializers.ModelSerializer):
     """
     class Meta:
         model = Report
-        fields = ['date', 'resort', 'runs']
+        fields = ['date', 'resort', 'run_set']
 
 
 class RunSerializer(serializers.ModelSerializer):
@@ -27,3 +27,12 @@ class RunSerializer(serializers.ModelSerializer):
     class Meta:
         model = Run
         fields = ['name', 'difficulty', 'resort']
+
+
+class HDReportSerializer(serializers.ModelSerializer):
+    """
+    Serializer for HDreport model
+    """
+    class Meta:
+        model = HDReport
+        fields = ['date', 'resort', 'runs']

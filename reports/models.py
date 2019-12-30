@@ -23,6 +23,7 @@ class Report(models.Model):
     def __str__(self):
         return '{}: {}'.format(self.resort, self.date.strftime('%Y-%m-%d'))
 
+
 class Run(models.Model):
     """
     Object model for ski run
@@ -34,3 +35,11 @@ class Run(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class HDReport(Report):
+    """
+    Object model for processed Hidden Diamond grooming report
+    """
+    runs = models.ManyToManyField(Run)
+    full_report = models.ManyToManyField(Report, related_name='hd_report')
