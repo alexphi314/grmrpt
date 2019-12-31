@@ -2,7 +2,7 @@ import datetime as dt
 
 from django.test import TestCase
 
-from fetch_report import get_grooming_report, create_report
+from ..fetch_report import get_grooming_report, create_report
 from reports.models import *
 
 

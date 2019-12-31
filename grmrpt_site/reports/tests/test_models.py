@@ -45,8 +45,8 @@ class HDReportTestCase(TestCase):
         run_obj1 = Run.objects.create(name='Cabin Fever', difficulty='green', resort=cls.resort)
         run_obj2 = Run.objects.create(name='Ripsaw', difficulty='black', resort=cls.resort)
 
-        report.run_set.set([run_obj1, run_obj2])
-        cls.hdreport.run_set.set([run_obj2])
+        report.runs.set([run_obj1, run_obj2])
+        cls.hdreport.runs.set([run_obj2])
 
     def test_str(self):
         """
@@ -64,7 +64,7 @@ class RunTestCase(TestCase):
         cls.report = Report.objects.create(date=dt.datetime.strptime('2019-01-09', '%Y-%m-%d'),
                                            resort=cls.resort)
         cls.run_obj = Run.objects.create(name='Cabin Fever', difficulty='green', resort=cls.resort)
-        cls.report.run_set.add(cls.run_obj)
+        cls.report.runs.add(cls.run_obj)
 
     def test_str(self) -> None:
         """

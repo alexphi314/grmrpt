@@ -31,7 +31,7 @@ class Run(models.Model):
     name = models.CharField("Name of the run", max_length=1000)
     difficulty = models.CharField("Difficulty of run, green/blue/black", max_length=100, blank=True, null=True)
     resort = models.ForeignKey(Resort, on_delete=models.CASCADE)
-    report = models.ManyToManyField(Report)
+    reports = models.ManyToManyField(Report, related_name='runs')
 
     def __str__(self):
         return self.name
@@ -41,5 +41,5 @@ class HDReport(Report):
     """
     Object model for processed Hidden Diamond grooming report
     """
-    runs = models.ManyToManyField(Run)
-    full_report = models.ManyToManyField(Report, related_name='hd_report')
+    runs = models.ManyToManyField(Run, related_name='runs')
+    full_reports = models.ManyToManyField(Report, related_name='hd_reports', related_query_name='full_reports')

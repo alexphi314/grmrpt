@@ -8,16 +8,7 @@ class ResortSerializer(serializers.ModelSerializer):
     """
     class Meta:
         model = Resort
-        fields = ['name', 'location']
-
-
-class ReportSerializer(serializers.ModelSerializer):
-    """
-    Serializer for report model
-    """
-    class Meta:
-        model = Report
-        fields = ['date', 'resort', 'run_set']
+        fields = ['name', 'location', 'report_url', 'id']
 
 
 class RunSerializer(serializers.ModelSerializer):
@@ -26,13 +17,24 @@ class RunSerializer(serializers.ModelSerializer):
     """
     class Meta:
         model = Run
-        fields = ['name', 'difficulty', 'resort']
+        fields = ['name', 'difficulty', 'id']
 
 
-class HDReportSerializer(serializers.ModelSerializer):
+class ReportSerializer(serializers.ModelSerializer):
+    """
+    Serializer for report model
+    """
+    resort = serializers.HyperlinkedRelatedField(many=False, view_name='resort-detail',
+                                                 queryset=Resort.objects.all())
+    runs = serializers.HyperlinkedRelatedField(many=True, view_name='run-detail',
+                                               queryset=Run.objects.all())
+
+    class Meta:
+        model = Report
+        fields = ['date', 'resort', 'runs', 'id']
+
+
+class HDReportSerializer(ReportSerializer):
     """
     Serializer for HDreport model
     """
-    class Meta:
-        model = HDReport
-        fields = ['date', 'resort', 'runs']

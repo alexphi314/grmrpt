@@ -1,15 +1,27 @@
-from typing import List, Tuple, Union
+from typing import List, Tuple, Union, Dict
 import re
 import datetime as dt
 import logging
+import os
 
 from tika import parser
-import django
-django.setup()
+import requests
 
-from reports.models import *
+API_URL = 'http://127.0.0.1:8000'
 
-#GROOMING_URL = 'https://grooming.lumiplan.pro/beaver-creek-grooming-map.pdf'
+
+def get_api(relative_url: str) -> Dict:
+    """
+    Execute a GET request from the api of the given relative url and return a Dict object
+
+    :param relative_url: relative url from base api url
+    :return: dict containing response data
+    """
+    response = requests.get('/'.join([API_URL, '{}'.format(relative_url.replace('/', ''))]))
+    if response.status_code != 200:
+        raise ValueError('Did not receive valid response from api:\n{}'.format(response.text))
+
+    return response.json()
 
 
 def get_grooming_report(url: str) -> Tuple[Union[None, dt.datetime], List[str]]:
@@ -36,39 +48,49 @@ def get_grooming_report(url: str) -> Tuple[Union[None, dt.datetime], List[str]]:
     return date, runs
 
 
-def create_report(date: dt.datetime, groomed_runs: List[str], resort: Resort) -> None:
+def create_report(date: dt.datetime, groomed_runs: List[str], resort_id: int) -> None:
     """
-    Create the grooming report object and save
+    Create the grooming report and push if not in api
 
     :param date: grooming report date
     :param groomed_runs: list of groomed run names
-    :param resort: ski resort this grooming report corresponds to
+    :param resort_id: resort id this report corresponds to
     """
-    rpt = Report.objects.create(date=date, resort=resort)
-    rpt.save()
+    resort_url = '/'.join([API_URL, 'resorts', str(resort_id)])
+    # Get list of reports already in api and exit if current report is already in api
+    reports = get_api('reports')
+    for report in reports:
+        if report['resort'] == resort_url and dt.datetime.strptime(report['date'], '%Y-%m-%d') == date:
+            logger.info('Report already in api, exiting')
+            return
 
-    run_objs = []
-    for groomed_run in groomed_runs:
-        try:
-            run_obj = Run.objects.get(name=groomed_run)
-        except Run.DoesNotExist:
-            run_obj = Run.objects.create(name=groomed_run, resort=resort)
-            run_obj.save()
+    # Else, create new report
+    report_dict = {}
+    report_dict['date'] = date.strftime('%Y-%m-%d')
+    report_dict['resort'] = resort_url
+    response = requests.post('/'.join([API_URL, 'reports/']), data=report_dict)
 
-        run_objs.append(run_obj.pk)
+    if response.status_code == 201:
+        logger.info('Successfully created report object in api')
+    else:
+        logger.info('Failed to create report object:\n{}'.format(response.text))
 
-    rpt.run_set.set(run_objs)
-    rpt.save()
 
 
 if __name__ == "__main__":
-    # Fetch grooming report for all resorts in the db
-    # Store the report in the db
     logger = logging.getLogger('reports.fetch_report')
-    for resort in Resort.objects.all():
-        date, groomed_runs = get_grooming_report(resort.report_url)
+    logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
+    logger.info('Getting list of resorts from api')
+
+    # Get list of resorts from api
+    resorts = get_api('resorts')
+
+    # Fetch grooming report for each resort
+    for resort_dict in resorts:
+        resort = resort_dict['name']
+        report_url = resort_dict['report_url']
+
+        date, groomed_runs = get_grooming_report(report_url)
         logger.info('Got grooming report for {} on {}'.format(resort, date.strftime('%Y-%m-%d')))
 
-        if Report.objects.count() == 0 or len(Report.objects.filter(date=date)) == 0:
-            create_report(date, groomed_runs, resort)
-            logger.info('Saved grooming report to DB')
+        create_report(date, groomed_runs, resort_dict['id'])

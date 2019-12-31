@@ -1,59 +1,55 @@
 from django.http import Http404
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status
+from rest_framework import generics
 
-from reports.models import Report
-from reports.serializers import ReportSerializer
+from reports.models import Report, Run, Resort
+from reports.serializers import ReportSerializer, RunSerializer, ResortSerializer
 
 
-class ReportList(APIView):
+class ResortList(generics.ListCreateAPIView):
     """
-    List all Reports or create a new one
+    Generic view showing all resorts
     """
-    def get(self, request, format=None):
-        reports = Report.objects.all()
-        serializer = ReportSerializer(reports, many=True)
-
-        return Response(serializer.data)
-
-    def post(self, request, format=None):
-        serializer = ReportSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    queryset = Resort.objects.all()
+    serializer_class = ResortSerializer
 
 
-class ReportDetail(APIView):
+class ResortDetail(generics.RetrieveUpdateDestroyAPIView):
     """
-    Retrieve, update, or delete a report instance
+    Detailed view for specific resort
     """
-    @staticmethod
-    def get_object(pk):
-        try:
-            return Report.objects.get(pk=pk)
-        except Report.DoesNotExist:
-            raise Http404
+    queryset = Resort.objects.all()
+    serializer_class = ResortSerializer
 
-    def get(self, request, pk, format=None):
-        report = self.get_object(pk)
-        serializer = ReportSerializer(report)
 
-        return Response(serializer.data)
+class RunList(generics.ListCreateAPIView):
+    """
+    Generic view listing all runs
+    """
+    queryset = Run.objects.all()
+    serializer_class = RunSerializer
 
-    def put(self, request, pk, format=None):
-        report = self.get_object(pk)
-        serializer = ReportSerializer(report, data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
 
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+class RunDetail(generics.RetrieveUpdateDestroyAPIView):
+    """
+    Detailed view listing specific run
+    """
+    queryset = Run.objects.all()
+    serializer_class = RunSerializer
 
-    def delete(self, request, pk, format=None):
-        report = self.get_object(pk)
-        report.delete()
 
-        return Response(status=status.HTTP_204_NO_CONTENT)
+class ReportList(generics.ListCreateAPIView):
+    """
+    Generic view listing all reports
+    """
+    queryset = Report.objects.all()
+    serializer_class = ReportSerializer
+
+
+class ReportDetail(generics.RetrieveUpdateDestroyAPIView):
+    """
+    Detailed view listing specific report
+    """
+    queryset = Report.objects.all()
+    serializer_class = ReportSerializer
