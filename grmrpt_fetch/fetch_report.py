@@ -17,7 +17,7 @@ def get_api(relative_url: str) -> Dict:
     :param relative_url: relative url from base api url
     :return: dict containing response data
     """
-    response = requests.get('/'.join([API_URL, '{}'.format(relative_url.replace('/', ''))]))
+    response = requests.get('/'.join([API_URL, relative_url]))
     if response.status_code != 200:
         raise ValueError('Did not receive valid response from api:\n{}'.format(response.text))
 
@@ -56,25 +56,64 @@ def create_report(date: dt.datetime, groomed_runs: List[str], resort_id: int) ->
     :param groomed_runs: list of groomed run names
     :param resort_id: resort id this report corresponds to
     """
-    resort_url = '/'.join([API_URL, 'resorts', str(resort_id)])
-    # Get list of reports already in api and exit if current report is already in api
-    reports = get_api('reports')
-    for report in reports:
-        if report['resort'] == resort_url and dt.datetime.strptime(report['date'], '%Y-%m-%d') == date:
-            logger.info('Report already in api, exiting')
-            return
-
-    # Else, create new report
-    report_dict = {}
-    report_dict['date'] = date.strftime('%Y-%m-%d')
-    report_dict['resort'] = resort_url
-    response = requests.post('/'.join([API_URL, 'reports/']), data=report_dict)
-
-    if response.status_code == 201:
-        logger.info('Successfully created report object in api')
+    resort_url = '/'.join(['resorts', str(resort_id)])
+    resort_name = get_api('resorts/{}'.format(resort_id))['name'].replace(' ', '%20')
+    # Get list of reports already in api and don't create a new report if it already exists
+    reports = get_api('reports?resort={}&date={}'.format(
+        resort_name,
+        date.strftime('%Y-%m-%d'))
+    )
+    if len(reports) > 0:
+        assert len(reports) == 1
+        report_id = reports[0]['id']
+        report_response = reports[0]
     else:
-        logger.info('Failed to create report object:\n{}'.format(response.text))
+        report_dict = {'date': date.strftime('%Y-%m-%d'), 'resort': '/'.join([API_URL, resort_url])}
+        report_response = requests.post('/'.join([API_URL, 'reports/']), data=report_dict)
 
+        if report_response.status_code == 201:
+            logger.info('Successfully created report object in api')
+            report_id = report_response.json()['id']
+        else:
+            raise ValueError('Failed to create report object:\n{}'.format(report_response.text))
+
+    # Fetch the report object
+    report_url = '/'.join(['reports', str(report_id)])
+    report = get_api(report_url)
+    report_runs = report_response.get('runs', [])
+    # Connect the run objects to the report object, if they are not already linked
+    if len(report['runs']) < len(groomed_runs):
+        for run in groomed_runs:
+            # See if run in api
+            run_resp = get_api('runs?name={}&resort={}'.format(
+                run,
+                resort_name
+            ))
+
+            # If run exists, check if the run url is attached to the report
+            if len(run_resp) > 0:
+                assert len(run_resp) == 1
+                run_url = '/'.join([API_URL, 'runs', str(run_resp[0]['id'])])
+            # Otherwise, create the run and attach to report from this end
+            else:
+                run_data = {'name': run, 'resort': '/'.join([API_URL, resort_url])}
+                update_response = requests.post('/'.join([API_URL, 'runs/']), data=run_data)
+
+                if update_response.status_code != 201:
+                    raise ValueError('Failed to create run object:\n{}'.format(update_response.text))
+                run_url = '/'.join([API_URL, 'runs', str(update_response.json()['id'])])
+
+            if run_url not in report_runs:
+                report_runs.append(run_url)
+
+    if report_runs != report_response.get('runs', []):
+        report_response['runs'] = report_runs
+        update_report_response = requests.put('/'.join([API_URL, report_url]), data=report_response)
+        if update_report_response.status_code == 200:
+            logger.info('Successfully tied groomed runs to report')
+
+        else:
+            raise ValueError('Failed to update report object:\n{}'.format(update_report_response.text))
 
 
 if __name__ == "__main__":

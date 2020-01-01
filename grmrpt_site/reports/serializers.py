@@ -15,9 +15,14 @@ class RunSerializer(serializers.ModelSerializer):
     """
     Serializer for run model
     """
+    resort = serializers.HyperlinkedRelatedField(many=False, view_name='resort-detail',
+                                                 queryset=Resort.objects.all())
+    reports = serializers.HyperlinkedRelatedField(many=True, view_name='report-detail',
+                                                  queryset=Report.objects.all())
+
     class Meta:
         model = Run
-        fields = ['name', 'difficulty', 'id']
+        fields = ['name', 'difficulty', 'id', 'resort', 'reports']
 
 
 class ReportSerializer(serializers.ModelSerializer):
