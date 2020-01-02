@@ -55,7 +55,6 @@ class HDReportTestCase(TestCase):
         self.assertEqual(str(self.hdreport), 'Beaver Creek: 2019-01-09')
 
 
-
 class RunTestCase(TestCase):
     @classmethod
     def setUpTestData(cls):

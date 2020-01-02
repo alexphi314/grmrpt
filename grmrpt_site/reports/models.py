@@ -9,7 +9,7 @@ class Resort(models.Model):
     location = models.CharField("Location of the resort", max_length=1000, blank=True, null=True)
     report_url = models.CharField("URL to grooming report", max_length=2000, blank=True, null=True)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.name
 
 
@@ -20,7 +20,7 @@ class Report(models.Model):
     date = models.DateField("Date of Grooming Report")
     resort = models.ForeignKey(Resort, on_delete=models.CASCADE)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return '{}: {}'.format(self.resort, self.date.strftime('%Y-%m-%d'))
 
 
@@ -33,7 +33,7 @@ class Run(models.Model):
     resort = models.ForeignKey(Resort, on_delete=models.CASCADE)
     reports = models.ManyToManyField(Report, related_name='runs')
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.name
 
 

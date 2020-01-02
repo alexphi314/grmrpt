@@ -11,7 +11,7 @@ import requests
 API_URL = 'http://127.0.0.1:8000'
 
 
-class ApiError(Exception):
+class APIError(Exception):
     pass
 
 
@@ -24,7 +24,7 @@ def get_api(relative_url: str) -> Dict:
     """
     response = requests.get('/'.join([API_URL, relative_url]))
     if response.status_code != 200:
-        raise ApiError('Did not receive valid response from api:\n{}'.format(response.text))
+        raise APIError('Did not receive valid response from api:\n{}'.format(response.text))
 
     return response.json()
 
@@ -80,7 +80,7 @@ def create_report(date: dt.datetime, groomed_runs: List[str], resort_id: int) ->
             logger.info('Successfully created report object in api')
             report_id = report_response.json()['id']
         else:
-            raise ApiError('Failed to create report object:\n{}'.format(report_response.text))
+            raise APIError('Failed to create report object:\n{}'.format(report_response.text))
 
     # Fetch the report object
     report_url = '/'.join(['reports', str(report_id), ''])
@@ -106,7 +106,7 @@ def create_report(date: dt.datetime, groomed_runs: List[str], resort_id: int) ->
                 update_response = requests.post('/'.join([API_URL, 'runs/']), data=run_data)
 
                 if update_response.status_code != 201:
-                    raise ApiError('Failed to create run object:\n{}'.format(update_response.text))
+                    raise APIError('Failed to create run object:\n{}'.format(update_response.text))
                 run_url = '/'.join([API_URL, 'runs', str(update_response.json()['id']), ''])
 
             if run_url not in report_runs:
@@ -115,11 +115,11 @@ def create_report(date: dt.datetime, groomed_runs: List[str], resort_id: int) ->
     if report_runs != report_response.get('runs', []):
         report_response['runs'] = report_runs
         update_report_response = requests.put('/'.join([API_URL, report_url]), data=report_response)
+
         if update_report_response.status_code == 200:
             logger.info('Successfully tied groomed runs to report')
-
         else:
-            raise ApiError('Failed to update report object:\n{}'.format(update_report_response.text))
+            raise APIError('Failed to update report object:\n{}'.format(update_report_response.text))
 
 
 if __name__ == "__main__":
