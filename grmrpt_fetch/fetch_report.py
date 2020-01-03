@@ -38,7 +38,7 @@ def get_grooming_report(url: str) -> Tuple[Union[None, dt.datetime], List[str]]:
     """
     parsed = parser.from_file(url)
     content = parsed['content'].strip()
-    trial_re = re.compile('^\d+\s(?P<name>(?!\d).*\w+.+$)')
+    trial_re = re.compile('^\d+\s(?P<name>(?!\d).*\w+.+(?<!")+$)')
     date_re = re.compile('^\w*\s\d*,\s\d*')
 
     runs = []
