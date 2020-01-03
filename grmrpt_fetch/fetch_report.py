@@ -61,7 +61,7 @@ def create_report(date: dt.datetime, groomed_runs: List[str], resort_id: int) ->
     :param groomed_runs: list of groomed run names
     :param resort_id: resort id this report corresponds to
     """
-    resort_url = '/'.join(['resorts', str(resort_id)])
+    resort_url = '/'.join(['resorts', str(resort_id), ''])
     resort_name = get_api('resorts/{}'.format(resort_id))['name'].replace(' ', '%20')
 
     # Get list of reports already in api and don't create a new report if it already exists

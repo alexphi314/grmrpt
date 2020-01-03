@@ -39,17 +39,17 @@ class ResortViewTestCase(TestCase):
         response = response.json()
         self.assertTrue('id' in response.keys())
         # Remove id from dict -> we care that it was returned but not what it is
-        response.pop('id', None)
+        response.pop('id')
         self.assertDictEqual(resort_data, response)
 
     def test_put(self) -> None:
         """
         Test put method for resorts
         """
-        response = self.client.get('/resorts/1').json()
+        response = self.client.get('/resorts/1/').json()
         response['location'] = 'Kansas'
 
-        update_response = self.client.put('/resorts/1', data=json.dumps(response), content_type='application/json')
+        update_response = self.client.put('/resorts/1/', data=json.dumps(response), content_type='application/json')
         self.assertEqual(update_response.status_code, 200)
         self.assertDictEqual(update_response.json(), response)
 
@@ -61,9 +61,9 @@ class ResortViewTestCase(TestCase):
         response = self.client.post('/resorts/', resort_data, format='json')
 
         id = response.json()['id']
-        response = self.client.delete('/resorts/{}'.format(id))
+        response = self.client.delete('/resorts/{}/'.format(id))
         self.assertEqual(response.status_code, 204)
-        self.assertEqual(self.client.get('/restors/{}'.format(id)).status_code, 404)
+        self.assertEqual(self.client.get('/resorts/{}/'.format(id)).status_code, 404)
 
 
 class RunViewTestCase(TestCase):
@@ -74,7 +74,7 @@ class RunViewTestCase(TestCase):
         cls.resort_data = {'name': 'Beaver Creek', 'location': 'CO', 'report_url': 'foo'}
         resort_response = cls.client.post('/resorts/', cls.resort_data, format='json')
         assert resort_response.status_code == 201
-        cls.resort_url = 'http://testserver/resorts/{}'.format(resort_response.json()['id'])
+        cls.resort_url = 'http://testserver/resorts/{}/'.format(resort_response.json()['id'])
 
         cls.report_data = {'date': dt.datetime.strptime('2020-01-01', '%Y-%m-%d').date(),
                            'resort': cls.resort_url,
@@ -98,7 +98,7 @@ class RunViewTestCase(TestCase):
         self.assertEqual(len(response), 1)
         response = response[0]
 
-        response.pop('id', None)
+        response.pop('id')
         self.assertEqual(response, self.run_data)
 
     def test_post(self) -> None:
@@ -112,7 +112,7 @@ class RunViewTestCase(TestCase):
         self.assertEqual(run_response.status_code, 201)
         run_response = run_response.json()
 
-        run_response.pop('id', None)
+        run_response.pop('id')
         self.assertEqual(run_response, run_data)
 
     def test_put(self) -> None:
@@ -131,7 +131,8 @@ class RunViewTestCase(TestCase):
 
         run_response['reports'].append(report_url)
 
-        run_response_new = self.client.put('/runs/1/', data=json.dumps(run_response), content_type='application/json')
+        run_response_new = self.client.put('/runs/1/', data=json.dumps(run_response),
+                                           content_type='application/json')
         self.assertEqual(run_response_new.status_code, 200)
         self.assertDictEqual(run_response_new.json(), run_response)
 
@@ -158,7 +159,7 @@ class ReportViewTestCase(TestCase):
         cls.resort_data = {'name': 'Beaver Creek', 'location': 'CO', 'report_url': 'foo'}
         resort_response = cls.client.post('/resorts/', cls.resort_data, format='json')
         assert resort_response.status_code == 201
-        cls.resort_url = 'http://testserver/resorts/{}'.format(resort_response.json()['id'])
+        cls.resort_url = 'http://testserver/resorts/{}/'.format(resort_response.json()['id'])
 
         cls.run_data1 = {'name': 'Centennial', 'resort': cls.resort_url,
                         'difficulty': 'blue', 'reports': []}
@@ -171,6 +172,12 @@ class ReportViewTestCase(TestCase):
         run_response = cls.client.post('/runs/', cls.run_data2, format='json')
         assert run_response.status_code == 201
         cls.run2_url = 'http://testserver/runs/{}/'.format(run_response.json()['id'])
+
+        cls.run_data3 = {'name': 'Double Diamond', 'resort': cls.resort_url,
+                         'difficulty': 'black', 'reports': []}
+        run_response = cls.client.post('/runs/', cls.run_data3, format='json')
+        assert run_response.status_code == 201
+        cls.run3_url = 'http://testserver/runs/{}/'.format(run_response.json()['id'])
 
         cls.report_data = {'date': '2020-01-01',
                            'resort': cls.resort_url,
@@ -190,6 +197,101 @@ class ReportViewTestCase(TestCase):
             self.assertEqual(len(run_response['reports']), 1)
             self.assertEqual(run_response['reports'][0], self.report_url)
 
+    def assert_hdreport_report_equal(self, hd_report_response, report_response, expected_runs,
+                                     report_url) -> None:
+        """
+        Assert the hd_report response and report response match correctly
+
+        :param hd_report_response: hd_report data
+        :param report_response: report data
+        :param expected_runs: list of expected run urls in hd_report_response
+        :param report_url: hyperlink to report object
+        """
+        self.assertEqual(hd_report_response['resort'], report_response['resort'])
+        self.assertEqual(hd_report_response['date'], report_response['date'])
+        self.assertEqual(hd_report_response['full_report'], report_url)
+        self.assertListEqual(hd_report_response['runs'], expected_runs)
+
+    def test_report_hdreport_post(self) -> None:
+        """
+        test that generated hdreport from new report object works as intended
+        """
+        # Check the original hd_report has no runs linked
+        hdreport_response = self.client.get('/hdreports/1/', format='json')
+        self.assertEqual(hdreport_response.status_code, 200)
+        self.assert_hdreport_report_equal(hdreport_response.json(), self.report_data, [],
+                                          'http://testserver/reports/1/')
+
+        # Create a second report the day after the original one
+        report_data = {'date': '2020-01-02',
+                       'resort': self.resort_url,
+                       'runs': [self.run1_url]}
+        report_response = self.client.post('/reports/', report_data, format='json')
+        self.assertEqual(report_response.status_code, 201)
+        report_response = report_response.json()
+        report_url = 'http://testserver/reports/{}/'.format(report_response['id'])
+
+        # Check HDreport objects created correctly
+        hdreport_response = self.client.get('/hdreports/', format='json')
+        self.assertEqual(hdreport_response.status_code, 200)
+        hdreport_response = hdreport_response.json()
+        self.assertEqual(len(hdreport_response), 2)
+
+        hdreport_response = self.client.get(report_response['hd_report']).json()
+        self.assert_hdreport_report_equal(hdreport_response, report_data, [], report_url)
+
+        # Create a third report the day after the original one
+        report_data2 = {'date': '2020-01-03',
+                       'resort': self.resort_url,
+                       'runs': [self.run2_url, self.run1_url]}
+        report_response = self.client.post('/reports/', report_data2, format='json')
+        self.assertEqual(report_response.status_code, 201)
+        report_response = report_response.json()
+        report_url2 = 'http://testserver/reports/{}/'.format(report_response['id'])
+        hdreport_response = self.client.get(report_response['hd_report']).json()
+
+        self.assert_hdreport_report_equal(hdreport_response, report_data2, [self.run2_url], report_url2)
+
+        # Delete the posted report
+        response = self.client.delete(report_url)
+        self.assertEqual(response.status_code, 204)
+        response = self.client.delete(report_url2)
+        self.assertEqual(response.status_code, 204)
+
+    def test_report_hdreport_put(self) -> None:
+        """
+        test report put also updated hdreport object accordingly
+        """
+        # Create a second report the day after the original one
+        report_data = {'date': '2020-01-02',
+                       'resort': self.resort_url,
+                       'runs': [self.run1_url]}
+        report_response = self.client.post('/reports/', report_data, format='json').json()
+        report_url = 'http://testserver/reports/{}/'.format(report_response['id'])
+
+        # Create a third report the day after the original one
+        report_data2 = {'date': '2020-01-03',
+                        'resort': self.resort_url,
+                        'runs': [self.run2_url, self.run1_url]}
+        report_response2 = self.client.post('/reports/', report_data2, format='json').json()
+        report_url2 = 'http://testserver/reports/{}/'.format(report_response2['id'])
+
+        # Update the second and third report to include run3
+        report_data['runs'].append(self.run3_url)
+        report_data2['runs'].append(self.run3_url)
+
+        update_response = self.client.put(report_url, data=json.dumps(report_data),
+                                          content_type='application/json')
+        self.assertEqual(update_response.status_code, 200)
+        update_response2 = self.client.put(report_url2, data=json.dumps(report_data2),
+                                           content_type='application/json')
+        self.assertEqual(update_response2.status_code, 200)
+
+        # Check updated HDreport objects are right
+        hd_report2 = self.client.get(report_response2['hd_report'], format='json').json()
+        self.assert_hdreport_report_equal(hd_report2, report_data2, [self.run2_url, self.run3_url],
+                                          report_url2)
+
     def test_get(self) -> None:
         """
         test get method for report
@@ -200,7 +302,8 @@ class ReportViewTestCase(TestCase):
         self.assertEqual(len(response), 1)
         response = response[0]
 
-        response.pop('id', None)
+        response.pop('id')
+        response.pop('hd_report')
         self.assertEqual(response, self.report_data)
 
     def test_post(self) -> None:
@@ -215,7 +318,12 @@ class ReportViewTestCase(TestCase):
         self.assertEqual(report_response.status_code, 201)
         report_response = report_response.json()
 
-        report_response.pop('id', None)
+        # Delete the posted report
+        delete_resp = self.client.delete('/reports/{}/'.format(report_response['id']))
+        assert delete_resp.status_code == 204
+
+        report_response.pop('id')
+        report_response.pop('hd_report')
         self.assertEqual(report_response, report_data)
 
     def test_put(self) -> None:

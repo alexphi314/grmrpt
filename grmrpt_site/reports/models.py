@@ -18,7 +18,7 @@ class Report(models.Model):
     Object model for grooming report
     """
     date = models.DateField("Date of Grooming Report")
-    resort = models.ForeignKey(Resort, on_delete=models.CASCADE)
+    resort = models.ForeignKey(Resort, on_delete=models.CASCADE, related_name='reports')
 
     def __str__(self) -> str:
         return '{}: {}'.format(self.resort, self.date.strftime('%Y-%m-%d'))
@@ -30,16 +30,21 @@ class Run(models.Model):
     """
     name = models.CharField("Name of the run", max_length=1000)
     difficulty = models.CharField("Difficulty of run, green/blue/black", max_length=100, blank=True, null=True)
-    resort = models.ForeignKey(Resort, on_delete=models.CASCADE)
+    resort = models.ForeignKey(Resort, on_delete=models.CASCADE, related_name='runs')
     reports = models.ManyToManyField(Report, related_name='runs')
 
     def __str__(self) -> str:
         return self.name
 
 
-class HDReport(Report):
+class HDReport(models.Model):
     """
     Object model for processed Hidden Diamond grooming report
     """
-    runs = models.ManyToManyField(Run, related_name='runs')
-    full_reports = models.ManyToManyField(Report, related_name='hd_reports', related_query_name='full_reports')
+    date = models.DateField("Date of Grooming Report")
+    resort = models.ForeignKey(Resort, on_delete=models.CASCADE, related_name='hd_reports')
+    runs = models.ManyToManyField(Run, related_name='hd_reports')
+    full_report = models.OneToOneField(Report, on_delete=models.CASCADE, related_name='hd_report')
+
+    def __str__(self) -> str:
+        return '{}: {}'.format(self.resort, self.date.strftime('%Y-%m-%d'))
