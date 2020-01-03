@@ -352,3 +352,96 @@ class ReportViewTestCase(TestCase):
         self.assertEqual(report_response.status_code, 204)
 
         self.assertEqual(self.client.get('/reports/{}/'.format(id)).status_code, 404)
+
+
+class HDReportViewTestCase(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.client = APIClient()
+
+        cls.resort_data = {'name': 'Beaver Creek', 'location': 'CO', 'report_url': 'foo'}
+        resort_response = cls.client.post('/resorts/', cls.resort_data, format='json')
+        assert resort_response.status_code == 201
+        cls.resort_url = 'http://testserver/resorts/{}/'.format(resort_response.json()['id'])
+
+        cls.run_data1 = {'name': 'Centennial', 'resort': cls.resort_url,
+                         'difficulty': 'blue', 'reports': []}
+        run_response = cls.client.post('/runs/', cls.run_data1, format='json')
+        assert run_response.status_code == 201
+        cls.run1_url = 'http://testserver/runs/{}/'.format(run_response.json()['id'])
+
+        cls.run_data2 = {'name': 'Stone Creek Chutes', 'resort': cls.resort_url,
+                         'difficulty': 'black', 'reports': []}
+        run_response = cls.client.post('/runs/', cls.run_data2, format='json')
+        assert run_response.status_code == 201
+        cls.run2_url = 'http://testserver/runs/{}/'.format(run_response.json()['id'])
+
+        cls.run_data3 = {'name': 'Double Diamond', 'resort': cls.resort_url,
+                         'difficulty': 'black', 'reports': []}
+        run_response = cls.client.post('/runs/', cls.run_data3, format='json')
+        assert run_response.status_code == 201
+        cls.run3_url = 'http://testserver/runs/{}/'.format(run_response.json()['id'])
+
+        cls.report_data = {'date': '2020-01-01',
+                           'resort': cls.resort_url,
+                           'runs': [cls.run1_url, cls.run2_url]}
+        report_response = cls.client.post('/reports/', cls.report_data, format='json')
+        cls.report_url = 'http://testserver/reports/{}/'.format(report_response.json()['id'])
+        assert report_response.status_code == 201
+
+        cls.hdreport_data = {
+            'date': '2020-01-01',
+            'resort': cls.resort_url,
+            'runs': [],
+            'full_report': cls.report_url
+        }
+
+    def test_get(self) -> None:
+        """
+        test get method works correctly
+        """
+        response = self.client.get('/hdreports/')
+        self.assertEqual(response.status_code, 200)
+        response = response.json()
+        self.assertEqual(len(response), 1)
+        response = response[0]
+
+        response.pop('id')
+        self.assertEqual(response, self.hdreport_data)
+
+    def test_post(self) -> None:
+        """
+        test post method does not work
+        """
+        response = self.client.post('/hdreports/', self.hdreport_data, format='json')
+        self.assertEqual(response.status_code, 405)
+
+    def test_put(self) -> None:
+        """
+        test put method
+        """
+        report_response = self.client.get('/hdreports/1/', format='json').json()
+        report_response['runs'] = [self.run1_url]
+
+        run_response_new = self.client.put('/hdreports/1/', data=json.dumps(report_response),
+                                           content_type='application/json')
+        self.assertEqual(run_response_new.status_code, 200)
+        self.assertDictEqual(run_response_new.json(), report_response)
+
+    def test_delete(self) -> None:
+        """
+        test delete method does not work
+        """
+        report_response = self.client.delete('/hdreports/1/')
+        self.assertEqual(report_response.status_code, 405)
+
+        # Test that deleting report object deletes HDReport object
+        self.assertEqual(len(self.client.get('/hdreports/').json()), 1)
+        report_response = self.client.delete(self.report_url)
+        self.assertEqual(report_response.status_code, 204)
+
+        hdreport_response = self.client.get('/hdreports/')
+        self.assertEqual(hdreport_response.status_code, 200)
+
+        hdreport_response = hdreport_response.json()
+        self.assertEqual(len(hdreport_response), 0)

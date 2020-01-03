@@ -41,12 +41,17 @@ class ReportSerializer(serializers.ModelSerializer):
         fields = ['date', 'resort', 'runs', 'id', 'hd_report']
 
 
-class HDReportSerializer(ReportSerializer):
+class HDReportSerializer(serializers.ModelSerializer):
     """
     Serializer for HDreport model
     """
+    resort = serializers.HyperlinkedRelatedField(many=False, view_name='resort-detail',
+                                                 queryset=Resort.objects.all())
+    runs = serializers.HyperlinkedRelatedField(many=True, view_name='run-detail',
+                                               queryset=Run.objects.all())
     full_report = serializers.HyperlinkedRelatedField(many=False, view_name='report-detail',
                                                       queryset=Report.objects.all())
+
     class Meta:
         model = HDReport
         fields = ['date', 'resort', 'runs', 'id', 'full_report']

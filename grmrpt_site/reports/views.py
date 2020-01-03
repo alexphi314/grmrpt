@@ -99,6 +99,7 @@ def get_hd_runs(data: Dict, groomed_runs: List[Run]) -> List[Run]:
 
     return hdreport_runs
 
+
 class ReportList(generics.ListCreateAPIView):
     """
     Generic view listing all reports
@@ -192,3 +193,9 @@ class HDReportDetail(generics.RetrieveUpdateDestroyAPIView):
     """
     queryset = HDReport.objects.all()
     serializer_class = HDReportSerializer
+
+    def delete(self, request, *args, **kwargs):
+        """
+        Overload delete method. HDReport objects are tied to a Report object and should not be deleted.
+        """
+        return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
