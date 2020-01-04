@@ -45,26 +45,26 @@ class Run(models.Model):
         return self.name
 
 
-class HDReport(models.Model):
+class BMReport(models.Model):
     """
     Object model for processed Hidden Diamond grooming report
     """
     date = models.DateField("Date of Grooming Report")
-    resort = models.ForeignKey(Resort, on_delete=models.CASCADE, related_name='hd_reports')
-    runs = models.ManyToManyField(Run, related_name='hd_reports')
-    full_report = models.OneToOneField(Report, on_delete=models.CASCADE, related_name='hd_report')
+    resort = models.ForeignKey(Resort, on_delete=models.CASCADE, related_name='bm_reports')
+    runs = models.ManyToManyField(Run, related_name='bm_reports')
+    full_report = models.OneToOneField(Report, on_delete=models.CASCADE, related_name='bm_report')
 
     def __str__(self) -> str:
         return '{}: {}'.format(self.resort, self.date.strftime('%Y-%m-%d'))
 
 
-def get_hd_runs(report: Report) -> List[Run]:
+def get_bm_runs(report: Report) -> List[Run]:
     """
-    Extract the hidden diamond runs from the current report data, based on past data. Return the runs that were
+    Extract the blue moon runs from the current report data, based on past data. Return the runs that were
     groomed today that have been groomed less than 90% of the past 7 days.
 
-    :param report: Report object hd_runs are pulled from
-    :return: list of hidden diamond run objects
+    :param report: Report object bm_runs are pulled from
+    :return: list of blue moon run objects
     """
     # Get logger
     logger = logging.getLogger(__name__)
@@ -75,8 +75,8 @@ def get_hd_runs(report: Report) -> List[Run]:
     past_reports = Report.objects.filter(date__lt=date, date__gt=(date - dt.timedelta(days=8)),
                                          resort=resort)
 
-    # If enough past reports, compare runs between reports and create HDReport
-    hdreport_runs = []
+    # If enough past reports, compare runs between reports and create BMReport
+    bmreport_runs = []
     if len(past_reports) > 0:
         # Look at each run in today's report
         for run in report.runs.all():
@@ -85,37 +85,37 @@ def get_hd_runs(report: Report) -> List[Run]:
 
             logger.info('Run {} groomed {:.2%} over the last week'.format(run.name, ratio))
             if ratio < 0.3:
-                hdreport_runs.append(run)
+                bmreport_runs.append(run)
 
-    return hdreport_runs
+    return bmreport_runs
 
 
 @receiver(post_save, sender=Report)
-def create_update_hdreport(instance: Report, created: bool, **kwargs) -> None:
+def create_update_bmreport(instance: Report, created: bool, **kwargs) -> None:
     """
-    Create or update the corresponding HDReport object when the Report object is updated
+    Create or update the corresponding BMReport object when the Report object is updated
 
     :param sender: Report class sending signal
     :param instance: Report object being saved
     :param created: True if new object being created; False for update
     """
-    hdreport_runs = get_hd_runs(instance)
+    bmreport_runs = get_bm_runs(instance)
     if created:
-        hd_report = HDReport.objects.create(date=instance.date, resort=instance.resort,
+        bm_report = BMReport.objects.create(date=instance.date, resort=instance.resort,
                                             full_report=instance)
-        hd_report.runs.set(hdreport_runs)
+        bm_report.runs.set(bmreport_runs)
     else:
-        hd_report = instance.hd_report
-        hd_report.date = instance.date
-        hd_report.resort = instance.resort
-        hd_report.runs.set(hdreport_runs)
-        hd_report.save()
+        bm_report = instance.bm_report
+        bm_report.date = instance.date
+        bm_report.resort = instance.resort
+        bm_report.runs.set(bmreport_runs)
+        bm_report.save()
 
 
 @receiver(m2m_changed, sender=Report.runs.through)
-def update_hdreport(instance: Union[Report, Run], action: str, reverse: bool, **kwargs) -> None:
+def update_bmreport(instance: Union[Report, Run], action: str, reverse: bool, **kwargs) -> None:
     """
-    Update the hdreport runs field if Report field updated
+    Update the bmreport runs field if Report field updated
 
     :param instance: report object being modified
     :param action: type of update on relation
@@ -124,14 +124,14 @@ def update_hdreport(instance: Union[Report, Run], action: str, reverse: bool, **
     # If the Report object is being modified (i.e. runs added to report)
     # Instance -> Report
     if action == 'post_add' and reverse:
-        hdreport_runs = get_hd_runs(instance)
-        instance.hd_report.runs.set(hdreport_runs)
+        bmreport_runs = get_bm_runs(instance)
+        instance.bm_report.runs.set(bmreport_runs)
     # If the Run object is being modified (i.e. run created and assigned to report)
     # Instance -> Run
     elif action == 'post_add' and not reverse:
         for report in instance.reports.all():
-            hdreport_runs = get_hd_runs(report)
-            report.hd_report.runs.set(hdreport_runs)
+            bmreport_runs = get_bm_runs(report)
+            report.bm_report.runs.set(bmreport_runs)
 
 
 class BMGUser(models.Model):

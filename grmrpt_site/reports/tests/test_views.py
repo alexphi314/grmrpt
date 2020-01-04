@@ -331,32 +331,32 @@ class ReportViewTestCase(TestCase):
             else:
                 self.assertEqual(len(run_response['reports']), 0)
 
-    def assert_hdreport_report_equal(self, hd_report_response, report_response, expected_runs,
+    def assert_bmreport_report_equal(self, bm_report_response, report_response, expected_runs,
                                      report_url) -> None:
         """
-        Assert the hd_report response and report response match correctly
+        Assert the bm_report response and report response match correctly
 
-        :param hd_report_response: hd_report data
+        :param bm_report_response: bm_report data
         :param report_response: report data
-        :param expected_runs: list of expected run urls in hd_report_response
+        :param expected_runs: list of expected run urls in bm_report_response
         :param report_url: hyperlink to report object
         """
-        self.assertEqual(hd_report_response['resort'], report_response['resort'])
-        self.assertEqual(hd_report_response['date'], report_response['date'])
-        self.assertEqual(hd_report_response['full_report'], report_url)
-        self.assertListEqual(hd_report_response['runs'], expected_runs)
+        self.assertEqual(bm_report_response['resort'], report_response['resort'])
+        self.assertEqual(bm_report_response['date'], report_response['date'])
+        self.assertEqual(bm_report_response['full_report'], report_url)
+        self.assertListEqual(bm_report_response['runs'], expected_runs)
 
-    def test_report_hdreport_post(self) -> None:
+    def test_report_bmreport_post(self) -> None:
         """
-        test that generated hdreport from new report object works as intended
+        test that generated bmreport from new report object works as intended
         """
         client = APIClient()
         client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
 
-        # Check the original hd_report has no runs linked
-        hdreport_response = client.get('/hdreports/1/', format='json')
-        self.assertEqual(hdreport_response.status_code, 200)
-        self.assert_hdreport_report_equal(hdreport_response.json(), self.report_data, [],
+        # Check the original bm_report has no runs linked
+        bmreport_response = client.get('/bmreports/1/', format='json')
+        self.assertEqual(bmreport_response.status_code, 200)
+        self.assert_bmreport_report_equal(bmreport_response.json(), self.report_data, [],
                                           'http://testserver/reports/1/')
 
         # Create a second report the day after the original one
@@ -369,13 +369,13 @@ class ReportViewTestCase(TestCase):
         report_url = 'http://testserver/reports/{}/'.format(report_response['id'])
 
         # Check HDreport objects created correctly
-        hdreport_response = client.get('/hdreports/', format='json')
-        self.assertEqual(hdreport_response.status_code, 200)
-        hdreport_response = hdreport_response.json()
-        self.assertEqual(len(hdreport_response), 2)
+        bmreport_response = client.get('/bmreports/', format='json')
+        self.assertEqual(bmreport_response.status_code, 200)
+        bmreport_response = bmreport_response.json()
+        self.assertEqual(len(bmreport_response), 2)
 
-        hdreport_response = client.get(report_response['hd_report']).json()
-        self.assert_hdreport_report_equal(hdreport_response, report_data, [self.run3_url], report_url)
+        bmreport_response = client.get(report_response['bm_report']).json()
+        self.assert_bmreport_report_equal(bmreport_response, report_data, [self.run3_url], report_url)
 
         # Create a third report the day after the original one
         report_data2 = {'date': '2020-01-03',
@@ -385,9 +385,9 @@ class ReportViewTestCase(TestCase):
         self.assertEqual(report_response.status_code, 201)
         report_response = report_response.json()
         report_url2 = 'http://testserver/reports/{}/'.format(report_response['id'])
-        hdreport_response = client.get(report_response['hd_report']).json()
+        bmreport_response = client.get(report_response['bm_report']).json()
 
-        self.assert_hdreport_report_equal(hdreport_response, report_data2, [self.run2_url], report_url2)
+        self.assert_bmreport_report_equal(bmreport_response, report_data2, [self.run2_url], report_url2)
 
         # Generate a week's worth of report objects
         report_data3 = {'date': '2020-01-04',
@@ -426,19 +426,19 @@ class ReportViewTestCase(TestCase):
         report_response8 = client.post('/reports/', report_data8, format='json').json()
         report_url8 = 'http://testserver/reports/{}/'.format(report_response8['id'])
 
-        # Check that the hdreport for report7 has the expected values
-        hdreport_response = client.get(report_response7['hd_report']).json()
-        self.assert_hdreport_report_equal(hdreport_response, report_data7, [self.run2_url], report_url7)
+        # Check that the bmreport for report7 has the expected values
+        bmreport_response = client.get(report_response7['bm_report']).json()
+        self.assert_bmreport_report_equal(bmreport_response, report_data7, [self.run2_url], report_url7)
 
         # Adjust one day to include a run2 groom -> run2 no longer under 30% groom rate
         report_response = client.get(report_url6).json()
         report_response['runs'].append(self.run2_url)
         client.put(report_url6, data=json.dumps(report_response), content_type='application/json')
-        # TODO: Updating an upstream report does not cause HDReport object to automatically update; must put
-        # corresponding report object to get HDReport to update
+        # TODO: Updating an upstream report does not cause BMReport object to automatically update; must put
+        # corresponding report object to get BMReport to update
         client.put(report_url7, data=json.dumps(report_response7), content_type='application/json')
-        hdreport_response = client.get(report_response7['hd_report']).json()
-        self.assert_hdreport_report_equal(hdreport_response, report_data7, [], report_url7)
+        bmreport_response = client.get(report_response7['bm_report']).json()
+        self.assert_bmreport_report_equal(bmreport_response, report_data7, [], report_url7)
 
         # Delete the posted reports
         response = client.delete(report_url)
@@ -453,9 +453,9 @@ class ReportViewTestCase(TestCase):
         client.delete(report_url8)
         self.assertEqual(len(client.get('/reports/').json()), 1)
 
-    def test_report_hdreport_put(self) -> None:
+    def test_report_bmreport_put(self) -> None:
         """
-        test report put also updated hdreport object accordingly
+        test report put also updated bmreport object accordingly
         """
         client = APIClient()
         client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
@@ -486,8 +486,8 @@ class ReportViewTestCase(TestCase):
         self.assertEqual(update_response2.status_code, 200)
 
         # Check updated HDreport objects are right
-        hd_report2 = client.get(report_response2['hd_report'], format='json').json()
-        self.assert_hdreport_report_equal(hd_report2, report_data2, [self.run2_url],
+        bm_report2 = client.get(report_response2['bm_report'], format='json').json()
+        self.assert_bmreport_report_equal(bm_report2, report_data2, [self.run2_url],
                                           report_url2)
 
     def test_get(self) -> None:
@@ -507,7 +507,7 @@ class ReportViewTestCase(TestCase):
         response = response[0]
 
         response.pop('id')
-        response.pop('hd_report')
+        response.pop('bm_report')
         self.assertEqual(response, self.report_data)
 
         # Check rando user has GEt
@@ -543,7 +543,7 @@ class ReportViewTestCase(TestCase):
         assert delete_resp.status_code == 204
 
         report_response.pop('id')
-        report_response.pop('hd_report')
+        report_response.pop('bm_report')
         self.assertEqual(report_response, report_data)
 
     def test_put(self) -> None:
@@ -596,7 +596,7 @@ class ReportViewTestCase(TestCase):
         self.assertEqual(client.get('/reports/{}/'.format(id)).status_code, 404)
 
 
-class HDReportViewTestCase(TestCase):
+class BMReportViewTestCase(TestCase):
     @classmethod
     def setUpTestData(cls):
         # Create users
@@ -641,7 +641,7 @@ class HDReportViewTestCase(TestCase):
         cls.report_url = 'http://testserver/reports/{}/'.format(report_response.json()['id'])
         assert report_response.status_code == 201
 
-        cls.hdreport_data = {
+        cls.bmreport_data = {
             'date': '2020-01-01',
             'resort': cls.resort_url,
             'runs': [],
@@ -654,22 +654,22 @@ class HDReportViewTestCase(TestCase):
         """
         # Check anon user has GET
         client = APIClient()
-        self.assertEqual(client.get('/hdreports/').status_code, 200)
+        self.assertEqual(client.get('/bmreports/').status_code, 200)
         # Check rando user has GET
         client.credentials(HTTP_AUTHORIZATION='Token ' + self.rando_token.key)
-        self.assertEqual(client.get('/hdreports/').status_code, 200)
+        self.assertEqual(client.get('/bmreports/').status_code, 200)
 
         # Check staff GET works as expected
         client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
 
-        response = client.get('/hdreports/')
+        response = client.get('/bmreports/')
         self.assertEqual(response.status_code, 200)
         response = response.json()
         self.assertEqual(len(response), 1)
         response = response[0]
 
         response.pop('id')
-        self.assertEqual(response, self.hdreport_data)
+        self.assertEqual(response, self.bmreport_data)
 
     def test_post(self) -> None:
         """
@@ -677,15 +677,15 @@ class HDReportViewTestCase(TestCase):
         """
         client = APIClient()
         # Check anon user has no POST
-        self.assertEqual(client.post('/hdreports/', self.hdreport_data, format='json').status_code, 401)
+        self.assertEqual(client.post('/bmreports/', self.bmreport_data, format='json').status_code, 401)
         # Check rando user has no POSt
         client.credentials(HTTP_AUTHORIZATION='Token ' + self.rando_token.key)
-        self.assertEqual(client.post('/hdreports/', self.hdreport_data, format='json').status_code, 403)
+        self.assertEqual(client.post('/bmreports/', self.bmreport_data, format='json').status_code, 403)
 
         # Check staff POSt works as expected
         client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
 
-        response = client.post('/hdreports/', self.hdreport_data, format='json')
+        response = client.post('/bmreports/', self.bmreport_data, format='json')
         self.assertEqual(response.status_code, 405)
 
     def test_put(self) -> None:
@@ -694,20 +694,20 @@ class HDReportViewTestCase(TestCase):
         """
         client = APIClient()
 
-        report_response = client.get('/hdreports/1/', format='json').json()
+        report_response = client.get('/bmreports/1/', format='json').json()
         report_response['runs'] = [self.run1_url]
 
         # Check anon user has no PUT
-        self.assertEqual(client.put('/hdreports/1/', data=json.dumps(report_response),
+        self.assertEqual(client.put('/bmreports/1/', data=json.dumps(report_response),
                                            content_type='application/json').status_code, 401)
         # Check rando user has no PUT
         client.credentials(HTTP_AUTHORIZATION='Token ' + self.rando_token.key)
-        self.assertEqual(client.put('/hdreports/1/', data=json.dumps(report_response),
+        self.assertEqual(client.put('/bmreports/1/', data=json.dumps(report_response),
                                     content_type='application/json').status_code, 403)
 
         # Check staff PUT works as expected
         client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
-        run_response_new = client.put('/hdreports/1/', data=json.dumps(report_response),
+        run_response_new = client.put('/bmreports/1/', data=json.dumps(report_response),
                                            content_type='application/json')
         self.assertEqual(run_response_new.status_code, 200)
         self.assertDictEqual(run_response_new.json(), report_response)
@@ -718,27 +718,27 @@ class HDReportViewTestCase(TestCase):
         """
         client = APIClient()
         # Check anon DELETE does not work
-        self.assertEqual(client.delete('/hdreports/1/').status_code, 401)
+        self.assertEqual(client.delete('/bmreports/1/').status_code, 401)
         # Check rando has no DELETE
         client.credentials(HTTP_AUTHORIZATION='Token ' + self.rando_token.key)
-        self.assertEqual(client.delete('/hdreports/1/').status_code, 403)
+        self.assertEqual(client.delete('/bmreports/1/').status_code, 403)
 
         # Check that staff DELETE works as expected
         client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
 
-        report_response = client.delete('/hdreports/1/')
+        report_response = client.delete('/bmreports/1/')
         self.assertEqual(report_response.status_code, 405)
 
-        # Test that deleting report object deletes HDReport object
-        self.assertEqual(len(client.get('/hdreports/').json()), 1)
+        # Test that deleting report object deletes BMReport object
+        self.assertEqual(len(client.get('/bmreports/').json()), 1)
         report_response = client.delete(self.report_url)
         self.assertEqual(report_response.status_code, 204)
 
-        hdreport_response = client.get('/hdreports/')
-        self.assertEqual(hdreport_response.status_code, 200)
+        bmreport_response = client.get('/bmreports/')
+        self.assertEqual(bmreport_response.status_code, 200)
 
-        hdreport_response = hdreport_response.json()
-        self.assertEqual(len(hdreport_response), 0)
+        bmreport_response = bmreport_response.json()
+        self.assertEqual(len(bmreport_response), 0)
 
 
 class UserViewTestCase(TestCase):

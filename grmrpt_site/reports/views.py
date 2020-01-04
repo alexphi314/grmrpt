@@ -7,8 +7,8 @@ from rest_framework.decorators import api_view
 from rest_framework.reverse import reverse
 from rest_framework.permissions import IsAdminUser
 
-from reports.models import Report, Run, Resort, HDReport, BMGUser
-from reports.serializers import ReportSerializer, RunSerializer, ResortSerializer, HDReportSerializer, \
+from reports.models import Report, Run, Resort, BMReport, BMGUser
+from reports.serializers import ReportSerializer, RunSerializer, ResortSerializer, BMReportSerializer, \
     UserSerializer, BMGUserSerializer
 from reports.permissions import IsAdminOrReadOnly
 
@@ -22,7 +22,7 @@ def api_root(request, format=None):
         'resorts': reverse('resort-list', request=request, format=format),
         'runs': reverse('run-list', request=request, format=format),
         'reports': reverse('report-list', request=request, format=format),
-        'hd_reports': reverse('hdreport-list', request=request, format=format)
+        'bm_reports': reverse('bmreport-list', request=request, format=format)
     })
 
 
@@ -118,33 +118,33 @@ class ReportDetail(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAdminOrReadOnly]
 
 
-class HDReportList(generics.ListCreateAPIView):
+class BMReportList(generics.ListCreateAPIView):
     """
-    Generic view listing all hdreports
+    Generic view listing all bmreports
     """
-    queryset = HDReport.objects.all()
-    serializer_class = HDReportSerializer
+    queryset = BMReport.objects.all()
+    serializer_class = BMReportSerializer
     permission_classes = [IsAdminOrReadOnly]
 
     def post(self, request, *args, **kwargs):
         """
-        Overload post method. HDReport objects are automatically created when a corresponding Report object is made.
+        Overload post method. BMReport objects are automatically created when a corresponding Report object is made.
         Thus is it not allowed to manually create them.
         """
         return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
 
-class HDReportDetail(generics.RetrieveUpdateDestroyAPIView):
+class BMReportDetail(generics.RetrieveUpdateDestroyAPIView):
     """
-    Detailed view listing specific hdreport
+    Detailed view listing specific bmreport
     """
-    queryset = HDReport.objects.all()
-    serializer_class = HDReportSerializer
+    queryset = BMReport.objects.all()
+    serializer_class = BMReportSerializer
     permission_classes = [IsAdminOrReadOnly]
 
     def delete(self, request, *args, **kwargs):
         """
-        Overload delete method. HDReport objects are tied to a Report object and should not be deleted.
+        Overload delete method. BMReport objects are tied to a Report object and should not be deleted.
         """
         return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
