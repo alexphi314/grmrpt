@@ -1,7 +1,4 @@
 import datetime as dt
-from typing import List, Dict
-import os
-import logging
 
 from rest_framework import generics, status
 from rest_framework.response import Response
@@ -23,6 +20,7 @@ def api_root(request, format=None):
         'reports': reverse('report-list', request=request, format=format),
         'hd_reports': reverse('hdreport-list', request=request, format=format)
     })
+
 
 class ResortList(generics.ListCreateAPIView):
     """
@@ -75,40 +73,6 @@ class RunDetail(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = RunSerializer
 
 
-def get_hd_runs(data: Dict, groomed_runs: List[Run]) -> List[Run]:
-    """
-    Extract the hidden diamond runs from the current report data, based on past data. Return the runs that were
-    groomed today that have been groomed less than 90% of the past 7 days.
-
-    :param data: current report validated data
-    :param groomed_runs: run objects that were groomed today
-    :return: list of hidden diamond run objects
-    """
-    # Get logger
-    logger = logging.getLogger('reports.views')
-    logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
-
-    # Get past reports for the last 7 days
-    date = data['date']
-    resort = data['resort']
-    past_reports = Report.objects.filter(date__lt=date, date__gt=(date - dt.timedelta(days=8)),
-                                         resort=resort)
-
-    # If enough past reports, compare runs between reports and create HDReport
-    hdreport_runs = []
-    if len(past_reports) > 0:
-        # Look at each run in today's report
-        for run in groomed_runs:
-            num_shared_reports = len(list(set(run.reports.all()).intersection(past_reports)))
-            ratio = float(num_shared_reports) / float(len(past_reports))
-
-            if ratio < 0.3:
-                hdreport_runs.append(run)
-                logger.info('Run {} groomed {:.2%} over the last week'.format(run.name, ratio))
-
-    return hdreport_runs
-
-
 class ReportList(generics.ListCreateAPIView):
     """
     Generic view listing all reports
@@ -135,22 +99,6 @@ class ReportList(generics.ListCreateAPIView):
 
         return queryset
 
-    def perform_create(self, serializer: ReportSerializer) -> None:
-        """
-        Overload perform_create method. Use ReportSerializer to build HDReport object (if possible)
-
-        :param serializer: input serializer with data for the report object
-        """
-        report = serializer.save()
-        data = serializer.validated_data
-
-        date = data['date']
-        resort = data['resort']
-        hdreport_runs = get_hd_runs(data, report.runs.all())
-
-        hd_report = HDReport.objects.create(date=date, resort=resort, full_report=report)
-        hd_report.runs.set(hdreport_runs)
-
 
 class ReportDetail(generics.RetrieveUpdateDestroyAPIView):
     """
@@ -158,27 +106,6 @@ class ReportDetail(generics.RetrieveUpdateDestroyAPIView):
     """
     queryset = Report.objects.all()
     serializer_class = ReportSerializer
-
-    def perform_update(self, serializer: ReportSerializer) -> None:
-        """
-        Overload perform_update method. Use ReportSerializer to update corresponding HDReport object as this object
-        is updated
-
-        :param serializer: input serializer with data for this report object
-        """
-        report = serializer.save()
-        data = serializer.validated_data
-
-        # Update the corresponding HDReport object
-        date = data['date']
-        resort = data['resort']
-        hdreport_runs = get_hd_runs(data, report.runs.all())
-
-        hd_report = report.hd_report
-        hd_report.date = date
-        hd_report.resort = resort
-        hd_report.save()
-        hd_report.runs.set(hdreport_runs)
 
 
 class HDReportList(generics.ListCreateAPIView):

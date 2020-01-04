@@ -123,7 +123,7 @@ def create_report(date: dt.datetime, groomed_runs: List[str], resort_id: int) ->
 
 
 if __name__ == "__main__":
-    logger = logging.getLogger('reports.fetch_report')
+    logger = logging.getLogger('grmrpt_fetch.fetch_report')
     logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
     logger.info('Getting list of resorts from api')
 

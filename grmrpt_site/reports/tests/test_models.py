@@ -40,8 +40,7 @@ class HDReportTestCase(TestCase):
                                            location='Avon, CO')
         report = Report.objects.create(date=dt.datetime.strptime('2019-01-09', '%Y-%m-%d'),
                                              resort=cls.resort)
-        cls.hdreport = HDReport.objects.create(date=dt.datetime.strptime('2019-01-09', '%Y-%m-%d'),
-                                               resort=cls.resort, full_report=report)
+        cls.hdreport = report.hd_report
         run_obj1 = Run.objects.create(name='Cabin Fever', difficulty='green', resort=cls.resort)
         run_obj2 = Run.objects.create(name='Ripsaw', difficulty='black', resort=cls.resort)
 
