@@ -1,12 +1,15 @@
 import datetime as dt
 
+from django.contrib.auth.models import User
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
 from rest_framework.reverse import reverse
+from rest_framework.permissions import IsAdminUser
 
-from reports.models import Report, Run, Resort, HDReport
-from reports.serializers import ReportSerializer, RunSerializer, ResortSerializer, HDReportSerializer
+from reports.models import Report, Run, Resort, HDReport, BMGUser
+from reports.serializers import ReportSerializer, RunSerializer, ResortSerializer, HDReportSerializer, \
+    UserSerializer, BMGUserSerializer
 from reports.permissions import IsAdminOrReadOnly
 
 
@@ -142,5 +145,53 @@ class HDReportDetail(generics.RetrieveUpdateDestroyAPIView):
     def delete(self, request, *args, **kwargs):
         """
         Overload delete method. HDReport objects are tied to a Report object and should not be deleted.
+        """
+        return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
+
+
+class UserList(generics.ListCreateAPIView):
+    """
+    Generic view listing all users
+    """
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+    permission_classes = [IsAdminUser]
+
+
+class UserDetail(generics.RetrieveUpdateDestroyAPIView):
+    """
+    Detailed view for a specific user
+    """
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+    permission_classes = [IsAdminUser]
+
+
+class BMGUserList(generics.ListCreateAPIView):
+    """
+    Generic view listing all BMGUsers
+    """
+    queryset = BMGUser.objects.all()
+    serializer_class = BMGUserSerializer
+    permission_classes = [IsAdminUser]
+
+    def post(self, request, *args, **kwargs):
+        """
+        Overload POST method. This is an extension of User and should not be created from this end.
+        """
+        return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
+
+
+class BMGUserDetail(generics.RetrieveUpdateDestroyAPIView):
+    """
+    Detailed view for a specific BMGUser
+    """
+    queryset = BMGUser.objects.all()
+    serializer_class = BMGUserSerializer
+    permission_classes = [IsAdminUser]
+
+    def delete(self, request, *args, **kwargs):
+        """
+        Overload DELETE method. This is an extension of User and should not be deleted from thsi end.
         """
         return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)

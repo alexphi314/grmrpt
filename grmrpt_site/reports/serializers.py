@@ -55,3 +55,29 @@ class HDReportSerializer(serializers.ModelSerializer):
     class Meta:
         model = HDReport
         fields = ['date', 'resort', 'runs', 'id', 'full_report']
+
+
+class UserSerializer(serializers.ModelSerializer):
+    """
+    Serializer for User model
+    """
+    bmg_user = serializers.HyperlinkedRelatedField(many=False, view_name='bmguser-detail', read_only=True)
+
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'email', 'bmg_user', 'is_staff']
+
+
+class BMGUserSerializer(serializers.ModelSerializer):
+    """
+    Serializer for BMGUser model
+    """
+    user = UserSerializer(read_only=True)
+    favorite_runs = serializers.HyperlinkedRelatedField(many=True, view_name='run-detail',
+                                                        queryset=Run.objects.all())
+    resorts = serializers.HyperlinkedRelatedField(many=True, view_name='resort-detail',
+                                                  queryset=Resort.objects.all())
+
+    class Meta:
+        model = BMGUser
+        fields = ['id', 'last_contacted', 'phone', 'user', 'favorite_runs', 'resorts']

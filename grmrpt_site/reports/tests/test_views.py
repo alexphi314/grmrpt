@@ -739,3 +739,283 @@ class HDReportViewTestCase(TestCase):
 
         hdreport_response = hdreport_response.json()
         self.assertEqual(len(hdreport_response), 0)
+
+
+class UserViewTestCase(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        # Create users
+        cls.user = User.objects.create_user(username='test', password='foo', email='foo@gmail.com')
+        cls.user.is_staff = True
+        cls.user.save()
+        cls.token = Token.objects.get(user__username='test')
+
+        cls.rando = User.objects.create_user(username='test2', password='bar', email='bar@gmail.com')
+        cls.rando_token = Token.objects.get(user__username='test2')
+
+    def test_get(self) -> None:
+        """
+        test get method works as expected
+        """
+        # Check GET fails for anon and rando user
+        client = APIClient()
+        self.assertEqual(client.get('/users/').status_code, 401)
+        client.credentials(HTTP_AUTHORIZATION='Token ' + self.rando_token.key)
+        self.assertEqual(client.get('/users/').status_code, 403)
+
+        # Check GET works for staff user
+        client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
+        response = client.get('/users/')
+        self.assertEqual(response.status_code, 200)
+        response = response.json()
+
+        self.assertEqual(len(response), 2)
+
+        self.assertTrue('bmg_user' in response[0].keys())
+        self.assertEqual(response[0]['username'], 'test')
+        self.assertEqual(response[0]['email'], 'foo@gmail.com')
+        self.assertTrue(response[0]['is_staff'])
+
+        self.assertTrue('bmg_user' in response[1].keys())
+        self.assertEqual(response[1]['username'], 'test2')
+        self.assertEqual(response[1]['email'], 'bar@gmail.com')
+        self.assertFalse(response[1]['is_staff'])
+
+    def test_post(self) -> None:
+        """
+        test post method works
+        """
+        # Check POST fails for anon and rando user
+        client = APIClient()
+        self.assertEqual(client.post('/users/').status_code, 401)
+        client.credentials(HTTP_AUTHORIZATION='Token ' + self.rando_token.key)
+        self.assertEqual(client.post('/users/').status_code, 403)
+
+        # Check BMGUser objects created
+        client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
+        self.assertEqual(len(client.get('/bmgusers/').json()), 2)
+
+        # Check POST works for staff user
+
+        user_data = {
+            'username': 'test3',
+            'email': 'bas@gmail.com',
+            'password': 'secret_password'
+        }
+        response = client.post('/users/', user_data, format='json')
+        self.assertEqual(response.status_code, 201)
+        response = response.json()
+        user_id = response['id']
+        user_url = '/users/{}/'.format(user_id)
+
+        response.pop('id')
+        response.pop('bmg_user')
+        self.assertFalse(response['is_staff'])
+        self.assertEqual(response['username'], user_data['username'])
+        self.assertEqual(response['email'], user_data['email'])
+
+        # Check BMGUser object created
+        self.assertEqual(client.get('/bmgusers/{}/'.format(user_id)).status_code, 200)
+        self.assertEqual(len(client.get('/bmgusers/').json()), 3)
+
+        # Delete the posted user
+        client.delete(user_url)
+
+    def test_put(self) -> None:
+        """
+        test put method
+        """
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
+        user_data = {
+            'username': 'test3',
+            'email': 'bas@gmail.com',
+            'password': 'secret_password'
+        }
+        response = client.post('/users/', user_data, format='json')
+        response = response.json()
+        user_url = '/users/{}/'.format(response['id'])
+
+        response['email'] = 'bag@gmail.com'
+
+        # Check put fails for anon and rando users
+        client.credentials()
+        self.assertEqual(client.put(user_url, data=json.dumps(response),
+                                    content_type='application/json').status_code,
+                         401)
+        client.credentials(HTTP_AUTHORIZATION='Token ' + self.rando_token.key)
+        self.assertEqual(client.put(user_url, data=json.dumps(response), content_type='application/json').status_code,
+                         403)
+
+        # Check put works for staff user
+        client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
+        response = client.put(user_url, data=json.dumps(response), content_type='application/json')
+        self.assertEqual(response.status_code, 200)
+        response = response.json()
+        self.assertFalse(response['is_staff'])
+        self.assertEqual(response['username'], user_data['username'])
+        self.assertEqual(response['email'], 'bag@gmail.com')
+
+        client.delete(user_url)
+
+    def test_delete(self) -> None:
+        """
+        test delete method
+        """
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
+        user_data = {
+            'username': 'test3',
+            'email': 'bas@gmail.com',
+            'password': 'secret_password'
+        }
+        response = client.post('/users/', user_data, format='json')
+        response = response.json()
+        user_url = '/users/{}/'.format(response['id'])
+
+        # Check delete fails for anon or rando user
+        client.credentials()
+        self.assertEqual(client.delete(user_url).status_code, 401)
+        client.credentials(HTTP_AUTHORIZATION='Token ' + self.rando_token.key)
+        self.assertEqual(client.delete(user_url).status_code, 403)
+
+        # Check delete works for staff user
+        client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
+        response = client.delete(user_url)
+        self.assertEqual(response.status_code, 204)
+        self.assertEqual(client.get(user_url).status_code, 404)
+
+
+class BMGUserViewTestCase(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        # Create users
+        cls.user = User.objects.create_user(username='test', password='foo', email='foo@gmail.com')
+        cls.user.is_staff = True
+        cls.user.save()
+        cls.token = Token.objects.get(user__username='test')
+
+        cls.rando = User.objects.create_user(username='test2', password='bar', email='bar@gmail.com')
+        cls.rando_token = Token.objects.get(user__username='test2')
+
+        # Create report, resort, run objects
+        cls.client = APIClient()
+        cls.client.credentials(HTTP_AUTHORIZATION='Token ' + cls.token.key)
+        cls.resort_data = {'name': 'Beaver Creek', 'location': 'CO', 'report_url': 'foo'}
+        resort_response = cls.client.post('/resorts/', cls.resort_data, format='json')
+        assert resort_response.status_code == 201
+        cls.resort_url = 'http://testserver/resorts/{}/'.format(resort_response.json()['id'])
+
+        cls.run_data1 = {'name': 'Centennial', 'resort': cls.resort_url,
+                         'difficulty': 'blue', 'reports': []}
+        run_response = cls.client.post('/runs/', cls.run_data1, format='json')
+        assert run_response.status_code == 201
+        cls.run1_url = 'http://testserver/runs/{}/'.format(run_response.json()['id'])
+
+    def test_get(self) -> None:
+        """
+        test get method
+        """
+        # Check get fails for anon or rando user
+        client = APIClient()
+        self.assertEqual(client.get('/bmgusers/').status_code, 401)
+        client.credentials(HTTP_AUTHORIZATION='Token ' + self.rando_token.key)
+        self.assertEqual(client.get('/bmgusers/').status_code, 403)
+
+        # Check GET works for staff user
+        client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
+        response = client.get('/bmgusers/')
+        self.assertEqual(response.status_code, 200)
+        response = response.json()
+
+        self.assertEqual(response[0]['id'], 1)
+        self.assertEqual(response[0]['last_contacted'], '2020-01-01T00:00:00')
+        self.assertEqual(response[0]['phone'], None)
+        self.assertDictEqual(response[0]['user'], {'id': 1, 'username': 'test', 'email': 'foo@gmail.com',
+                                                'bmg_user': 'http://testserver/bmgusers/1/',
+                                                'is_staff': True})
+        self.assertListEqual(response[0]['favorite_runs'], [])
+        self.assertListEqual(response[0]['resorts'], [])
+
+        self.assertEqual(response[1]['id'], 2)
+        self.assertEqual(response[1]['last_contacted'], '2020-01-01T00:00:00')
+        self.assertEqual(response[1]['phone'], None)
+        self.assertDictEqual(response[1]['user'], {'id': 2, 'username': 'test2', 'email': 'bar@gmail.com',
+                                                'bmg_user': 'http://testserver/bmgusers/2/',
+                                                'is_staff': False})
+        self.assertListEqual(response[1]['favorite_runs'], [])
+        self.assertListEqual(response[1]['resorts'], [])
+
+    def test_post(self) -> None:
+        """
+        test post method
+        """
+        client = APIClient()
+
+        # Check POST fails for anon and rando users
+        self.assertEqual(client.post('/bmgusers/').status_code, 401)
+        client.credentials(HTTP_AUTHORIZATION='Token ' + self.rando_token.key)
+        self.assertEqual(client.post('/bmgusers/').status_code, 403)
+
+        # Check POST fails for staff user
+        client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
+        response = client.get('/bmgusers/1/')
+        self.assertEqual(client.post('/bmgusers/', response, content_type='json').status_code, 405)
+
+    def test_put(self) -> None:
+        """
+        test put method
+        """
+        # Create new user
+        User.objects.create_user(username='test3', password='bus', email='bat@gmail.com')
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
+        response = client.get('/bmgusers/3/').json()
+
+
+        # Add fields
+        response['last_contacted'] = '2020-01-02T12:00:00'
+        response['phone'] = '1800-290-7856'
+        response['favorite_runs'] = [self.run1_url]
+        response['resorts'] = [self.resort_url]
+
+        # Check PUT fails for anon and rando users
+        client.credentials()
+        self.assertEqual(client.put('/bmgusers/3/',
+                                    data=json.dumps(response), content_type='application/json').status_code,
+                         401)
+        client.credentials(HTTP_AUTHORIZATION='Token ' + self.rando_token.key)
+        self.assertEqual(client.put('/bmgusers/3/',
+                                    data=json.dumps(response), content_type='application/json').status_code,
+                         403)
+
+        # Check PUT works for staff user
+        client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
+        put_response = client.put('/bmgusers/3/', data=json.dumps(response), content_type='application/json')
+        self.assertEqual(put_response.status_code, 200)
+
+        self.assertDictEqual(response, put_response.json())
+        client.delete('/users/3/')
+
+    def test_delete(self) -> None:
+        """
+        test delete method
+        """
+        # Create new user
+        User.objects.create_user(username='test3', password='bus', email='bat@gmail.com')
+        client = APIClient()
+
+        # Check delete fails for rando and anon
+        self.assertEqual(client.delete('/bmgusers/3/').status_code, 401)
+        client.credentials(HTTP_AUTHORIZATION='Token ' + self.rando_token.key)
+        self.assertEqual(client.delete('/bmgusers/3/').status_code, 403)
+
+        # Check delete fails for staff user
+        client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
+        self.assertEqual(client.delete('/bmgusers/3/').status_code, 405)
+
+        # Check delete works if User object deleted
+        resp = client.delete('/users/3/')
+        self.assertEqual(resp.status_code, 204)
+        self.assertEqual(client.get('/bmgusers/3/').status_code, 404)
+        self.assertEqual(len(client.get('/bmgusers/').json()), 2)

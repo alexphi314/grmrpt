@@ -141,6 +141,16 @@ class BMGUser(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='bmg_user')
     favorite_runs = models.ManyToManyField(Run, related_name='users_favorited')
     last_contacted = models.DateTimeField("Time of last contact with report info", default=dt.datetime(2020, 1, 1))
+    phone = models.CharField("User Phone number", blank=True, null=True, max_length=15)
+    resorts = models.ManyToManyField(Resort, related_name='bmg_users')
+
+    PHONE = 'PH'
+    EMAIL = 'EM'
+    CONTACT_METHOD_CHOICES = [
+        (PHONE, 'Phone'),
+        (EMAIL, 'EM')
+    ]
+    contact_method = models.CharField(max_length=2, choices=CONTACT_METHOD_CHOICES, default=EMAIL)
 
 
 @receiver(post_save, sender=User)

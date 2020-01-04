@@ -1,4 +1,5 @@
-db*
+*db*
 *idea*
 *.log
 *migrations*
+*.secret*

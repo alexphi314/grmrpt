@@ -9,6 +9,7 @@ from tika import parser
 import requests
 
 API_URL = 'http://127.0.0.1:8000'
+TOKEN = os.getenv('TOKEN')
 
 
 class APIError(Exception):
@@ -74,7 +75,8 @@ def create_report(date: dt.datetime, groomed_runs: List[str], resort_id: int) ->
         report_id = reports[0]['id']
     else:
         report_dict = {'date': date.strftime('%Y-%m-%d'), 'resort': '/'.join([API_URL, resort_url])}
-        report_response = requests.post('/'.join([API_URL, 'reports/']), data=report_dict)
+        report_response = requests.post('/'.join([API_URL, 'reports/']), data=report_dict,
+                                        headers={'Authorization': 'Token {}'.format(TOKEN)})
 
         if report_response.status_code == 201:
             logger.info('Successfully created report object in api')
@@ -103,7 +105,8 @@ def create_report(date: dt.datetime, groomed_runs: List[str], resort_id: int) ->
             # Otherwise, create the run and attach to report from this end
             else:
                 run_data = {'name': run, 'resort': '/'.join([API_URL, resort_url])}
-                update_response = requests.post('/'.join([API_URL, 'runs/']), data=run_data)
+                update_response = requests.post('/'.join([API_URL, 'runs/']), data=run_data,
+                                                headers={'Authorization': 'Token {}'.format(TOKEN)})
 
                 if update_response.status_code != 201:
                     raise APIError('Failed to create run object:\n{}'.format(update_response.text))
@@ -114,7 +117,8 @@ def create_report(date: dt.datetime, groomed_runs: List[str], resort_id: int) ->
 
     if report_runs != report_response.get('runs', []):
         report_response['runs'] = report_runs
-        update_report_response = requests.put('/'.join([API_URL, report_url]), data=report_response)
+        update_report_response = requests.put('/'.join([API_URL, report_url]), data=report_response,
+                                              headers={'Authorization': 'Token {}'.format(TOKEN)})
 
         if update_report_response.status_code == 200:
             logger.info('Successfully tied groomed runs to report')

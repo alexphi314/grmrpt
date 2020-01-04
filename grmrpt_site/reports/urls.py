@@ -17,6 +17,10 @@ urlpatterns = [
     path('', views.api_root),
     path('api-auth/', include('rest_framework.urls')),
     path('api-token-auth/', obtain_auth_token, name='api_token_auth'),
+    path('users/', views.UserList.as_view(), name='user-list'),
+    path('users/<int:pk>/', views.UserDetail.as_view(), name='user-detail'),
+    path('bmgusers/', views.BMGUserList.as_view(), name='bmguser-list'),
+    path('bmgusers/<int:pk>/', views.BMGUserDetail.as_view(), name='bmguser-detail')
 ]
 
 urlpatterns = format_suffix_patterns(urlpatterns)
