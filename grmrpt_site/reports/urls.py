@@ -1,5 +1,7 @@
 from django.urls import path
+from django.conf.urls import include
 from rest_framework.urlpatterns import format_suffix_patterns
+from rest_framework.authtoken.views import obtain_auth_token
 
 from reports import views
 
@@ -12,7 +14,9 @@ urlpatterns = [
     path('resorts/<int:pk>/', views.ResortDetail.as_view(), name='resort-detail'),
     path('hdreports/', views.HDReportList.as_view(), name='hdreport-list'),
     path('hdreports/<int:pk>/', views.HDReportDetail.as_view(), name='hdreport-detail'),
-    path('', views.api_root)
+    path('', views.api_root),
+    path('api-auth/', include('rest_framework.urls')),
+    path('api-token-auth/', obtain_auth_token, name='api_token_auth'),
 ]
 
 urlpatterns = format_suffix_patterns(urlpatterns)

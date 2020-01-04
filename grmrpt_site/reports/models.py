@@ -1,12 +1,12 @@
 import datetime as dt
 from typing import List, Union
-import os
 import logging
 
 from django.db import models
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save, m2m_changed
 from django.dispatch import receiver
+from rest_framework.authtoken.models import Token
 
 
 class Resort(models.Model):
@@ -67,8 +67,7 @@ def get_hd_runs(report: Report) -> List[Run]:
     :return: list of hidden diamond run objects
     """
     # Get logger
-    logger = logging.getLogger('grmrpt_site.reports.views')
-    logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
+    logger = logging.getLogger(__name__)
 
     # Get past reports for the last 7 days
     date = report.date
@@ -156,3 +155,15 @@ def create_update_bmguser(instance: User, created: bool, **kwargs) -> None:
         BMGUser.objects.create(user=instance)
     else:
         instance.bmg_user.save()
+
+
+@receiver(post_save, sender=User)
+def create_user_token(instance: User, created: bool, **kwargs) -> None:
+    """
+    Create a token for a user when it is created
+
+    :param instance: user instance being saved
+    :param created: True if instance is actually being saved
+    """
+    if created:
+        Token.objects.create(user=instance)

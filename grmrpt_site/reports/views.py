@@ -7,6 +7,7 @@ from rest_framework.reverse import reverse
 
 from reports.models import Report, Run, Resort, HDReport
 from reports.serializers import ReportSerializer, RunSerializer, ResortSerializer, HDReportSerializer
+from reports.permissions import IsAdminOrReadOnly
 
 
 @api_view(['GET'])
@@ -28,6 +29,7 @@ class ResortList(generics.ListCreateAPIView):
     """
     queryset = Resort.objects.all()
     serializer_class = ResortSerializer
+    permission_classes = [IsAdminOrReadOnly]
 
 
 class ResortDetail(generics.RetrieveUpdateDestroyAPIView):
@@ -36,6 +38,7 @@ class ResortDetail(generics.RetrieveUpdateDestroyAPIView):
     """
     queryset = Resort.objects.all()
     serializer_class = ResortSerializer
+    permission_classes = [IsAdminOrReadOnly]
 
 
 class RunList(generics.ListCreateAPIView):
@@ -43,6 +46,7 @@ class RunList(generics.ListCreateAPIView):
     Generic view listing all runs
     """
     serializer_class = RunSerializer
+    permission_classes = [IsAdminOrReadOnly]
 
     def get_queryset(self):
         """
@@ -71,6 +75,7 @@ class RunDetail(generics.RetrieveUpdateDestroyAPIView):
     """
     queryset = Run.objects.all()
     serializer_class = RunSerializer
+    permission_classes = [IsAdminOrReadOnly]
 
 
 class ReportList(generics.ListCreateAPIView):
@@ -78,6 +83,7 @@ class ReportList(generics.ListCreateAPIView):
     Generic view listing all reports
     """
     serializer_class = ReportSerializer
+    permission_classes = [IsAdminOrReadOnly]
 
     def get_queryset(self):
         """
@@ -106,6 +112,7 @@ class ReportDetail(generics.RetrieveUpdateDestroyAPIView):
     """
     queryset = Report.objects.all()
     serializer_class = ReportSerializer
+    permission_classes = [IsAdminOrReadOnly]
 
 
 class HDReportList(generics.ListCreateAPIView):
@@ -114,6 +121,7 @@ class HDReportList(generics.ListCreateAPIView):
     """
     queryset = HDReport.objects.all()
     serializer_class = HDReportSerializer
+    permission_classes = [IsAdminOrReadOnly]
 
     def post(self, request, *args, **kwargs):
         """
@@ -129,6 +137,7 @@ class HDReportDetail(generics.RetrieveUpdateDestroyAPIView):
     """
     queryset = HDReport.objects.all()
     serializer_class = HDReportSerializer
+    permission_classes = [IsAdminOrReadOnly]
 
     def delete(self, request, *args, **kwargs):
         """
