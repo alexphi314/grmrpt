@@ -1,5 +1,7 @@
 import datetime as dt
 from typing import List, Dict
+import os
+import logging
 
 from rest_framework import generics, status
 from rest_framework.response import Response
@@ -82,6 +84,10 @@ def get_hd_runs(data: Dict, groomed_runs: List[Run]) -> List[Run]:
     :param groomed_runs: run objects that were groomed today
     :return: list of hidden diamond run objects
     """
+    # Get logger
+    logger = logging.getLogger('reports.views')
+    logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
+
     # Get past reports for the last 7 days
     date = data['date']
     resort = data['resort']
@@ -94,8 +100,11 @@ def get_hd_runs(data: Dict, groomed_runs: List[Run]) -> List[Run]:
         # Look at each run in today's report
         for run in groomed_runs:
             num_shared_reports = len(list(set(run.reports.all()).intersection(past_reports)))
-            if float(num_shared_reports) / float(len(past_reports)) < 0.9:
+            ratio = float(num_shared_reports) / float(len(past_reports))
+
+            if ratio < 0.3:
                 hdreport_runs.append(run)
+                logger.info('Run {} groomed {:.2%} over the last week'.format(run.name, ratio))
 
     return hdreport_runs
 
