@@ -30,9 +30,9 @@ class ResortViewTestCase(TestCase):
         """
         Test get returns single resort object
         """
-        # Check no user can GET
+        # Check no user can't GET
         client = APIClient()
-        self.assertEqual(client.get('/resorts/').status_code, 200)
+        self.assertEqual(client.get('/resorts/').status_code, 401)
         client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
 
         # Check logged in user can GET and behavior is as expected
@@ -80,11 +80,13 @@ class ResortViewTestCase(TestCase):
         Test put method for resorts
         """
         client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
 
         response = client.get('/resorts/1/').json()
         response['location'] = 'Kansas'
 
         # Check no user cannot PUT
+        client.credentials()
         self.assertEqual(client.put('/resorts/1/', data=json.dumps(response),
                                     content_type='application/json').status_code, 401)
 
@@ -163,8 +165,8 @@ class RunViewTestCase(TestCase):
         Test get method for runs
         """
         client = APIClient()
-        # Check no user has GET access
-        self.assertEqual(client.get('/runs/').status_code, 200)
+        # Check no user does not have GET access
+        self.assertEqual(client.get('/runs/').status_code, 401)
 
         # Check logged in staff GEt works
         client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
@@ -495,8 +497,8 @@ class ReportViewTestCase(TestCase):
         test get method for report
         """
         client = APIClient()
-        # Check anon user has GET access
-        self.assertEqual(client.get('/reports/').status_code, 200)
+        # Check anon user doesn't have GET access
+        self.assertEqual(client.get('/reports/').status_code, 401)
 
         # Check staff user has GET
         client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
@@ -551,11 +553,13 @@ class ReportViewTestCase(TestCase):
         test put method of report
         """
         client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
 
         report_response = client.get('/reports/1/', format='json').json()
         report_response['runs'] = [self.run1_url]
 
         # Check anon user has no PUT access
+        client.credentials()
         self.assertEqual(client.put('/reports/1/', format='json').status_code, 401)
         # Check rando user has no PUT access
         client.credentials(HTTP_AUTHORIZATION='Token ' + self.rando_token.key)
@@ -652,9 +656,9 @@ class BMReportViewTestCase(TestCase):
         """
         test get method works correctly
         """
-        # Check anon user has GET
+        # Check anon user does not have GET
         client = APIClient()
-        self.assertEqual(client.get('/bmreports/').status_code, 200)
+        self.assertEqual(client.get('/bmreports/').status_code, 401)
         # Check rando user has GET
         client.credentials(HTTP_AUTHORIZATION='Token ' + self.rando_token.key)
         self.assertEqual(client.get('/bmreports/').status_code, 200)
@@ -693,11 +697,13 @@ class BMReportViewTestCase(TestCase):
         test put method
         """
         client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
 
         report_response = client.get('/bmreports/1/', format='json').json()
         report_response['runs'] = [self.run1_url]
 
         # Check anon user has no PUT
+        client.credentials()
         self.assertEqual(client.put('/bmreports/1/', data=json.dumps(report_response),
                                            content_type='application/json').status_code, 401)
         # Check rando user has no PUT
@@ -844,7 +850,8 @@ class UserViewTestCase(TestCase):
                                     content_type='application/json').status_code,
                          401)
         client.credentials(HTTP_AUTHORIZATION='Token ' + self.rando_token.key)
-        self.assertEqual(client.put(user_url, data=json.dumps(response), content_type='application/json').status_code,
+        self.assertEqual(client.put(user_url, data=json.dumps(response),
+                                    content_type='application/json').status_code,
                          403)
 
         # Check put works for staff user

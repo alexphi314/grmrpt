@@ -9,9 +9,9 @@ class IsAdminOrReadOnly(permissions.BasePermission):
         """
         Return True if permission granted
         """
-        # Read permissions are allowed to any request,
+        # Read permissions are allowed to any request, if the user is logged in
         if request.method in permissions.SAFE_METHODS:
-            return True
+            return request.user.is_authenticated
 
         # Write permissions are only allowed to the staff
         return bool(request.user and request.user.is_staff)
