@@ -2,25 +2,44 @@ from typing import List, Tuple, Union, Dict
 import re
 import datetime as dt
 import logging
+import logging.handlers
 import os
-import sys
-import argparse
 from copy import deepcopy
+from wsgiref.simple_server import make_server
 
 from tika import parser
 import requests
+
+# Create logger
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
+# Handler
+LOG_FILE = '/opt/python/log/fetch-app.log'
+handler = logging.handlers.RotatingFileHandler(LOG_FILE, maxBytes=1048576, backupCount=5)
+handler.setLevel(logging.INFO)
+
+# Formatter
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+# Add Formatter to Handler
+handler.setFormatter(formatter)
+
+# add Handler to Logger
+logger.addHandler(handler)
 
 
 class APIError(Exception):
     pass
 
 
-def get_api(relative_url: str, headers: Dict) -> Dict:
+def get_api(relative_url: str, headers: Dict, API_URL: str) -> Dict:
     """
     Execute a GET request from the api of the given relative url and return a Dict object
 
     :param relative_url: relative url from base api url
     :param headers: http request headers
+    :param API_URL: url for api server
     :return: dict containing response data
     """
     response = requests.get('/'.join([API_URL, relative_url]), headers=headers)
@@ -54,23 +73,25 @@ def get_grooming_report(url: str) -> Tuple[Union[None, dt.datetime], List[str]]:
     return date, runs
 
 
-def create_report(date: dt.datetime, groomed_runs: List[str], resort_id: int) -> None:
+def create_report(date: dt.datetime, groomed_runs: List[str], resort_id: int,
+                  API_URL: str, TOKEN: str) -> None:
     """
     Create the grooming report and push if not in api
 
     :param date: grooming report date
     :param groomed_runs: list of groomed run names
     :param resort_id: resort id this report corresponds to
+    :param API_URL: url of api server
+    :param TOKEN: Token string for fetch user
     """
     resort_url = '/'.join(['resorts', str(resort_id), ''])
     head = {'Authorization': 'Token {}'.format(TOKEN)}
-    resort_name = get_api('resorts/{}'.format(resort_id), head)['name'].replace(' ', '%20')
+    resort_name = get_api('resorts/{}'.format(resort_id), head, API_URL)['name'].replace(' ', '%20')
 
     # Get list of reports already in api and don't create a new report if it already exists
     reports = get_api('reports?resort={}&date={}'.format(
         resort_name,
-        date.strftime('%Y-%m-%d'))
-    , head)
+        date.strftime('%Y-%m-%d')), head, API_URL)
     if len(reports) > 0:
         assert len(reports) == 1
         report_id = reports[0]['id']
@@ -87,7 +108,7 @@ def create_report(date: dt.datetime, groomed_runs: List[str], resort_id: int) ->
 
     # Fetch the report object
     report_url = '/'.join(['reports', str(report_id), ''])
-    report_response = get_api(report_url, head)
+    report_response = get_api(report_url, head, API_URL)
     report_runs = deepcopy(report_response.get('runs', []))
 
     # Connect the run objects to the report object, if they are not already linked
@@ -97,7 +118,7 @@ def create_report(date: dt.datetime, groomed_runs: List[str], resort_id: int) ->
             run_resp = get_api('runs?name={}&resort={}'.format(
                 run,
                 resort_name
-            ), head)
+            ), head, API_URL)
 
             # If run exists, check if the run url is attached to the report
             if len(run_resp) > 0:
@@ -127,36 +148,53 @@ def create_report(date: dt.datetime, groomed_runs: List[str], resort_id: int) ->
             raise APIError('Failed to update report object:\n{}'.format(update_report_response.text))
 
 
-if __name__ == "__main__":
-    logger = logging.getLogger(__name__)
-    logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
+def application(environ, start_response):
+    API_URL = os.getenv('DEV_URL')
+    TOKEN = os.getenv('DEV_TOKEN')
 
-    arg_parser = argparse.ArgumentParser(description="Input arguments")
-    required = arg_parser.add_argument_group('required arguments')
-    environ = required.add_mutually_exclusive_group(required=True)
-    environ.add_argument('--local', '-l', action='store_true', help="Fetch data from local api server")
-    environ.add_argument('--dev', '-d', action='store_true', help="Fetch data from dev api server")
+    path = environ['PATH_INFO']
+    method = environ['REQUEST_METHOD']
+    if method == 'POST':
+        try:
+            if path == '/':
+                request_body_size = int(environ['CONTENT_LENGTH'])
+                request_body = environ['wsgi.input'].read(request_body_size).decode()
+                logger.info("Received message: %s" % request_body)
+            elif path == '/scheduled':
+                logger.info("Received task %s scheduled at %s", environ['HTTP_X_AWS_SQSD_TASKNAME'],
+                            environ['HTTP_X_AWS_SQSD_SCHEDULED_AT'])
 
-    args = arg_parser.parse_args()
-    if args.local is True:
-        API_URL = os.getenv('LOCAL_URL')
-        TOKEN = os.getenv('LOCAL_TOKEN')
+                # Run scheduled task
+                # Get list of resorts from api
+                resorts = get_api('resorts/', headers={'Authorization': 'Token {}'.format(TOKEN)}, API_URL=API_URL)
+
+                # Fetch grooming report for each resort
+                for resort_dict in resorts:
+                    resort = resort_dict['name']
+                    report_url = resort_dict['report_url']
+
+                    date, groomed_runs = get_grooming_report(report_url)
+                    logger.info('Got grooming report for {} on {}'.format(resort, date.strftime('%Y-%m-%d')))
+
+                    create_report(date, groomed_runs, resort_dict['id'], API_URL, TOKEN)
+
+                response = 'Successfully processed grooming reports for all resorts'
+
+        except (TypeError, ValueError):
+            logger.warning('Error retrieving request body for async work.')
+            response = ''
     else:
-        API_URL = os.getenv('DEV_URL')
-        TOKEN = os.getenv('DEV_TOKEN')
+        logger.warning('Received unexpected method to server {}'.format(method))
+        response = 'Unexpected method'
 
-    logger.info('Running with call: {}'.format(sys.argv[0:]))
-    logger.info('Getting list of resorts from api')
+    status = '200 OK'
+    headers = [('Content-type', 'text/html')]
 
-    # Get list of resorts from api
-    resorts = get_api('resorts/', headers={'Authorization': 'Token {}'.format(TOKEN)})
+    start_response(status, headers)
+    return [response]
 
-    # Fetch grooming report for each resort
-    for resort_dict in resorts:
-        resort = resort_dict['name']
-        report_url = resort_dict['report_url']
 
-        date, groomed_runs = get_grooming_report(report_url)
-        logger.info('Got grooming report for {} on {}'.format(resort, date.strftime('%Y-%m-%d')))
-
-        create_report(date, groomed_runs, resort_dict['id'])
+if __name__ == '__main__':
+    httpd = make_server('', 8000, application)
+    print("Serving on port 8000...")
+    httpd.serve_forever()

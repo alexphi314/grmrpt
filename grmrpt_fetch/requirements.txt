@@ -1,0 +1,3 @@
+# Requirements for fetch worker
+tika
+requests
