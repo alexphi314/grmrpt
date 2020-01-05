@@ -3,13 +3,12 @@ import re
 import datetime as dt
 import logging
 import os
+import sys
+import argparse
 from copy import deepcopy
 
 from tika import parser
 import requests
-
-API_URL = 'http://127.0.0.1:8000'
-TOKEN = os.getenv('TOKEN')
 
 
 class APIError(Exception):
@@ -129,6 +128,22 @@ def create_report(date: dt.datetime, groomed_runs: List[str], resort_id: int) ->
 if __name__ == "__main__":
     logger = logging.getLogger(__name__)
     logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
+
+    parser = argparse.ArgumentParser(description="Input arguments")
+    required = parser.add_argument_group('required arguments')
+    environ = required.add_mutually_exclusive_group(required=True)
+    environ.add_argument('--local', '-l', action='store_true', help="Fetch data from local api server")
+    environ.add_argument('--dev', '-d', action='store_true', help="Fetch data from dev api server")
+
+    args = parser.parse_args()
+    if args.local is True:
+        API_URL = os.getenv('LOCAL_URL')
+        TOKEN = os.getenv('LOCAL_TOKEN')
+    else:
+        API_URL = os.getenv('DEV_URL')
+        TOKEN = os.getenv('DEV_TOKEN')
+
+    logger.info('Running with call: {}'.format(sys.argv[0:]))
     logger.info('Getting list of resorts from api')
 
     # Get list of resorts from api
