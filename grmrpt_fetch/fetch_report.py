@@ -63,6 +63,7 @@ def create_report(date: dt.datetime, groomed_runs: List[str], resort_id: int) ->
     """
     resort_url = '/'.join(['resorts', str(resort_id), ''])
     resort_name = get_api('resorts/{}'.format(resort_id))['name'].replace(' ', '%20')
+    head = {'Authorization': 'Token {}'.format(TOKEN)}
 
     # Get list of reports already in api and don't create a new report if it already exists
     reports = get_api('reports?resort={}&date={}'.format(
@@ -75,7 +76,7 @@ def create_report(date: dt.datetime, groomed_runs: List[str], resort_id: int) ->
     else:
         report_dict = {'date': date.strftime('%Y-%m-%d'), 'resort': '/'.join([API_URL, resort_url])}
         report_response = requests.post('/'.join([API_URL, 'reports/']), data=report_dict,
-                                        headers={'Authorization': 'Token {}'.format(TOKEN)})
+                                        headers=head)
 
         if report_response.status_code == 201:
             logger.info('Successfully created report object in api')
@@ -129,13 +130,13 @@ if __name__ == "__main__":
     logger = logging.getLogger(__name__)
     logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
 
-    parser = argparse.ArgumentParser(description="Input arguments")
-    required = parser.add_argument_group('required arguments')
+    arg_parser = argparse.ArgumentParser(description="Input arguments")
+    required = arg_parser.add_argument_group('required arguments')
     environ = required.add_mutually_exclusive_group(required=True)
     environ.add_argument('--local', '-l', action='store_true', help="Fetch data from local api server")
     environ.add_argument('--dev', '-d', action='store_true', help="Fetch data from dev api server")
 
-    args = parser.parse_args()
+    args = arg_parser.parse_args()
     if args.local is True:
         API_URL = os.getenv('LOCAL_URL')
         TOKEN = os.getenv('LOCAL_TOKEN')
