@@ -148,7 +148,7 @@ if __name__ == "__main__":
     logger.info('Getting list of resorts from api')
 
     # Get list of resorts from api
-    resorts = get_api('resorts')
+    resorts = get_api('resorts/')
 
     # Fetch grooming report for each resort
     for resort_dict in resorts:
