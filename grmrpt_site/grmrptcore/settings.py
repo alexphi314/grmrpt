@@ -178,21 +178,18 @@ LOGGING = {
             'level': 'DEBUG',
             'class': 'logging.FileHandler',
             'filename': '/opt/python/log/django.log',
+            'formatter': 'simple'
         },
     },
     'loggers': {
         'django': {
-            'handlers': ['console'],
+            'handlers': ['console', 'file'],
             'propagate': True,
         },
         'django.request': {
-            'handlers': ['console'],
+            'handlers': ['console', 'file'],
             'level': 'ERROR',
             'propagate': False,
         },
-        'reports.fetch_report': {
-            'handlers': ['console'],
-            'level': 'INFO',
-        }
     }
 }
