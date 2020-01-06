@@ -30,7 +30,14 @@ logger.addHandler(handler)
 
 
 class APIError(Exception):
-    pass
+    def __init__(self, message) -> None:
+        """
+        Overload the basic exception behavior. Put out a log message with the warning before crashing
+
+        :param message: error message to include
+        """
+        logger.warning(message)
+        super().__init__(message)
 
 
 def get_api(relative_url: str, headers: Dict, API_URL: str) -> Dict:
@@ -95,6 +102,7 @@ def create_report(date: dt.datetime, groomed_runs: List[str], resort_id: int,
     if len(reports) > 0:
         assert len(reports) == 1
         report_id = reports[0]['id']
+        logger.info('Report object already present in api, exiting')
     else:
         report_dict = {'date': date.strftime('%Y-%m-%d'), 'resort': '/'.join([API_URL, resort_url])}
         report_response = requests.post('/'.join([API_URL, 'reports/']), data=report_dict,
@@ -166,7 +174,8 @@ def application(environ, start_response):
 
                 # Run scheduled task
                 # Get list of resorts from api
-                resorts = get_api('resorts/', headers={'Authorization': 'Token {}'.format(TOKEN)}, API_URL=API_URL)
+                resorts = get_api('resorts/', headers={'Authorization': 'Token {}'.format(TOKEN)},
+                                  API_URL=API_URL)
 
                 # Fetch grooming report for each resort
                 for resort_dict in resorts:
@@ -182,6 +191,10 @@ def application(environ, start_response):
 
         except (TypeError, ValueError):
             logger.warning('Error retrieving request body for async work.')
+            response = ''
+        except APIError as e:
+            logger.warning('Error processing API request')
+            logger.warning(e)
             response = ''
     else:
         logger.warning('Received unexpected method to server {}'.format(method))

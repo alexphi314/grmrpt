@@ -12,7 +12,14 @@ import requests
 
 
 class APIError(Exception):
-    pass
+    def __init__(self, message) -> None:
+        """
+        Overload the basic exception behavior
+
+        :param message: error message to include
+        """
+        logger.warning(message)
+        super().__init__(message)
 
 
 def get_api(relative_url: str, headers: Dict) -> Dict:
