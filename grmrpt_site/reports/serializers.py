@@ -80,4 +80,4 @@ class BMGUserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = BMGUser
-        fields = ['id', 'last_contacted', 'phone', 'user', 'favorite_runs', 'resorts']
+        fields = ['id', 'last_contacted', 'phone', 'user', 'favorite_runs', 'resorts', 'contact_method']
