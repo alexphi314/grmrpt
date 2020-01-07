@@ -156,9 +156,41 @@ def create_report(date: dt.datetime, groomed_runs: List[str], resort_id: int,
             raise APIError('Failed to update report object:\n{}'.format(update_report_response.text))
 
 
+def get_users_to_notify(get_api_wrapper) -> List[str]:
+    """
+    Query the API to find the list of users who need to be notified about a new BM report.
+
+    :param get_api_wrapper: lambda function that takes relative url for GET request and returns request in JSON
+    :return: list of user urls who need to be notified with the current report
+    """
+    # Get list of BMGUsers from api
+    bmg_users = get_api_wrapper('bmgusers/')
+
+    # Get current report date for each resort
+    report_dates = {}
+    resorts = get_api_wrapper('resorts/')
+    for resort in resorts:
+        reports = get_api_wrapper('reports/?resort={}'.format(resort['name'].replace(' ', '%20')))
+        report_dates[resort['name']] = max([dt.datetime.strptime(report['date'], '%Y-%m-%d').date() for report in
+                                            reports])
+
+    # Loop through users
+    contact_list = []
+    for user in bmg_users:
+        for resort in user['resorts']:
+            resort_data = get_api_wrapper(resort)
+            if dt.datetime.strptime(user['last_contacted'], '%Y-%m-%d').date() < \
+                    report_dates[resort_data['name']]:
+                contact_list.append('/bmgusers/{}/'.format(user['id']))
+
+    return contact_list
+
+
 def application(environ, start_response):
     API_URL = os.getenv('DEV_URL')
     TOKEN = os.getenv('DEV_TOKEN')
+    get_api_wrapper = lambda x: get_api(x, headers={'Authorization': 'Token {}'.format(TOKEN)},
+                                        API_URL=API_URL)
 
     path = environ['PATH_INFO']
     method = environ['REQUEST_METHOD']
@@ -168,14 +200,13 @@ def application(environ, start_response):
                 request_body_size = int(environ['CONTENT_LENGTH'])
                 request_body = environ['wsgi.input'].read(request_body_size).decode()
                 logger.info("Received message: %s" % request_body)
-            elif path == '/scheduled':
+            elif path == '/grmrpt_schedule':
                 logger.info("Received task %s scheduled at %s", environ['HTTP_X_AWS_SQSD_TASKNAME'],
                             environ['HTTP_X_AWS_SQSD_SCHEDULED_AT'])
 
                 # Run scheduled task
                 # Get list of resorts from api
-                resorts = get_api('resorts/', headers={'Authorization': 'Token {}'.format(TOKEN)},
-                                  API_URL=API_URL)
+                resorts = get_api_wrapper('resorts/')
 
                 # Fetch grooming report for each resort
                 for resort_dict in resorts:
@@ -188,6 +219,17 @@ def application(environ, start_response):
                     create_report(date, groomed_runs, resort_dict['id'], API_URL, TOKEN)
 
                 response = 'Successfully processed grooming reports for all resorts'
+
+            elif path == '/users_schedule':
+                logger.info("Received task %s scheduled at %s", environ['HTTP_X_AWS_SQSD_TASKNAME'],
+                            environ['HTTP_X_AWS_SQSD_SCHEDULED_AT'])
+
+                users = get_users_to_notify(get_api_wrapper)
+
+
+
+
+
 
         except (TypeError, ValueError):
             logger.warning('Error retrieving request body for async work.')

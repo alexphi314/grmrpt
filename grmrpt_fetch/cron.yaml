@@ -1,5 +1,8 @@
 version: 1
 cron: 
   - name: "fetch_grmrpt"
-    url: "/scheduled"
+    url: "/grmrpt_schedule"
+    schedule: "*/5 * * * *"
+  - name: "query_users"
+    url: "/users_schedule"
     schedule: "*/5 * * * *"

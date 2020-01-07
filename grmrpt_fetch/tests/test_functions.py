@@ -1,7 +1,7 @@
 import datetime as dt
 import unittest
 
-from fetch_report import get_grooming_report, create_report
+from fetch_report import get_grooming_report
 
 
 class ReportFuncTestCase(unittest.TestCase):

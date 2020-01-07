@@ -1,10 +1,15 @@
 import json
 import datetime as dt
+import sys
 
 from django.test import TestCase
 from django.contrib.auth.models import User
 from rest_framework.test import APIClient
 from rest_framework.authtoken.models import Token
+
+sys.path.append('../grmrpt_fetch')
+from grmrpt_fetch.fetch_server import get_users_to_notify
+from reports.models import Resort, Report, BMGUser
 
 
 class ResortViewTestCase(TestCase):
@@ -936,7 +941,7 @@ class BMGUserViewTestCase(TestCase):
         response = response.json()
 
         self.assertEqual(response[0]['id'], 1)
-        self.assertEqual(response[0]['last_contacted'], '2020-01-01T00:00:00')
+        self.assertEqual(response[0]['last_contacted'], '2020-01-01')
         self.assertEqual(response[0]['phone'], None)
         self.assertDictEqual(response[0]['user'], {'id': 1, 'username': 'test', 'email': 'foo@gmail.com',
                                                 'bmg_user': 'http://testserver/bmgusers/1/',
@@ -945,7 +950,7 @@ class BMGUserViewTestCase(TestCase):
         self.assertListEqual(response[0]['resorts'], [])
 
         self.assertEqual(response[1]['id'], 2)
-        self.assertEqual(response[1]['last_contacted'], '2020-01-01T00:00:00')
+        self.assertEqual(response[1]['last_contacted'], '2020-01-01')
         self.assertEqual(response[1]['phone'], None)
         self.assertDictEqual(response[1]['user'], {'id': 2, 'username': 'test2', 'email': 'bar@gmail.com',
                                                 'bmg_user': 'http://testserver/bmgusers/2/',
@@ -981,7 +986,7 @@ class BMGUserViewTestCase(TestCase):
 
 
         # Add fields
-        response['last_contacted'] = '2020-01-02T12:00:00'
+        response['last_contacted'] = '2020-01-02'
         response['phone'] = '1800-290-7856'
         response['favorite_runs'] = [self.run1_url]
         response['resorts'] = [self.resort_url]
@@ -1026,3 +1031,97 @@ class BMGUserViewTestCase(TestCase):
         self.assertEqual(resp.status_code, 204)
         self.assertEqual(client.get('/bmgusers/3/').status_code, 404)
         self.assertEqual(len(client.get('/bmgusers/').json()), 2)
+
+
+class NotifyUsersTestCase(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        # Create users
+        cls.user = User.objects.create_user(username='test', password='foo', email='foo@gmail.com')
+        cls.user.is_staff = True
+        cls.user.save()
+        cls.token = Token.objects.get(user__username='test')
+
+        cls.rando = User.objects.create_user(username='user1', password='bar')
+        cls.rando2 = User.objects.create_user(username='user2', password='bar')
+        cls.rando3 = User.objects.create_user(username='user3', password='bar')
+
+        cls.client = APIClient()
+        cls.client.credentials(HTTP_AUTHORIZATION='Token ' + cls.token.key)
+
+        # Create report, resort, run objects
+        cls.resort_data = {'name': 'Beaver Creek', 'location': 'CO', 'report_url': 'foo'}
+        resort_response = cls.client.post('/resorts/', cls.resort_data, format='json')
+        assert resort_response.status_code == 201
+        cls.resort_url = 'http://testserver/resorts/{}/'.format(resort_response.json()['id'])
+
+        cls.run_data1 = {'name': 'Centennial', 'resort': cls.resort_url,
+                         'difficulty': 'blue', 'reports': []}
+        run_response = cls.client.post('/runs/', cls.run_data1, format='json')
+        assert run_response.status_code == 201
+        cls.run1_url = 'http://testserver/runs/{}/'.format(run_response.json()['id'])
+
+        cls.run_data2 = {'name': 'Stone Creek Chutes', 'resort': cls.resort_url,
+                         'difficulty': 'black', 'reports': []}
+        run_response = cls.client.post('/runs/', cls.run_data2, format='json')
+        assert run_response.status_code == 201
+        cls.run2_url = 'http://testserver/runs/{}/'.format(run_response.json()['id'])
+
+        cls.run_data3 = {'name': 'Double Diamond', 'resort': cls.resort_url,
+                         'difficulty': 'black', 'reports': []}
+        run_response = cls.client.post('/runs/', cls.run_data3, format='json')
+        assert run_response.status_code == 201
+        cls.run3_url = 'http://testserver/runs/{}/'.format(run_response.json()['id'])
+
+        cls.report_data = {'date': '2019-12-31',
+                           'resort': cls.resort_url,
+                           'runs': [cls.run1_url, cls.run2_url]}
+        report_response = cls.client.post('/reports/', cls.report_data, format='json')
+        assert report_response.status_code == 201
+
+        # Add fields to BMGUser profile
+        cls.user_urls = []
+        for ruser in [cls.rando, cls.rando2, cls.rando3]:
+            user = ruser.bmg_user
+            user.resorts.set([Resort.objects.all()[0]])
+            user.save()
+
+            cls.user_urls.append('/bmgusers/{}/'.format(user.pk))
+
+    def test_func(self) -> None:
+        """
+        check function returns expected list of users
+        """
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
+        def get_wrapper(x: str):
+            if 'http' in x:
+                return client.get(x).json()
+            else:
+                return client.get('/{}'.format(x)).json()
+
+        users = get_users_to_notify(get_wrapper)
+        self.assertListEqual(users, [])
+
+        # Add report on 1-2
+        report_data = {'date': '2020-01-02',
+                       'resort': self.resort_url,
+                       'runs': [self.run1_url, self.run2_url]}
+        report_response = client.post('/reports/', report_data, format='json')
+        assert report_response.status_code == 201
+        users = get_users_to_notify(get_wrapper)
+        self.assertListEqual(users, self.user_urls)
+
+        # Add report on 1-6
+        report_data = {'date': '2020-01-06',
+                       'resort': self.resort_url,
+                       'runs': [self.run1_url, self.run2_url]}
+        report_response = client.post('/reports/', report_data, format='json')
+        assert report_response.status_code == 201
+
+        # Notify user1
+        usr1 = self.rando.bmg_user
+        usr1.last_contacted = dt.datetime(2020, 1, 6).date()
+        usr1.save()
+        users = get_users_to_notify(get_wrapper)
+        self.assertListEqual(users, ['/bmgusers/3/', '/bmgusers/4/'])
