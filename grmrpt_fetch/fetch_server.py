@@ -104,6 +104,9 @@ def create_report(date: dt.datetime, groomed_runs: List[str], resort_id: int,
         report_id = reports[0]['id']
         logger.info('Report object already present in api, exiting')
     else:
+        # Log groomed runs
+        logger.info('Groomed runs: {}'.format(', '.join(groomed_runs)))
+
         report_dict = {'date': date.strftime('%Y-%m-%d'), 'resort': '/'.join([API_URL, resort_url])}
         report_response = requests.post('/'.join([API_URL, 'reports/']), data=report_dict,
                                         headers=head)
@@ -184,7 +187,6 @@ def application(environ, start_response):
 
                     date, groomed_runs = get_grooming_report(report_url)
                     logger.info('Got grooming report for {} on {}'.format(resort, date.strftime('%Y-%m-%d')))
-                    logger.info('Groomed runs: {}'.format(', '.join(groomed_runs)))
 
                     create_report(date, groomed_runs, resort_dict['id'], API_URL, TOKEN)
 
