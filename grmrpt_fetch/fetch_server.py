@@ -184,6 +184,7 @@ def application(environ, start_response):
 
                     date, groomed_runs = get_grooming_report(report_url)
                     logger.info('Got grooming report for {} on {}'.format(resort, date.strftime('%Y-%m-%d')))
+                    logger.info('Groomed runs: {}'.format(', '.join(groomed_runs)))
 
                     create_report(date, groomed_runs, resort_dict['id'], API_URL, TOKEN)
 
