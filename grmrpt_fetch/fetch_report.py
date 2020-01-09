@@ -6,6 +6,7 @@ import os
 import sys
 import argparse
 from copy import deepcopy
+from collections import Counter
 
 from tika import parser
 import requests
@@ -96,6 +97,24 @@ def create_report(date: dt.datetime, groomed_runs: List[str], resort_id: int) ->
     report_url = '/'.join(['reports', str(report_id), ''])
     report_response = get_api(report_url, head)
     report_runs = deepcopy(report_response.get('runs', []))
+
+    # Fetch the previous report for this resort, if it exists
+    past_report_list = get_api('reports?resort={}&date={}'.format(
+        resort_name,
+        (date - dt.timedelta(days=1)).strftime('%Y-%m-%d')), head)
+    assert len(past_report_list) <= 1
+
+    try:
+        prev_report_runs = [
+            requests.get(run, headers=head).json()['name'] for run in past_report_list[0]['runs']
+        ]
+    except IndexError:
+        prev_report_runs = []
+
+    # Check if the groomed runs from this report match the groomed runs from the previous report
+    if Counter(groomed_runs) == Counter(prev_report_runs):
+        logger.info('Found list of groomed runs identical to yesterday\'s report. Not appending these runs to report'
+                    'object.')
 
     # Connect the run objects to the report object, if they are not already linked
     if len(report_response['runs']) < len(groomed_runs):
