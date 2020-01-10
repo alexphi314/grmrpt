@@ -140,8 +140,8 @@ class BMGUser(models.Model):
     """
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='bmg_user')
     favorite_runs = models.ManyToManyField(Run, related_name='users_favorited')
-    ## TODO: Adjust field so a date is associated with each resort in resorts
-    last_contacted = models.DateField("Date of last BMG report sent", default=dt.datetime(2020, 1, 1).date())
+    last_contacted = models.CharField("Date of last BMG report sent, separated by ! corresponding to each resort in "
+                                      "resorts", blank=True, null=True, max_length=1000)
     phone = models.CharField("User Phone number", blank=True, null=True, max_length=15)
     resorts = models.ManyToManyField(Resort, related_name='bmg_users')
 

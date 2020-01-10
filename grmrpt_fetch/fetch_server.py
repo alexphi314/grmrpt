@@ -9,6 +9,7 @@ from wsgiref.simple_server import make_server
 
 from tika import parser
 import requests
+import boto3
 
 # Create logger
 logger = logging.getLogger(__name__)
@@ -156,7 +157,7 @@ def create_report(date: dt.datetime, groomed_runs: List[str], resort_id: int,
             raise APIError('Failed to update report object:\n{}'.format(update_report_response.text))
 
 
-def get_users_to_notify(get_api_wrapper) -> List[str]:
+def get_users_to_notify(get_api_wrapper) -> List[List[str]]:
     """
     Query the API to find the list of users who need to be notified about a new BM report.
 
@@ -168,20 +169,32 @@ def get_users_to_notify(get_api_wrapper) -> List[str]:
 
     # Get current report date for each resort
     report_dates = {}
+    most_recent_reports = {}
     resorts = get_api_wrapper('resorts/')
     for resort in resorts:
         reports = get_api_wrapper('reports/?resort={}'.format(resort['name'].replace(' ', '%20')))
-        report_dates[resort['name']] = max([dt.datetime.strptime(report['date'], '%Y-%m-%d').date() for report in
-                                            reports])
+        report_dates = [dt.datetime.strptime(report['date'], '%Y-%m-%d').date() for report in
+                                            reports]
+        report_dates[resort['name']] = max(report_dates)
+        # Store the url to the most recent bmreport for each resort
+        most_recent_reports[resort['name']] = 'bmreports/{}/'.format(
+            reports[report_dates.index(max(report_dates))]['id']
+        )
 
     # Loop through users
     contact_list = []
     for user in bmg_users:
-        for resort in user['resorts']:
+        try:
+            last_contacted_list = user['last_contacted'].split('!')
+        except AttributeError:
+            last_contacted_list = None
+
+        for last_contacted, resort in zip(user['last_contacted'].split('!'), user['resorts']):
             resort_data = get_api_wrapper(resort)
-            if dt.datetime.strptime(user['last_contacted'], '%Y-%m-%d').date() < \
-                    report_dates[resort_data['name']]:
-                contact_list.append('/bmgusers/{}/'.format(user['id']))
+            if last_contacted_list is None or \
+                    dt.datetime.strptime(last_contacted, '%Y-%m-%d').date() < report_dates[resort_data['name']]:
+                contact_list.append(['/bmgusers/{}/'.format(user['id']), resort,
+                                     most_recent_reports[resort_data['name']]])
 
     return contact_list
 
@@ -224,12 +237,34 @@ def application(environ, start_response):
                 logger.info("Received task %s scheduled at %s", environ['HTTP_X_AWS_SQSD_TASKNAME'],
                             environ['HTTP_X_AWS_SQSD_SCHEDULED_AT'])
 
-                users = get_users_to_notify(get_api_wrapper)
+                resort_user_list = get_users_to_notify(get_api_wrapper)
+                sqs = boto3.client('sqs')
 
-
-
-
-
+                # Post to SQS Queue
+                for user, resort, report in resort_user_list:
+                    QUEUE_URL = os.getenv('NOTIFY_WORKER_URL')
+                    message_attrs = {
+                        'User': {
+                            'DataType': 'String',
+                            'StringValue': user
+                        },
+                        'Resort': {
+                            'DataType': 'String',
+                            'StringValue': resort
+                        },
+                        'Report': {
+                            'DataType': 'String',
+                            'StringValue': report
+                        }
+                    }
+                    body = 'Send notification to user {}'.format(user)
+                    response = sqs.send_message(
+                        QueueUrl=QUEUE_URL,
+                        DelaySeconds=10,
+                        MessageAttributes=message_attrs,
+                        MessageBody=body
+                    )
+                    logger.info('Posted message {} to SQS user notification queue'.format(response['MessageId']))
 
         except (TypeError, ValueError):
             logger.warning('Error retrieving request body for async work.')
