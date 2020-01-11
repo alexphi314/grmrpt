@@ -243,7 +243,7 @@ def application(environ, start_response):
 
                 # Post to SQS Queue
                 for user, resort, report in resort_user_list:
-                    QUEUE_URL = os.getenv('NOTIFY_WORKER_URL')
+                    QUEUE_URL = os.getenv('NOTIFY_WORKER_QUEUE_URL')
                     message_attrs = {
                         'User': {
                             'DataType': 'String',
