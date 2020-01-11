@@ -97,5 +97,5 @@ class BMGUserTestCase(TestCase):
         self.assertEqual(BMGUser.objects.count(), 1)
         bmg_user = BMGUser.objects.all()[0]
         self.assertEqual(bmg_user.user, self.user)
-        self.assertEqual(bmg_user.last_contacted, dt.datetime(2020, 1, 1).date())
+        self.assertEqual(bmg_user.last_contacted, None)
         self.assertEqual(bmg_user.favorite_runs.count(), 0)

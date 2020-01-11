@@ -157,11 +157,12 @@ def create_report(date: dt.datetime, groomed_runs: List[str], resort_id: int,
             raise APIError('Failed to update report object:\n{}'.format(update_report_response.text))
 
 
-def get_users_to_notify(get_api_wrapper) -> List[List[str]]:
+def get_users_to_notify(get_api_wrapper, api_url) -> List[List[str]]:
     """
     Query the API to find the list of users who need to be notified about a new BM report.
 
     :param get_api_wrapper: lambda function that takes relative url for GET request and returns request in JSON
+    :param api_url: api url location
     :return: list of user urls who need to be notified with the current report
     """
     # Get list of BMGUsers from api
@@ -173,12 +174,12 @@ def get_users_to_notify(get_api_wrapper) -> List[List[str]]:
     resorts = get_api_wrapper('resorts/')
     for resort in resorts:
         reports = get_api_wrapper('reports/?resort={}'.format(resort['name'].replace(' ', '%20')))
-        report_dates = [dt.datetime.strptime(report['date'], '%Y-%m-%d').date() for report in
+        report_dates_list = [dt.datetime.strptime(report['date'], '%Y-%m-%d').date() for report in
                                             reports]
-        report_dates[resort['name']] = max(report_dates)
+        report_dates[resort['name']] = max(report_dates_list)
         # Store the url to the most recent bmreport for each resort
-        most_recent_reports[resort['name']] = 'bmreports/{}/'.format(
-            reports[report_dates.index(max(report_dates))]['id']
+        most_recent_reports[resort['name']] = '{}/bmreports/{}/'.format(
+            api_url, reports[report_dates_list.index(max(report_dates_list))]['id']
         )
 
     # Loop through users
@@ -187,13 +188,13 @@ def get_users_to_notify(get_api_wrapper) -> List[List[str]]:
         try:
             last_contacted_list = user['last_contacted'].split('!')
         except AttributeError:
-            last_contacted_list = None
+            last_contacted_list = [None]*len(user['resorts'])
 
-        for last_contacted, resort in zip(user['last_contacted'].split('!'), user['resorts']):
+        for last_contacted, resort in zip(last_contacted_list, user['resorts']):
             resort_data = get_api_wrapper(resort)
-            if last_contacted_list is None or \
+            if last_contacted is None or \
                     dt.datetime.strptime(last_contacted, '%Y-%m-%d').date() < report_dates[resort_data['name']]:
-                contact_list.append(['/bmgusers/{}/'.format(user['id']), resort,
+                contact_list.append(['{}/bmgusers/{}/'.format(api_url, user['id']), resort,
                                      most_recent_reports[resort_data['name']]])
 
     return contact_list
@@ -237,7 +238,7 @@ def application(environ, start_response):
                 logger.info("Received task %s scheduled at %s", environ['HTTP_X_AWS_SQSD_TASKNAME'],
                             environ['HTTP_X_AWS_SQSD_SCHEDULED_AT'])
 
-                resort_user_list = get_users_to_notify(get_api_wrapper)
+                resort_user_list = get_users_to_notify(get_api_wrapper, API_URL)
                 sqs = boto3.client('sqs')
 
                 # Post to SQS Queue

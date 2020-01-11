@@ -941,7 +941,7 @@ class BMGUserViewTestCase(TestCase):
         response = response.json()
 
         self.assertEqual(response[0]['id'], 1)
-        self.assertEqual(response[0]['last_contacted'], '2020-01-01')
+        self.assertEqual(response[0]['last_contacted'], None)
         self.assertEqual(response[0]['phone'], None)
         self.assertDictEqual(response[0]['user'], {'id': 1, 'username': 'test', 'email': 'foo@gmail.com',
                                                 'bmg_user': 'http://testserver/bmgusers/1/',
@@ -950,7 +950,7 @@ class BMGUserViewTestCase(TestCase):
         self.assertListEqual(response[0]['resorts'], [])
 
         self.assertEqual(response[1]['id'], 2)
-        self.assertEqual(response[1]['last_contacted'], '2020-01-01')
+        self.assertEqual(response[1]['last_contacted'], None)
         self.assertEqual(response[1]['phone'], None)
         self.assertDictEqual(response[1]['user'], {'id': 2, 'username': 'test2', 'email': 'bar@gmail.com',
                                                 'bmg_user': 'http://testserver/bmgusers/2/',
@@ -1055,6 +1055,11 @@ class NotifyUsersTestCase(TestCase):
         assert resort_response.status_code == 201
         cls.resort_url = 'http://testserver/resorts/{}/'.format(resort_response.json()['id'])
 
+        cls.resort_data2 = {'name': 'Vail', 'location': 'CO', 'report_url': 'foo'}
+        resort_response2 = cls.client.post('/resorts/', cls.resort_data2, format='json')
+        assert resort_response2.status_code == 201
+        cls.resort_url2 = 'http://testserver/resorts/{}/'.format(resort_response2.json()['id'])
+
         cls.run_data1 = {'name': 'Centennial', 'resort': cls.resort_url,
                          'difficulty': 'blue', 'reports': []}
         run_response = cls.client.post('/runs/', cls.run_data1, format='json')
@@ -1067,7 +1072,7 @@ class NotifyUsersTestCase(TestCase):
         assert run_response.status_code == 201
         cls.run2_url = 'http://testserver/runs/{}/'.format(run_response.json()['id'])
 
-        cls.run_data3 = {'name': 'Double Diamond', 'resort': cls.resort_url,
+        cls.run_data3 = {'name': 'Double Diamond', 'resort': cls.resort_url2,
                          'difficulty': 'black', 'reports': []}
         run_response = cls.client.post('/runs/', cls.run_data3, format='json')
         assert run_response.status_code == 201
@@ -1079,14 +1084,22 @@ class NotifyUsersTestCase(TestCase):
         report_response = cls.client.post('/reports/', cls.report_data, format='json')
         assert report_response.status_code == 201
 
+        cls.report_data2 = {'date': '2019-12-31',
+                           'resort': cls.resort_url2,
+                           'runs': [cls.run3_url]}
+        report_response = cls.client.post('/reports/', cls.report_data2, format='json')
+        assert report_response.status_code == 201
+        cls.resort2_report_url = 'http://testserver/bmreports/{}/'.format(report_response.json()['id'])
+
         # Add fields to BMGUser profile
         cls.user_urls = []
         for ruser in [cls.rando, cls.rando2, cls.rando3]:
             user = ruser.bmg_user
             user.resorts.set([Resort.objects.all()[0]])
+            user.last_contacted = dt.datetime(2020, 1, 1).date()
             user.save()
 
-            cls.user_urls.append('/bmgusers/{}/'.format(user.pk))
+            cls.user_urls.append('http://testserver/bmgusers/{}/'.format(user.pk))
 
     def test_func(self) -> None:
         """
@@ -1100,7 +1113,7 @@ class NotifyUsersTestCase(TestCase):
             else:
                 return client.get('/{}'.format(x)).json()
 
-        users = get_users_to_notify(get_wrapper)
+        users = get_users_to_notify(get_wrapper, 'http://testserver')
         self.assertListEqual(users, [])
 
         # Add report on 1-2
@@ -1109,8 +1122,13 @@ class NotifyUsersTestCase(TestCase):
                        'runs': [self.run1_url, self.run2_url]}
         report_response = client.post('/reports/', report_data, format='json')
         assert report_response.status_code == 201
-        users = get_users_to_notify(get_wrapper)
-        self.assertListEqual(users, self.user_urls)
+        report_url = 'http://testserver/bmreports/{}/'.format(report_response.json()['id'])
+        users = get_users_to_notify(get_wrapper, 'http://testserver')
+        self.assertListEqual(users, [
+            [self.user_urls[0], 'http://testserver/resorts/1/', report_url],
+            [self.user_urls[1], 'http://testserver/resorts/1/', report_url],
+            [self.user_urls[2], 'http://testserver/resorts/1/', report_url]
+        ])
 
         # Add report on 1-6
         report_data = {'date': '2020-01-06',
@@ -1118,10 +1136,47 @@ class NotifyUsersTestCase(TestCase):
                        'runs': [self.run1_url, self.run2_url]}
         report_response = client.post('/reports/', report_data, format='json')
         assert report_response.status_code == 201
+        report_url = 'http://testserver/bmreports/{}/'.format(report_response.json()['id'])
 
         # Notify user1
         usr1 = self.rando.bmg_user
-        usr1.last_contacted = dt.datetime(2020, 1, 6).date()
+        usr1.last_contacted = dt.datetime(2020, 1, 6).date().strftime('%Y-%m-%d')
         usr1.save()
-        users = get_users_to_notify(get_wrapper)
-        self.assertListEqual(users, ['/bmgusers/3/', '/bmgusers/4/'])
+        users = get_users_to_notify(get_wrapper, 'http://testserver')
+        self.assertListEqual(users, [
+            ['http://testserver/bmgusers/3/', 'http://testserver/resorts/1/', report_url],
+            ['http://testserver/bmgusers/4/', 'http://testserver/resorts/1/', report_url]
+        ])
+
+        # Check user4 is notified of reports for Resort 1 and Resort 2
+        rando4 = User.objects.create_user(username='user4', password='bar')
+        rando4_url = 'http://testserver/bmgusers/5/'
+        rando4.bmg_user.resorts.set([Resort.objects.all()[0], Resort.objects.all()[1]])
+        rando4.bmg_user.save()
+
+        users = get_users_to_notify(get_wrapper, 'http://testserver')
+        self.assertListEqual(sorted(users), sorted([
+            ['http://testserver/bmgusers/3/', 'http://testserver/resorts/1/', report_url],
+            ['http://testserver/bmgusers/4/', 'http://testserver/resorts/1/', report_url],
+            [rando4_url, 'http://testserver/resorts/1/', report_url],
+            [rando4_url, 'http://testserver/resorts/2/', self.resort2_report_url]
+        ]))
+
+        # Update user4 to be notified of resort1 and resort2
+        rando4.bmg_user.last_contacted = '2020-01-06!2019-12-31'
+        rando4.save()
+        users = get_users_to_notify(get_wrapper, 'http://testserver')
+        self.assertListEqual(users, [
+            ['http://testserver/bmgusers/3/', 'http://testserver/resorts/1/', report_url],
+            ['http://testserver/bmgusers/4/', 'http://testserver/resorts/1/', report_url]
+        ])
+
+        # Update user4 to be notified of resort1 but not resort2
+        rando4.bmg_user.last_contacted = '2020-01-06!2019-12-30'
+        rando4.save()
+        users = get_users_to_notify(get_wrapper, 'http://testserver')
+        self.assertListEqual(sorted(users), sorted([
+            ['http://testserver/bmgusers/3/', 'http://testserver/resorts/1/', report_url],
+            ['http://testserver/bmgusers/4/', 'http://testserver/resorts/1/', report_url],
+            [rando4_url, 'http://testserver/resorts/2/', self.resort2_report_url]
+        ]))
