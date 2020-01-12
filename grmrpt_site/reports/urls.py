@@ -20,7 +20,9 @@ urlpatterns = [
     path('users/', views.UserList.as_view(), name='user-list'),
     path('users/<int:pk>/', views.UserDetail.as_view(), name='user-detail'),
     path('bmgusers/', views.BMGUserList.as_view(), name='bmguser-list'),
-    path('bmgusers/<int:pk>/', views.BMGUserDetail.as_view(), name='bmguser-detail')
+    path('bmgusers/<int:pk>/', views.BMGUserDetail.as_view(), name='bmguser-detail'),
+    path('notifications/', views.NotificationList.as_view(), name='notification-list'),
+    path('notifications/<int:pk>/', views.NotificationDetail.as_view(), name='notification-detail')
 ]
 
 urlpatterns = format_suffix_patterns(urlpatterns)

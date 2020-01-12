@@ -80,4 +80,19 @@ class BMGUserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = BMGUser
-        fields = ['id', 'last_contacted', 'phone', 'user', 'favorite_runs', 'resorts', 'contact_method']
+        fields = ['id', 'phone', 'user', 'favorite_runs', 'resorts', 'contact_method']
+
+
+class NotificationSerializer(serializers.ModelSerializer):
+    """
+    Serializer for notification model
+    """
+    bmuser = serializers.HyperlinkedRelatedField(many=False, view_name='user-detail', queryset=BMGUser.objects.all())
+    bmreport = serializers.HyperlinkedRelatedField(many=False, view_name='bmreport-detail',
+                                                   queryset=BMReport.objects.all())
+    resort = serializers.HyperlinkedRelatedField(many=False, view_name='resort-detail',
+                                                 queryset=Resort.objects.all())
+
+    class Meta:
+        model = Notification
+        fields = ['id', 'bmuser', 'bmreport', 'resort']

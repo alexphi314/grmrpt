@@ -140,8 +140,6 @@ class BMGUser(models.Model):
     """
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='bmg_user')
     favorite_runs = models.ManyToManyField(Run, related_name='users_favorited')
-    last_contacted = models.CharField("Date of last BMG report sent, separated by ! corresponding to each resort in "
-                                      "resorts", blank=True, null=True, max_length=1000)
     phone = models.CharField("User Phone number", blank=True, null=True, max_length=15)
     resorts = models.ManyToManyField(Resort, related_name='bmg_users')
 
@@ -178,3 +176,12 @@ def create_user_token(instance: User, created: bool, **kwargs) -> None:
     """
     if created:
         Token.objects.create(user=instance)
+
+
+class Notification(models.Model):
+    """
+    Model a notification sent to a user
+    """
+    bmuser = models.ForeignKey(BMGUser, related_name='notifications', on_delete=models.CASCADE)
+    bmreport = models.ForeignKey(BMReport, related_name='notifications', on_delete=models.CASCADE)
+    resort = models.ForeignKey(Resort, related_name='notifications', on_delete=models.CASCADE)

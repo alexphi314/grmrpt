@@ -167,6 +167,7 @@ def get_users_to_notify(get_api_wrapper, api_url) -> List[List[str]]:
     """
     # Get list of BMGUsers from api
     bmg_users = get_api_wrapper('bmgusers/')
+    bmg_users = [bmg_user for bmg_user in bmg_users if 'service' not in bmg_user['user']['username']]
 
     # Get current report date for each resort
     report_dates = {}

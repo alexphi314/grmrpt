@@ -1045,6 +1045,8 @@ class NotifyUsersTestCase(TestCase):
         cls.rando = User.objects.create_user(username='user1', password='bar')
         cls.rando2 = User.objects.create_user(username='user2', password='bar')
         cls.rando3 = User.objects.create_user(username='user3', password='bar')
+        # Create service user that should never be notified
+        cls.rando5 = User.objects.create_user(username='user_service', password='bar')
 
         cls.client = APIClient()
         cls.client.credentials(HTTP_AUTHORIZATION='Token ' + cls.token.key)
@@ -1101,6 +1103,9 @@ class NotifyUsersTestCase(TestCase):
 
             cls.user_urls.append('http://testserver/bmgusers/{}/'.format(user.pk))
 
+        cls.rando5.bmg_user.resorts.set([Resort.objects.all()[0]])
+        cls.rando5.save()
+
     def test_func(self) -> None:
         """
         check function returns expected list of users
@@ -1150,7 +1155,7 @@ class NotifyUsersTestCase(TestCase):
 
         # Check user4 is notified of reports for Resort 1 and Resort 2
         rando4 = User.objects.create_user(username='user4', password='bar')
-        rando4_url = 'http://testserver/bmgusers/5/'
+        rando4_url = 'http://testserver/bmgusers/{}/'.format(rando4.pk)
         rando4.bmg_user.resorts.set([Resort.objects.all()[0], Resort.objects.all()[1]])
         rando4.bmg_user.save()
 
