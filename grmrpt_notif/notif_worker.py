@@ -68,21 +68,21 @@ def application(environ, start_response):
                 logger.info("Received message: %s" % request_body)
 
                 # Get attributes
-                user = environ['X_AWS_SQSD_ATTR_user']
-                report = environ['X_AWS_SQSD_ATTR_report']
+                user = environ['HTTP_X_AWS_SQSD_ATTR_USER']
+                report = environ['HTTP_X_AWS_SQSD_ATTR_REPORT']
 
                 # Get user and report data
                 user_response = requests.get(user, headers=head)
                 if user_response.status_code != 200:
                     raise APIError('Could not fetch user data from api: {}'.format(user_response.text))
                 user_data = user_response.json()
-                logger.info('Got user data: {}'.format(json.dumps(user_data)))
 
                 report_response = requests.get(report, headers=head)
                 if report_response.status_code != 200:
                     raise APIError('Could not fetch report data from api: {}'.format(report_response.text))
                 report_data = report_response.json()
-                logger.info('Got report data: {}'.format(json.dumps(report_data)))
+
+                response = 'Notified user of new report'
 
         except (TypeError, ValueError):
             logger.warning('Error retrieving request body for async work.')
