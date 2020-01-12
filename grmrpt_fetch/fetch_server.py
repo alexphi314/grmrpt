@@ -209,7 +209,7 @@ def get_users_to_notify(get_api_wrapper, api_url) -> List[List[str]]:
     contact_list = []
     for user in bmg_users:
         for resort in user['resorts']:
-            resort_data = get_api_wrapper(resort)
+            resort_data = get_api_wrapper(resort.replace(api_url, ''))
             max_resort_report = report_dates[resort_data['name']]
 
             # Check if notification sent for this report
@@ -228,6 +228,37 @@ def get_users_to_notify(get_api_wrapper, api_url) -> List[List[str]]:
 
     return contact_list
 
+
+def post_messages(contact_list: List[List[str]]) -> None:
+    """
+    Post the input messages to the SQS queue
+
+    :param contact_list: list of [user, report] to notify
+    """
+    sqs = boto3.client('sqs', region_name='us-west-2', aws_access_key_id=os.getenv('ACCESS_ID'),
+                       aws_secret_access_key=os.getenv('SECRET_ACCESS_KEY'))
+
+    # Post to SQS Queue
+    for user, report in contact_list:
+        QUEUE_URL = os.getenv('NOTIFY_WORKER_QUEUE_URL')
+        message_attrs = {
+            'user': {
+                'DataType': 'String',
+                'StringValue': user
+            },
+            'report': {
+                'DataType': 'String',
+                'StringValue': report
+            }
+        }
+        body = 'Send notification to user {}'.format(user)
+        response = sqs.send_message(
+            QueueUrl=QUEUE_URL,
+            DelaySeconds=10,
+            MessageAttributes=message_attrs,
+            MessageBody=body
+        )
+        logger.info('Posted message {} to SQS user notification queue'.format(response['MessageId']))
 
 def application(environ, start_response):
     API_URL = os.getenv('DEV_URL')
@@ -268,29 +299,7 @@ def application(environ, start_response):
                             environ['HTTP_X_AWS_SQSD_SCHEDULED_AT'])
 
                 resort_user_list = get_users_to_notify(get_api_wrapper, API_URL)
-                sqs = boto3.client('sqs', region_name='us-west-2')
-
-                # Post to SQS Queue
-                for user, report in resort_user_list:
-                    QUEUE_URL = os.getenv('NOTIFY_WORKER_QUEUE_URL')
-                    message_attrs = {
-                        'user': {
-                            'DataType': 'String',
-                            'StringValue': user
-                        },
-                        'report': {
-                            'DataType': 'String',
-                            'StringValue': report
-                        }
-                    }
-                    body = 'Send notification to user {}'.format(user)
-                    response = sqs.send_message(
-                        QueueUrl=QUEUE_URL,
-                        DelaySeconds=10,
-                        MessageAttributes=message_attrs,
-                        MessageBody=body
-                    )
-                    logger.info('Posted message {} to SQS user notification queue'.format(response['MessageId']))
+                post_messages(resort_user_list)
 
                 response = 'Successfully checked for notification events'
 
