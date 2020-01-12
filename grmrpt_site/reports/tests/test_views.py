@@ -8,7 +8,7 @@ from rest_framework.test import APIClient
 from rest_framework.authtoken.models import Token
 
 sys.path.append('../grmrpt_fetch')
-from grmrpt_fetch.fetch_server import get_users_to_notify
+from grmrpt_fetch.fetch_server import get_users_to_notify, create_report
 from reports.models import *
 
 
@@ -1114,8 +1114,10 @@ class NotifyUsersTestCase(TestCase):
         def get_wrapper(x: str):
             if 'http' in x:
                 return client.get(x).json()
-            else:
+            elif x[0] != '/':
                 return client.get('/{}'.format(x)).json()
+            else:
+                return client.get(x).json()
 
         users = get_users_to_notify(get_wrapper, 'http://testserver')
         self.assertListEqual(users, [])
@@ -1329,3 +1331,41 @@ class NotificationViewTestCase(TestCase):
         self.assertEqual(response.status_code, 204)
         self.assertEqual(client.get('/notifications/2/').status_code, 404)
         self.assertEqual(len(client.get('/notifications/').json()), 1)
+
+
+class FetchCreateReportTestCase(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        # Create users
+        cls.user = User.objects.create_user(username='test', password='foo', email='foo@gmail.com')
+        cls.user.is_staff = True
+        cls.user.save()
+        cls.token = Token.objects.get(user__username='test')
+
+        # Create report, resort, etc
+        cls.resort = Resort.objects.create(name='BC', location='CO', report_url='foo')
+        cls.report = Report.objects.create(date=dt.datetime(2020, 1, 1).date(), resort=cls.resort)
+        cls.run1 = Run.objects.create(name='Ripsaw', resort=cls.resort)
+        cls.run2 = Run.objects.create(name='Centennial', resort=cls.resort)
+        cls.run3 = Run.objects.create(name='Larkspur', resort=cls.resort)
+
+    def test_create_report(self) -> None:
+        """
+        test report populated with groomed runs
+        """
+        date = dt.datetime(2020, 1, 1).date()
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
+        get_api = lambda x, y, z: client.get('/{}'.format(x)).json()
+        create_report(date, ['Ripsaw', 'Centennial'], 1, 'http://testserver', self.token.key, client, get_api)
+
+        self.assertListEqual([self.run1, self.run2], list(self.report.runs.all()))
+
+    def test_update_report(self) -> None:
+        date = dt.datetime(2020, 1, 1).date()
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
+        get_api = lambda x, y, z: client.get('/{}'.format(x)).json()
+        create_report(date, ['Ripsaw', 'Larkspur'], 1, 'http://testserver', self.token.key, client, get_api)
+
+        self.assertListEqual([self.run1, self.run3], list(self.report.runs.all()))

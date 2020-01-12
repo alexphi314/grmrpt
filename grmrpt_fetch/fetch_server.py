@@ -83,7 +83,7 @@ def get_grooming_report(url: str) -> Tuple[Union[None, dt.datetime], List[str]]:
 
 
 def create_report(date: dt.datetime, groomed_runs: List[str], resort_id: int,
-                  api_url: str, token: str) -> None:
+                  api_url: str, token: str, requests, get_api) -> None:
     """
     Create the grooming report and push if not in api
 
@@ -92,13 +92,15 @@ def create_report(date: dt.datetime, groomed_runs: List[str], resort_id: int,
     :param resort_id: resort id this report corresponds to
     :param api_url: url of api server
     :param token: Token string for fetch user
+    :param requests: class used to make HTTP requests
+    :param get_api: function used to make HTTP GET requests
     """
     resort_url = '/'.join(['resorts', str(resort_id), ''])
     head = {'Authorization': 'Token {}'.format(token)}
-    resort_name = get_api('resorts/{}'.format(resort_id), head, api_url)['name'].replace(' ', '%20')
+    resort_name = get_api('resorts/{}/'.format(resort_id), head, api_url)['name'].replace(' ', '%20')
 
     # Get list of reports already in api and don't create a new report if it already exists
-    reports = get_api('reports?resort={}&date={}'.format(
+    reports = get_api('reports/?resort={}&date={}'.format(
         resort_name,
         date.strftime('%Y-%m-%d')), head, api_url)
     if len(reports) > 0:
@@ -120,9 +122,11 @@ def create_report(date: dt.datetime, groomed_runs: List[str], resort_id: int,
     report_url = '/'.join(['reports', str(report_id), ''])
     report_response = get_api(report_url, head, api_url)
     report_runs = deepcopy(report_response.get('runs', []))
+    # Strip all runs from report_runs that are not in groomed_runs
+    report_runs = [run for run in report_runs if requests.get(run, headers=head).json()['name'] in groomed_runs]
 
     # Fetch the previous report for this resort, if it exists
-    past_report_list = get_api('reports?resort={}&date={}'.format(
+    past_report_list = get_api('reports/?resort={}&date={}'.format(
         resort_name,
         (date-dt.timedelta(days=1)).strftime('%Y-%m-%d')), head, api_url)
     assert len(past_report_list) <= 1
@@ -137,14 +141,14 @@ def create_report(date: dt.datetime, groomed_runs: List[str], resort_id: int,
     # Check if the groomed runs from this report match the groomed runs from the previous report
     if Counter(groomed_runs) == Counter(prev_report_runs):
         logger.info('Found list of groomed runs identical to yesterday\'s report. Not appending these runs to report'
-                    'object.')
+                    ' object.')
         return
 
     # Connect the run objects to the report object, if they are not already linked
-    if len(report_response['runs']) < len(groomed_runs):
+    if len(report_runs) < len(groomed_runs):
         for run in groomed_runs:
             # See if run in api
-            run_resp = get_api('runs?name={}&resort={}'.format(
+            run_resp = get_api('runs/?name={}&resort={}'.format(
                 run,
                 resort_name
             ), head, api_url)
@@ -260,6 +264,7 @@ def post_messages(contact_list: List[List[str]]) -> None:
         )
         logger.info('Posted message {} to SQS user notification queue'.format(response['MessageId']))
 
+
 def application(environ, start_response):
     API_URL = os.getenv('DEV_URL')
     TOKEN = os.getenv('DEV_TOKEN')
@@ -290,7 +295,7 @@ def application(environ, start_response):
                     date, groomed_runs = get_grooming_report(report_url)
                     logger.info('Got grooming report for {} on {}'.format(resort, date.strftime('%Y-%m-%d')))
 
-                    create_report(date, groomed_runs, resort_dict['id'], API_URL, TOKEN)
+                    create_report(date, groomed_runs, resort_dict['id'], API_URL, TOKEN, requests, get_api)
 
                 response = 'Successfully processed grooming reports for all resorts'
 
