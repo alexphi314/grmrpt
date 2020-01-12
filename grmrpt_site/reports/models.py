@@ -147,7 +147,7 @@ class BMGUser(models.Model):
     EMAIL = 'EM'
     CONTACT_METHOD_CHOICES = [
         (PHONE, 'Phone'),
-        (EMAIL, 'EM')
+        (EMAIL, 'Email')
     ]
     contact_method = models.CharField(max_length=2, choices=CONTACT_METHOD_CHOICES, default=EMAIL)
 

@@ -2,7 +2,7 @@ version: 1
 cron: 
   - name: "fetch_grmrpt"
     url: "/grmrpt_schedule"
-    schedule: "*/10 * * * *"
+    schedule: "*/10 13-17 * * *"
   - name: "query_users"
     url: "/users_schedule"
     schedule: "*/10 13-18 * * *"
