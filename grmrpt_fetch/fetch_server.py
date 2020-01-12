@@ -6,6 +6,7 @@ import logging.handlers
 import os
 from copy import deepcopy
 from wsgiref.simple_server import make_server
+from collections import Counter
 
 from tika import parser
 import requests
@@ -103,7 +104,7 @@ def create_report(date: dt.datetime, groomed_runs: List[str], resort_id: int,
     if len(reports) > 0:
         assert len(reports) == 1
         report_id = reports[0]['id']
-        logger.info('Report object already present in api, exiting')
+        logger.info('Report object already present in api')
     else:
         report_dict = {'date': date.strftime('%Y-%m-%d'), 'resort': '/'.join([API_URL, resort_url])}
         report_response = requests.post('/'.join([API_URL, 'reports/']), data=report_dict,
@@ -119,6 +120,25 @@ def create_report(date: dt.datetime, groomed_runs: List[str], resort_id: int,
     report_url = '/'.join(['reports', str(report_id), ''])
     report_response = get_api(report_url, head, API_URL)
     report_runs = deepcopy(report_response.get('runs', []))
+
+    # Fetch the previous report for this resort, if it exists
+    past_report_list = get_api('reports?resort={}&date={}'.format(
+        resort_name,
+        (date-dt.timedelta(days=1)).strftime('%Y-%m-%d')), head, API_URL)
+    assert len(past_report_list) <= 1
+
+    try:
+        prev_report_runs = [
+            requests.get(run, headers=head).json()['name'] for run in past_report_list[0]['runs']
+        ]
+    except IndexError:
+        prev_report_runs = []
+
+    # Check if the groomed runs from this report match the groomed runs from the previous report
+    if Counter(groomed_runs) == Counter(prev_report_runs):
+        logger.info('Found list of groomed runs identical to yesterday\'s report. Not appending these runs to report'
+                    'object.')
+        return
 
     # Connect the run objects to the report object, if they are not already linked
     if len(report_response['runs']) < len(groomed_runs):
@@ -147,6 +167,8 @@ def create_report(date: dt.datetime, groomed_runs: List[str], resort_id: int,
                 report_runs.append(run_url)
 
     if report_runs != report_response.get('runs', []):
+        # Log groomed runs
+        logger.info('Groomed runs: {}'.format(', '.join(groomed_runs)))
         report_response['runs'] = report_runs
         update_report_response = requests.put('/'.join([API_URL, report_url]), data=report_response,
                                               headers={'Authorization': 'Token {}'.format(TOKEN)})
