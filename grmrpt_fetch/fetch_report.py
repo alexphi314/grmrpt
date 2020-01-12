@@ -1,14 +1,7 @@
-from typing import List, Tuple, Union, Dict
-import re
-import datetime as dt
 import logging
 import os
 import sys
 import argparse
-from copy import deepcopy
-
-from tika import parser
-import requests
 
 from fetch_server import get_users_to_notify, get_api, get_grooming_report, create_report
 
