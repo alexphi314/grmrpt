@@ -42,16 +42,16 @@ class APIError(Exception):
         super().__init__(message)
 
 
-def get_api(relative_url: str, headers: Dict, API_URL: str) -> Dict:
+def get_api(relative_url: str, headers: Dict, api_url: str) -> Dict:
     """
     Execute a GET request from the api of the given relative url and return a Dict object
 
     :param relative_url: relative url from base api url
     :param headers: http request headers
-    :param API_URL: url for api server
+    :param api_url: url for api server
     :return: dict containing response data
     """
-    response = requests.get('/'.join([API_URL, relative_url]), headers=headers)
+    response = requests.get('/'.join([api_url, relative_url]), headers=headers)
     if response.status_code != 200:
         raise APIError('Did not receive valid response from api:\n{}'.format(response.text))
 
@@ -83,31 +83,31 @@ def get_grooming_report(url: str) -> Tuple[Union[None, dt.datetime], List[str]]:
 
 
 def create_report(date: dt.datetime, groomed_runs: List[str], resort_id: int,
-                  API_URL: str, TOKEN: str) -> None:
+                  api_url: str, token: str) -> None:
     """
     Create the grooming report and push if not in api
 
     :param date: grooming report date
     :param groomed_runs: list of groomed run names
     :param resort_id: resort id this report corresponds to
-    :param API_URL: url of api server
-    :param TOKEN: Token string for fetch user
+    :param api_url: url of api server
+    :param token: Token string for fetch user
     """
     resort_url = '/'.join(['resorts', str(resort_id), ''])
-    head = {'Authorization': 'Token {}'.format(TOKEN)}
-    resort_name = get_api('resorts/{}'.format(resort_id), head, API_URL)['name'].replace(' ', '%20')
+    head = {'Authorization': 'Token {}'.format(token)}
+    resort_name = get_api('resorts/{}'.format(resort_id), head, api_url)['name'].replace(' ', '%20')
 
     # Get list of reports already in api and don't create a new report if it already exists
     reports = get_api('reports?resort={}&date={}'.format(
         resort_name,
-        date.strftime('%Y-%m-%d')), head, API_URL)
+        date.strftime('%Y-%m-%d')), head, api_url)
     if len(reports) > 0:
         assert len(reports) == 1
         report_id = reports[0]['id']
         logger.info('Report object already present in api')
     else:
-        report_dict = {'date': date.strftime('%Y-%m-%d'), 'resort': '/'.join([API_URL, resort_url])}
-        report_response = requests.post('/'.join([API_URL, 'reports/']), data=report_dict,
+        report_dict = {'date': date.strftime('%Y-%m-%d'), 'resort': '/'.join([api_url, resort_url])}
+        report_response = requests.post('/'.join([api_url, 'reports/']), data=report_dict,
                                         headers=head)
 
         if report_response.status_code == 201:
@@ -118,13 +118,13 @@ def create_report(date: dt.datetime, groomed_runs: List[str], resort_id: int,
 
     # Fetch the report object
     report_url = '/'.join(['reports', str(report_id), ''])
-    report_response = get_api(report_url, head, API_URL)
+    report_response = get_api(report_url, head, api_url)
     report_runs = deepcopy(report_response.get('runs', []))
 
     # Fetch the previous report for this resort, if it exists
     past_report_list = get_api('reports?resort={}&date={}'.format(
         resort_name,
-        (date-dt.timedelta(days=1)).strftime('%Y-%m-%d')), head, API_URL)
+        (date-dt.timedelta(days=1)).strftime('%Y-%m-%d')), head, api_url)
     assert len(past_report_list) <= 1
 
     try:
@@ -147,21 +147,21 @@ def create_report(date: dt.datetime, groomed_runs: List[str], resort_id: int,
             run_resp = get_api('runs?name={}&resort={}'.format(
                 run,
                 resort_name
-            ), head, API_URL)
+            ), head, api_url)
 
             # If run exists, check if the run url is attached to the report
             if len(run_resp) > 0:
                 assert len(run_resp) == 1
-                run_url = '/'.join([API_URL, 'runs', str(run_resp[0]['id']), ''])
+                run_url = '/'.join([api_url, 'runs', str(run_resp[0]['id']), ''])
             # Otherwise, create the run and attach to report from this end
             else:
-                run_data = {'name': run, 'resort': '/'.join([API_URL, resort_url])}
-                update_response = requests.post('/'.join([API_URL, 'runs/']), data=run_data,
-                                                headers={'Authorization': 'Token {}'.format(TOKEN)})
+                run_data = {'name': run, 'resort': '/'.join([api_url, resort_url])}
+                update_response = requests.post('/'.join([api_url, 'runs/']), data=run_data,
+                                                headers={'Authorization': 'Token {}'.format(token)})
 
                 if update_response.status_code != 201:
                     raise APIError('Failed to create run object:\n{}'.format(update_response.text))
-                run_url = '/'.join([API_URL, 'runs', str(update_response.json()['id']), ''])
+                run_url = '/'.join([api_url, 'runs', str(update_response.json()['id']), ''])
 
             if run_url not in report_runs:
                 report_runs.append(run_url)
@@ -170,8 +170,8 @@ def create_report(date: dt.datetime, groomed_runs: List[str], resort_id: int,
         # Log groomed runs
         logger.info('Groomed runs: {}'.format(', '.join(groomed_runs)))
         report_response['runs'] = report_runs
-        update_report_response = requests.put('/'.join([API_URL, report_url]), data=report_response,
-                                              headers={'Authorization': 'Token {}'.format(TOKEN)})
+        update_report_response = requests.put('/'.join([api_url, report_url]), data=report_response,
+                                              headers={'Authorization': 'Token {}'.format(token)})
 
         if update_report_response.status_code == 200:
             logger.info('Successfully tied groomed runs to report')
@@ -208,17 +208,23 @@ def get_users_to_notify(get_api_wrapper, api_url) -> List[List[str]]:
     # Loop through users
     contact_list = []
     for user in bmg_users:
-        try:
-            last_contacted_list = user['last_contacted'].split('!')
-        except AttributeError:
-            last_contacted_list = [None]*len(user['resorts'])
-
-        for last_contacted, resort in zip(last_contacted_list, user['resorts']):
+        for resort in user['resorts']:
             resort_data = get_api_wrapper(resort)
-            if last_contacted is None or \
-                    dt.datetime.strptime(last_contacted, '%Y-%m-%d').date() < report_dates[resort_data['name']]:
-                contact_list.append(['{}/bmgusers/{}/'.format(api_url, user['id']), resort,
+            max_resort_report = report_dates[resort_data['name']]
+
+            # Check if notification sent for this report
+            notification_response = get_api_wrapper('notifications/?user={}&resort={}&report_date={}'.format(
+                user['user']['username'],
+                resort_data['name'].replace(' ', '%20'),
+                max_resort_report.strftime('%Y-%m-%d')
+            ))
+
+            if len(notification_response) == 0:
+                # No notification posted for this report
+                contact_list.append(['{}/bmgusers/{}/'.format(api_url, user['id']),
                                      most_recent_reports[resort_data['name']]])
+            else:
+                assert len(notification_response) == 1
 
     return contact_list
 
@@ -227,7 +233,7 @@ def application(environ, start_response):
     API_URL = os.getenv('DEV_URL')
     TOKEN = os.getenv('DEV_TOKEN')
     get_api_wrapper = lambda x: get_api(x, headers={'Authorization': 'Token {}'.format(TOKEN)},
-                                        API_URL=API_URL)
+                                        api_url=API_URL)
 
     path = environ['PATH_INFO']
     method = environ['REQUEST_METHOD']

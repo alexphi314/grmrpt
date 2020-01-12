@@ -1089,14 +1089,16 @@ class NotifyUsersTestCase(TestCase):
         report_response = cls.client.post('/reports/', cls.report_data2, format='json')
         assert report_response.status_code == 201
         cls.resort2_report_url = 'http://testserver/bmreports/{}/'.format(report_response.json()['id'])
+        cls.resort2_id = report_response.json()['id']
 
         # Add fields to BMGUser profile
         cls.user_urls = []
         for ruser in [cls.rando, cls.rando2, cls.rando3]:
             user = ruser.bmg_user
             user.resorts.set([Resort.objects.all()[0]])
-            user.last_contacted = dt.datetime(2020, 1, 1).date()
             user.save()
+
+            Notification.objects.create(bm_user=user, bm_report=Report.objects.get(pk=1).bm_report)
 
             cls.user_urls.append('http://testserver/bmgusers/{}/'.format(user.pk))
 
@@ -1127,9 +1129,9 @@ class NotifyUsersTestCase(TestCase):
         report_url = 'http://testserver/bmreports/{}/'.format(report_response.json()['id'])
         users = get_users_to_notify(get_wrapper, 'http://testserver')
         self.assertListEqual(users, [
-            [self.user_urls[0], 'http://testserver/resorts/1/', report_url],
-            [self.user_urls[1], 'http://testserver/resorts/1/', report_url],
-            [self.user_urls[2], 'http://testserver/resorts/1/', report_url]
+            [self.user_urls[0], report_url],
+            [self.user_urls[1], report_url],
+            [self.user_urls[2], report_url]
         ])
 
         # Add report on 1-6
@@ -1139,15 +1141,15 @@ class NotifyUsersTestCase(TestCase):
         report_response = client.post('/reports/', report_data, format='json')
         assert report_response.status_code == 201
         report_url = 'http://testserver/bmreports/{}/'.format(report_response.json()['id'])
+        resort1_id = report_response.json()['id']
 
         # Notify user1
         usr1 = self.rando.bmg_user
-        usr1.last_contacted = dt.datetime(2020, 1, 6).date().strftime('%Y-%m-%d')
-        usr1.save()
+        Notification.objects.create(bm_user=usr1, bm_report_id=resort1_id)
         users = get_users_to_notify(get_wrapper, 'http://testserver')
         self.assertListEqual(users, [
-            ['http://testserver/bmgusers/3/', 'http://testserver/resorts/1/', report_url],
-            ['http://testserver/bmgusers/4/', 'http://testserver/resorts/1/', report_url]
+            ['http://testserver/bmgusers/3/', report_url],
+            ['http://testserver/bmgusers/4/', report_url]
         ])
 
         # Check user4 is notified of reports for Resort 1 and Resort 2
@@ -1158,29 +1160,28 @@ class NotifyUsersTestCase(TestCase):
 
         users = get_users_to_notify(get_wrapper, 'http://testserver')
         self.assertListEqual(sorted(users), sorted([
-            ['http://testserver/bmgusers/3/', 'http://testserver/resorts/1/', report_url],
-            ['http://testserver/bmgusers/4/', 'http://testserver/resorts/1/', report_url],
-            [rando4_url, 'http://testserver/resorts/1/', report_url],
-            [rando4_url, 'http://testserver/resorts/2/', self.resort2_report_url]
+            ['http://testserver/bmgusers/3/', report_url],
+            ['http://testserver/bmgusers/4/', report_url],
+            [rando4_url, report_url],
+            [rando4_url, self.resort2_report_url]
         ]))
 
         # Update user4 to be notified of resort1 and resort2
-        rando4.bmg_user.last_contacted = '2020-01-06!2019-12-31'
-        rando4.save()
+        Notification.objects.create(bm_user=rando4.bmg_user, bm_report_id=resort1_id)
+        notif = Notification.objects.create(bm_user=rando4.bmg_user, bm_report_id=self.resort2_id)
         users = get_users_to_notify(get_wrapper, 'http://testserver')
         self.assertListEqual(users, [
-            ['http://testserver/bmgusers/3/', 'http://testserver/resorts/1/', report_url],
-            ['http://testserver/bmgusers/4/', 'http://testserver/resorts/1/', report_url]
+            ['http://testserver/bmgusers/3/', report_url],
+            ['http://testserver/bmgusers/4/', report_url]
         ])
 
         # Update user4 to be notified of resort1 but not resort2
-        rando4.bmg_user.last_contacted = '2020-01-06!2019-12-30'
-        rando4.save()
+        notif.delete()
         users = get_users_to_notify(get_wrapper, 'http://testserver')
         self.assertListEqual(sorted(users), sorted([
-            ['http://testserver/bmgusers/3/', 'http://testserver/resorts/1/', report_url],
-            ['http://testserver/bmgusers/4/', 'http://testserver/resorts/1/', report_url],
-            [rando4_url, 'http://testserver/resorts/2/', self.resort2_report_url]
+            ['http://testserver/bmgusers/3/', report_url],
+            ['http://testserver/bmgusers/4/', report_url],
+            [rando4_url, self.resort2_report_url]
         ]))
 
 
@@ -1201,10 +1202,10 @@ class NotificationViewTestCase(TestCase):
         cls.report = Report.objects.create(date=dt.datetime(2020, 1, 1).date(), resort=cls.resort)
         cls.resort2 = Resort.objects.create(name='Vail', location='CO', report_url='foo')
         cls.report2 = Report.objects.create(date=dt.datetime(2020, 1, 2).date(), resort=cls.resort2)
+        cls.report3 = Report.objects.create(date=dt.datetime(2020, 1, 3).date(), resort=cls.resort2)
 
         # Create notification
-        cls.notification = Notification.objects.create(bm_user=cls.rando.bmg_user, bm_report=cls.report.bm_report,
-                                                       resort=cls.resort)
+        cls.notification = Notification.objects.create(bm_user=cls.rando.bmg_user, bm_report=cls.report.bm_report)
 
     def test_get(self) -> None:
         """
@@ -1225,11 +1226,10 @@ class NotificationViewTestCase(TestCase):
         self.assertEqual(response['id'], 1)
         self.assertEqual(response['bm_user'], 'http://testserver/bmgusers/2/')
         self.assertEqual(response['bm_report'], 'http://testserver/bmreports/1/')
-        self.assertEqual(response['resort'], 'http://testserver/resorts/1/')
         self.assertTrue('sent' in response.keys())
 
         # Create notification
-        Notification.objects.create(bm_user=self.user.bmg_user, bm_report=self.report.bm_report, resort=self.resort)
+        Notification.objects.create(bm_user=self.user.bmg_user, bm_report=self.report.bm_report)
 
         # Test query params work for user
         query_response = client.get('/notifications/?user=user1').json()
@@ -1237,22 +1237,18 @@ class NotificationViewTestCase(TestCase):
         self.assertDictEqual(query_response[0], response)
 
         # Create notification, test query params work for resort
-        Notification.objects.create(bm_user=self.user.bmg_user, bm_report=self.report.bm_report,
-                                    resort=self.resort2)
+        Notification.objects.create(bm_user=self.user.bmg_user, bm_report=self.report3.bm_report)
         query_response = client.get('/notifications/?resort=Vail').json()
         self.assertEqual(len(query_response), 1)
         self.assertEqual(query_response[0]['bm_user'], 'http://testserver/bmgusers/1/')
-        self.assertEqual(query_response[0]['bm_report'], 'http://testserver/bmreports/1/')
-        self.assertEqual(query_response[0]['resort'], 'http://testserver/resorts/2/')
+        self.assertEqual(query_response[0]['bm_report'], 'http://testserver/bmreports/3/')
 
         # Create notification, test query params work for report
-        Notification.objects.create(bm_user=self.rando.bmg_user, bm_report=self.report2.bm_report,
-                                    resort=self.resort2)
+        Notification.objects.create(bm_user=self.rando.bmg_user, bm_report=self.report2.bm_report)
         query_response = client.get('/notifications/?report_date=2020-01-02').json()
         self.assertEqual(len(query_response), 1)
         self.assertEqual(query_response[0]['bm_user'], 'http://testserver/bmgusers/2/')
         self.assertEqual(query_response[0]['bm_report'], 'http://testserver/bmreports/2/')
-        self.assertEqual(query_response[0]['resort'], 'http://testserver/resorts/2/')
 
         # Check combined query works - no results
         query_response = client.get('/notifications/?report_date=2020-01-02&resort=BC').json()
@@ -1274,7 +1270,6 @@ class NotificationViewTestCase(TestCase):
         post_data = {
             'bm_user': 'http://testserver/bmgusers/1/',
             'bm_report': 'http://testserver/bmreports/1/',
-            'resort': 'http://testserver/resorts/1/'
         }
         response = client.post('/notifications/', post_data, format='json')
         self.assertEqual(response.status_code, 201)
@@ -1321,7 +1316,7 @@ class NotificationViewTestCase(TestCase):
         client = APIClient()
 
         # Create notification
-        Notification.objects.create(bm_user=self.user.bmg_user, bm_report=self.report.bm_report, resort=self.resort)
+        Notification.objects.create(bm_user=self.user.bmg_user, bm_report=self.report.bm_report)
 
         # Check delete fails for anon or rando
         self.assertEqual(client.delete('/notifications/2/').status_code, 401)

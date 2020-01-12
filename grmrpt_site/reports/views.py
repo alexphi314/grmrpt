@@ -215,7 +215,7 @@ class NotificationList(generics.ListCreateAPIView):
         # If given, filter by resort name
         resort = self.request.query_params.get('resort', None)
         if resort is not None:
-            queryset = queryset.filter(resort__name=resort)
+            queryset = queryset.filter(bm_report__resort__name=resort)
 
         # If given, filter by report date
         date = self.request.query_params.get('report_date', None)

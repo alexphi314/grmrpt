@@ -27,7 +27,7 @@ if __name__ == "__main__":
     logger.info('Getting list of resorts from api')
 
     # Get list of resorts from api
-    resorts = get_api('resorts/', headers={'Authorization': 'Token {}'.format(TOKEN)}, API_URL=API_URL)
+    resorts = get_api('resorts/', headers={'Authorization': 'Token {}'.format(TOKEN)}, api_url=API_URL)
 
     # Fetch grooming report for each resort
     for resort_dict in resorts:

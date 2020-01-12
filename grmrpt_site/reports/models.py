@@ -184,5 +184,4 @@ class Notification(models.Model):
     """
     bm_user = models.ForeignKey(BMGUser, related_name='notifications', on_delete=models.CASCADE)
     bm_report = models.ForeignKey(BMReport, related_name='notifications', on_delete=models.CASCADE)
-    resort = models.ForeignKey(Resort, related_name='notifications', on_delete=models.CASCADE)
     sent = models.DateTimeField("Time when the notification was sent", auto_now_add=True)
