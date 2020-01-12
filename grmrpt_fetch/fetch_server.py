@@ -268,21 +268,17 @@ def application(environ, start_response):
                             environ['HTTP_X_AWS_SQSD_SCHEDULED_AT'])
 
                 resort_user_list = get_users_to_notify(get_api_wrapper, API_URL)
-                sqs = boto3.client('sqs')
+                sqs = boto3.client('sqs', region_name='us-west-2')
 
                 # Post to SQS Queue
-                for user, resort, report in resort_user_list:
+                for user, report in resort_user_list:
                     QUEUE_URL = os.getenv('NOTIFY_WORKER_QUEUE_URL')
                     message_attrs = {
-                        'User': {
+                        'user': {
                             'DataType': 'String',
                             'StringValue': user
                         },
-                        'Resort': {
-                            'DataType': 'String',
-                            'StringValue': resort
-                        },
-                        'Report': {
+                        'report': {
                             'DataType': 'String',
                             'StringValue': report
                         }
@@ -295,6 +291,8 @@ def application(environ, start_response):
                         MessageBody=body
                     )
                     logger.info('Posted message {} to SQS user notification queue'.format(response['MessageId']))
+
+                response = 'Successfully checked for notification events'
 
         except (TypeError, ValueError):
             logger.warning('Error retrieving request body for async work.')
