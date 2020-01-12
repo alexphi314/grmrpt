@@ -182,6 +182,7 @@ class Notification(models.Model):
     """
     Model a notification sent to a user
     """
-    bmuser = models.ForeignKey(BMGUser, related_name='notifications', on_delete=models.CASCADE)
-    bmreport = models.ForeignKey(BMReport, related_name='notifications', on_delete=models.CASCADE)
+    bm_user = models.ForeignKey(BMGUser, related_name='notifications', on_delete=models.CASCADE)
+    bm_report = models.ForeignKey(BMReport, related_name='notifications', on_delete=models.CASCADE)
     resort = models.ForeignKey(Resort, related_name='notifications', on_delete=models.CASCADE)
+    sent = models.DateTimeField("Time when the notification was sent", auto_now_add=True)

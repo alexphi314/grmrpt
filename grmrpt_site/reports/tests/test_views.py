@@ -9,7 +9,7 @@ from rest_framework.authtoken.models import Token
 
 sys.path.append('../grmrpt_fetch')
 from grmrpt_fetch.fetch_server import get_users_to_notify
-from reports.models import Resort, Report, BMGUser
+from reports.models import *
 
 
 class ResortViewTestCase(TestCase):
@@ -941,7 +941,6 @@ class BMGUserViewTestCase(TestCase):
         response = response.json()
 
         self.assertEqual(response[0]['id'], 1)
-        self.assertEqual(response[0]['last_contacted'], None)
         self.assertEqual(response[0]['phone'], None)
         self.assertDictEqual(response[0]['user'], {'id': 1, 'username': 'test', 'email': 'foo@gmail.com',
                                                 'bmg_user': 'http://testserver/bmgusers/1/',
@@ -950,7 +949,6 @@ class BMGUserViewTestCase(TestCase):
         self.assertListEqual(response[0]['resorts'], [])
 
         self.assertEqual(response[1]['id'], 2)
-        self.assertEqual(response[1]['last_contacted'], None)
         self.assertEqual(response[1]['phone'], None)
         self.assertDictEqual(response[1]['user'], {'id': 2, 'username': 'test2', 'email': 'bar@gmail.com',
                                                 'bmg_user': 'http://testserver/bmgusers/2/',
@@ -986,7 +984,6 @@ class BMGUserViewTestCase(TestCase):
 
 
         # Add fields
-        response['last_contacted'] = '2020-01-02'
         response['phone'] = '1800-290-7856'
         response['favorite_runs'] = [self.run1_url]
         response['resorts'] = [self.resort_url]
@@ -1185,3 +1182,155 @@ class NotifyUsersTestCase(TestCase):
             ['http://testserver/bmgusers/4/', 'http://testserver/resorts/1/', report_url],
             [rando4_url, 'http://testserver/resorts/2/', self.resort2_report_url]
         ]))
+
+
+class NotificationViewTestCase(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        # Create users
+        cls.user = User.objects.create_user(username='test', password='foo', email='foo@gmail.com')
+        cls.user.is_staff = True
+        cls.user.save()
+        cls.token = Token.objects.get(user__username='test')
+
+        cls.rando = User.objects.create_user(username='user1', password='bar')
+        cls.rando_token = Token.objects.get(user__username='user1')
+
+        # Create report, resort, etc
+        cls.resort = Resort.objects.create(name='BC', location='CO', report_url='foo')
+        cls.report = Report.objects.create(date=dt.datetime(2020, 1, 1).date(), resort=cls.resort)
+        cls.resort2 = Resort.objects.create(name='Vail', location='CO', report_url='foo')
+        cls.report2 = Report.objects.create(date=dt.datetime(2020, 1, 2).date(), resort=cls.resort2)
+
+        # Create notification
+        cls.notification = Notification.objects.create(bm_user=cls.rando.bmg_user, bm_report=cls.report.bm_report,
+                                                       resort=cls.resort)
+
+    def test_get(self) -> None:
+        """
+        test get method
+        """
+        # Check get fails for anon or rando user
+        client = APIClient()
+        self.assertEqual(client.get('/notifications/').status_code, 401)
+        client.credentials(HTTP_AUTHORIZATION='Token ' + self.rando_token.key)
+        self.assertEqual(client.get('/notifications/').status_code, 403)
+
+        # Check GET works for staff user
+        client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
+        response = client.get('/notifications/')
+        self.assertEqual(response.status_code, 200)
+        response = response.json()[0]
+
+        self.assertEqual(response['id'], 1)
+        self.assertEqual(response['bm_user'], 'http://testserver/bmgusers/2/')
+        self.assertEqual(response['bm_report'], 'http://testserver/bmreports/1/')
+        self.assertEqual(response['resort'], 'http://testserver/resorts/1/')
+        self.assertTrue('sent' in response.keys())
+
+        # Create notification
+        Notification.objects.create(bm_user=self.user.bmg_user, bm_report=self.report.bm_report, resort=self.resort)
+
+        # Test query params work for user
+        query_response = client.get('/notifications/?user=user1').json()
+        self.assertEqual(len(query_response), 1)
+        self.assertDictEqual(query_response[0], response)
+
+        # Create notification, test query params work for resort
+        Notification.objects.create(bm_user=self.user.bmg_user, bm_report=self.report.bm_report,
+                                    resort=self.resort2)
+        query_response = client.get('/notifications/?resort=Vail').json()
+        self.assertEqual(len(query_response), 1)
+        self.assertEqual(query_response[0]['bm_user'], 'http://testserver/bmgusers/1/')
+        self.assertEqual(query_response[0]['bm_report'], 'http://testserver/bmreports/1/')
+        self.assertEqual(query_response[0]['resort'], 'http://testserver/resorts/2/')
+
+        # Create notification, test query params work for report
+        Notification.objects.create(bm_user=self.rando.bmg_user, bm_report=self.report2.bm_report,
+                                    resort=self.resort2)
+        query_response = client.get('/notifications/?report_date=2020-01-02').json()
+        self.assertEqual(len(query_response), 1)
+        self.assertEqual(query_response[0]['bm_user'], 'http://testserver/bmgusers/2/')
+        self.assertEqual(query_response[0]['bm_report'], 'http://testserver/bmreports/2/')
+        self.assertEqual(query_response[0]['resort'], 'http://testserver/resorts/2/')
+
+        # Check combined query works - no results
+        query_response = client.get('/notifications/?report_date=2020-01-02&resort=BC').json()
+        self.assertEqual(len(query_response), 0)
+
+    def test_post(self) -> None:
+        """
+        test post method
+        """
+        client = APIClient()
+
+        # Check POST fails for anon and rando users
+        self.assertEqual(client.post('/notifications/').status_code, 401)
+        client.credentials(HTTP_AUTHORIZATION='Token ' + self.rando_token.key)
+        self.assertEqual(client.post('/notifications/').status_code, 403)
+
+        # Check post works for staff
+        client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
+        post_data = {
+            'bm_user': 'http://testserver/bmgusers/1/',
+            'bm_report': 'http://testserver/bmreports/1/',
+            'resort': 'http://testserver/resorts/1/'
+        }
+        response = client.post('/notifications/', post_data, format='json')
+        self.assertEqual(response.status_code, 201)
+        response = response.json()
+        response_url = 'http://testserver/notifications/{}/'.format(response['id'])
+        response.pop('id')
+        response.pop('sent')
+
+        self.assertDictEqual(response, post_data)
+
+        # Delete posted notification
+        client.delete(response_url)
+
+    def test_put(self) -> None:
+        """
+        test put method
+        """
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
+        notification = client.get('/notifications/').json()[0]
+
+        # Update data
+        notification['bm_user'] = 'http://testserver/bmgusers/1/'
+
+        # Check PUT fails for rando and anon user
+        client.credentials()
+        response = client.put('/notifications/1/', data=json.dumps(notification), content_type='application/json')
+        self.assertEqual(response.status_code, 401)
+        client.credentials(HTTP_AUTHORIZATION='Token ' + self.rando_token.key)
+        response = client.put('/notifications/1/', data=json.dumps(notification), content_type='application/json')
+        self.assertEqual(response.status_code, 403)
+
+        # Check PUT works for staff
+        client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
+        response = client.put('/notifications/1/', data=json.dumps(notification), content_type='application/json')
+        self.assertEqual(response.status_code, 200)
+
+        self.assertDictEqual(response.json(), notification)
+
+    def test_delete(self) -> None:
+        """
+        test delete method
+        """
+        client = APIClient()
+
+        # Create notification
+        Notification.objects.create(bm_user=self.user.bmg_user, bm_report=self.report.bm_report, resort=self.resort)
+
+        # Check delete fails for anon or rando
+        self.assertEqual(client.delete('/notifications/2/').status_code, 401)
+        client.credentials(HTTP_AUTHORIZATION='Token ' + self.rando_token.key)
+        self.assertEqual(client.delete('/notifications/2/').status_code, 403)
+
+        # Check delete works for staff
+        client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
+        response = client.delete('/notifications/2/')
+        self.assertEqual(response.status_code, 204)
+        self.assertEqual(client.get('/notifications/2/').status_code, 404)
+        self.assertEqual(len(client.get('/notifications/').json()), 1)
