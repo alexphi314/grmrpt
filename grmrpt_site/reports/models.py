@@ -151,6 +151,9 @@ class BMGUser(models.Model):
     ]
     contact_method = models.CharField(max_length=2, choices=CONTACT_METHOD_CHOICES, default=EMAIL)
 
+    def __str__(self) -> str:
+        return self.user.username
+
 
 @receiver(post_save, sender=User)
 def create_update_bmguser(instance: User, created: bool, **kwargs) -> None:
@@ -185,3 +188,6 @@ class Notification(models.Model):
     bm_user = models.ForeignKey(BMGUser, related_name='notifications', on_delete=models.CASCADE)
     bm_report = models.ForeignKey(BMReport, related_name='notifications', on_delete=models.CASCADE)
     sent = models.DateTimeField("Time when the notification was sent", auto_now_add=True)
+
+    def __str__(self) -> str:
+        return '{}: {}'.format(self.bm_user, self.bm_report.date.strftime('%Y-%m-%d'))

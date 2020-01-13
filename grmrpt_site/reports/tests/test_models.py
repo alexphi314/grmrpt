@@ -98,3 +98,18 @@ class BMGUserTestCase(TestCase):
         bmg_user = BMGUser.objects.all()[0]
         self.assertEqual(bmg_user.user, self.user)
         self.assertEqual(bmg_user.favorite_runs.count(), 0)
+
+    def test_str(self) -> None:
+        self.assertEqual(str(BMGUser.objects.all()[0]), 'foo')
+
+
+class NotificationTestCase(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = User.objects.create(username='foo')
+        cls.resort = Resort.objects.create(name='Vail', report_url='foo', location='Vail')
+        cls.report = Report.objects.create(date=dt.datetime(2019, 1, 2).date(), resort=cls.resort)
+        cls.notif = Notification.objects.create(bm_report=cls.report.bm_report, bm_user=cls.user.bmg_user)
+
+    def test_str(self) -> None:
+        self.assertEqual(str(self.notif), 'foo: 2019-01-02')
