@@ -83,16 +83,23 @@ def application(environ, start_response):
                     raise APIError('Could not fetch report data from api: {}'.format(report_response.text))
                 report_data = report_response.json()
 
+                resort_response = requests.get(report_data['resort'], headers=head)
+                if resort_response.status_code != 200:
+                    raise APIError('Could not fetch resort data from api: {}'.format(resort_response.text))
+                resort_data = resort_response.json()
+
                 if user_data['contact_method'] == 'PH':
                     sns = boto3.client('sns', region_name='us-west-2', aws_access_key_id=os.getenv('ACCESS_ID'),
                                        aws_secret_access_key=os.getenv('SECRET_ACCESS_KEY'))
 
                     run_names = [requests.get(run, headers=head).json()['name'] for run in report_data['runs']]
                     bm_msg = '{} {} Blue Moon Grooming Report\n' \
-                             '  * {}'.format(
+                             '  * {}\n' \
+                             'Full report: {}'.format(
                         report_data['date'],
-                        requests.get(report_data['resort'], headers=head).json()['name'],
-                        '\n  * '.join(run_names)
+                        resort_data['name'],
+                        '\n  * '.join(run_names),
+                        resort_data['report_url']
                     )
 
                     msg = sns.publish(
