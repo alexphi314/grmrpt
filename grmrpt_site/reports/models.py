@@ -140,7 +140,6 @@ class BMGUser(models.Model):
     """
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='bmg_user')
     favorite_runs = models.ManyToManyField(Run, related_name='users_favorited')
-    last_contacted = models.DateField("Date of last BMG report sent", default=dt.datetime(2020, 1, 1).date())
     phone = models.CharField("User Phone number", blank=True, null=True, max_length=15)
     resorts = models.ManyToManyField(Resort, related_name='bmg_users')
 
@@ -148,9 +147,12 @@ class BMGUser(models.Model):
     EMAIL = 'EM'
     CONTACT_METHOD_CHOICES = [
         (PHONE, 'Phone'),
-        (EMAIL, 'EM')
+        (EMAIL, 'Email')
     ]
     contact_method = models.CharField(max_length=2, choices=CONTACT_METHOD_CHOICES, default=EMAIL)
+
+    def __str__(self) -> str:
+        return self.user.username
 
 
 @receiver(post_save, sender=User)
@@ -177,3 +179,15 @@ def create_user_token(instance: User, created: bool, **kwargs) -> None:
     """
     if created:
         Token.objects.create(user=instance)
+
+
+class Notification(models.Model):
+    """
+    Model a notification sent to a user
+    """
+    bm_user = models.ForeignKey(BMGUser, related_name='notifications', on_delete=models.CASCADE)
+    bm_report = models.ForeignKey(BMReport, related_name='notifications', on_delete=models.CASCADE)
+    sent = models.DateTimeField("Time when the notification was sent", auto_now_add=True)
+
+    def __str__(self) -> str:
+        return '{}: {}'.format(self.bm_user, self.bm_report.date.strftime('%Y-%m-%d'))

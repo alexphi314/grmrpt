@@ -1,7 +1,7 @@
 import datetime as dt
 import unittest
 
-from fetch_report import get_grooming_report, create_report
+from fetch_report import get_grooming_report
 
 
 class ReportFuncTestCase(unittest.TestCase):
@@ -70,6 +70,43 @@ class ReportFuncTestCase(unittest.TestCase):
                                   'Emperor\'s Choice - Lower']
         self.report_url2 = 'test_files/vail_jan2.pdf'
 
+        self.exp_groomed_runs3 = [
+            'Cresta',
+            'Golden Bear',
+            'Leav the Beav',
+            'Cabin Fever',
+            'Roughlock',
+            'Redtail',
+            'BC Expressway - Lower',
+            'BC Expressway - Upper',
+            'Larkspur - Lower',
+            'Larkspur - Upper',
+            'Primrose to Strawberry Park',
+            'Lupine',
+            'Shooting Star',
+            'Cinch - Lower',
+            'Dally - Lower',
+            'Dally - Upper',
+            'Haymeadow',
+            'Gold Dust',
+            'Latigo',
+            'Intertwine - Lower',
+            'Intertwine - Upper',
+            'Middle Primrose',
+            'Primrose',
+            'President Ford\'s - Lower',
+            'Stacker - Lower',
+            'Cinch - Upper',
+            'Solitude',
+            'Sheephorn - Escape',
+            'Centennial - Spruce Face',
+            'Little Brave',
+            'Sawbuck',
+            'Centennial - Hohum',
+            'Red Buffalo'
+        ]
+        self.report_url3 = 'test_files/bc_jan7.pdf'
+
     def test_get_grooming_report(self) -> None:
         """
         Test function properly strips the run names from the file
@@ -81,3 +118,7 @@ class ReportFuncTestCase(unittest.TestCase):
         date, groomed_runs = get_grooming_report(self.report_url2)
         self.assertEqual(date, dt.datetime(2020, 1, 2).date())
         self.assertListEqual(groomed_runs, self.exp_groomed_runs2)
+
+        date, groomed_runs = get_grooming_report(self.report_url3)
+        self.assertEqual(date, dt.datetime(2020, 1, 7).date())
+        self.assertListEqual(groomed_runs, self.exp_groomed_runs3)

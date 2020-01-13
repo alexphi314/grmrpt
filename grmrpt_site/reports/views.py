@@ -7,9 +7,9 @@ from rest_framework.decorators import api_view
 from rest_framework.reverse import reverse
 from rest_framework.permissions import IsAdminUser
 
-from reports.models import Report, Run, Resort, BMReport, BMGUser
+from reports.models import Report, Run, Resort, BMReport, BMGUser, Notification
 from reports.serializers import ReportSerializer, RunSerializer, ResortSerializer, BMReportSerializer, \
-    UserSerializer, BMGUserSerializer
+    UserSerializer, BMGUserSerializer, NotificationSerializer
 from reports.permissions import IsAdminOrReadOnly
 
 
@@ -195,3 +195,45 @@ class BMGUserDetail(generics.RetrieveUpdateDestroyAPIView):
         Overload DELETE method. This is an extension of User and should not be deleted from thsi end.
         """
         return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
+
+
+class NotificationList(generics.ListCreateAPIView):
+    """
+    Generic view listing all notifications
+    """
+    serializer_class = NotificationSerializer
+    permission_classes = [IsAdminUser]
+
+    def get_queryset(self):
+        """
+        Return objects in this list, based on optional filtering fields
+
+        :return: list of report objects
+        """
+        queryset = Notification.objects.all()
+
+        # If given, filter by resort name
+        resort = self.request.query_params.get('resort', None)
+        if resort is not None:
+            queryset = queryset.filter(bm_report__resort__name=resort)
+
+        # If given, filter by report date
+        date = self.request.query_params.get('report_date', None)
+        if date is not None:
+            queryset = queryset.filter(bm_report__date=dt.datetime.strptime(date, '%Y-%m-%d').date())
+
+        # If given, filter by username
+        user = self.request.query_params.get('user', None)
+        if user is not None:
+            queryset = queryset.filter(bm_user__user__username=user)
+
+        return queryset
+
+
+class NotificationDetail(generics.RetrieveUpdateDestroyAPIView):
+    """
+    Detailed view for a specific notification
+    """
+    queryset = Notification.objects.all()
+    serializer_class = NotificationSerializer
+    permission_classes = [IsAdminUser]

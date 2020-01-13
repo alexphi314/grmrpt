@@ -10,6 +10,7 @@ from collections import Counter
 
 from tika import parser
 import requests
+import boto3
 
 # Create logger
 logger = logging.getLogger(__name__)
@@ -41,16 +42,16 @@ class APIError(Exception):
         super().__init__(message)
 
 
-def get_api(relative_url: str, headers: Dict, API_URL: str) -> Dict:
+def get_api(relative_url: str, headers: Dict, api_url: str) -> Dict:
     """
     Execute a GET request from the api of the given relative url and return a Dict object
 
     :param relative_url: relative url from base api url
     :param headers: http request headers
-    :param API_URL: url for api server
+    :param api_url: url for api server
     :return: dict containing response data
     """
-    response = requests.get('/'.join([API_URL, relative_url]), headers=headers)
+    response = requests.get('/'.join([api_url, relative_url]), headers=headers)
     if response.status_code != 200:
         raise APIError('Did not receive valid response from api:\n{}'.format(response.text))
 
@@ -82,31 +83,33 @@ def get_grooming_report(url: str) -> Tuple[Union[None, dt.datetime], List[str]]:
 
 
 def create_report(date: dt.datetime, groomed_runs: List[str], resort_id: int,
-                  API_URL: str, TOKEN: str) -> None:
+                  api_url: str, token: str, requests, get_api) -> None:
     """
     Create the grooming report and push if not in api
 
     :param date: grooming report date
     :param groomed_runs: list of groomed run names
     :param resort_id: resort id this report corresponds to
-    :param API_URL: url of api server
-    :param TOKEN: Token string for fetch user
+    :param api_url: url of api server
+    :param token: Token string for fetch user
+    :param requests: class used to make HTTP requests
+    :param get_api: function used to make HTTP GET requests
     """
     resort_url = '/'.join(['resorts', str(resort_id), ''])
-    head = {'Authorization': 'Token {}'.format(TOKEN)}
-    resort_name = get_api('resorts/{}'.format(resort_id), head, API_URL)['name'].replace(' ', '%20')
+    head = {'Authorization': 'Token {}'.format(token)}
+    resort_name = get_api('resorts/{}/'.format(resort_id), head, api_url)['name'].replace(' ', '%20')
 
     # Get list of reports already in api and don't create a new report if it already exists
-    reports = get_api('reports?resort={}&date={}'.format(
+    reports = get_api('reports/?resort={}&date={}'.format(
         resort_name,
-        date.strftime('%Y-%m-%d')), head, API_URL)
+        date.strftime('%Y-%m-%d')), head, api_url)
     if len(reports) > 0:
         assert len(reports) == 1
         report_id = reports[0]['id']
         logger.info('Report object already present in api')
     else:
-        report_dict = {'date': date.strftime('%Y-%m-%d'), 'resort': '/'.join([API_URL, resort_url])}
-        report_response = requests.post('/'.join([API_URL, 'reports/']), data=report_dict,
+        report_dict = {'date': date.strftime('%Y-%m-%d'), 'resort': '/'.join([api_url, resort_url])}
+        report_response = requests.post('/'.join([api_url, 'reports/']), data=report_dict,
                                         headers=head)
 
         if report_response.status_code == 201:
@@ -117,13 +120,15 @@ def create_report(date: dt.datetime, groomed_runs: List[str], resort_id: int,
 
     # Fetch the report object
     report_url = '/'.join(['reports', str(report_id), ''])
-    report_response = get_api(report_url, head, API_URL)
+    report_response = get_api(report_url, head, api_url)
     report_runs = deepcopy(report_response.get('runs', []))
+    # Strip all runs from report_runs that are not in groomed_runs
+    report_runs = [run for run in report_runs if requests.get(run, headers=head).json()['name'] in groomed_runs]
 
     # Fetch the previous report for this resort, if it exists
-    past_report_list = get_api('reports?resort={}&date={}'.format(
+    past_report_list = get_api('reports/?resort={}&date={}'.format(
         resort_name,
-        (date-dt.timedelta(days=1)).strftime('%Y-%m-%d')), head, API_URL)
+        (date-dt.timedelta(days=1)).strftime('%Y-%m-%d')), head, api_url)
     assert len(past_report_list) <= 1
 
     try:
@@ -136,31 +141,31 @@ def create_report(date: dt.datetime, groomed_runs: List[str], resort_id: int,
     # Check if the groomed runs from this report match the groomed runs from the previous report
     if Counter(groomed_runs) == Counter(prev_report_runs):
         logger.info('Found list of groomed runs identical to yesterday\'s report. Not appending these runs to report'
-                    'object.')
+                    ' object.')
         return
 
     # Connect the run objects to the report object, if they are not already linked
-    if len(report_response['runs']) < len(groomed_runs):
+    if len(report_runs) < len(groomed_runs):
         for run in groomed_runs:
             # See if run in api
-            run_resp = get_api('runs?name={}&resort={}'.format(
+            run_resp = get_api('runs/?name={}&resort={}'.format(
                 run,
                 resort_name
-            ), head, API_URL)
+            ), head, api_url)
 
             # If run exists, check if the run url is attached to the report
             if len(run_resp) > 0:
                 assert len(run_resp) == 1
-                run_url = '/'.join([API_URL, 'runs', str(run_resp[0]['id']), ''])
+                run_url = '/'.join([api_url, 'runs', str(run_resp[0]['id']), ''])
             # Otherwise, create the run and attach to report from this end
             else:
-                run_data = {'name': run, 'resort': '/'.join([API_URL, resort_url])}
-                update_response = requests.post('/'.join([API_URL, 'runs/']), data=run_data,
-                                                headers={'Authorization': 'Token {}'.format(TOKEN)})
+                run_data = {'name': run, 'resort': '/'.join([api_url, resort_url])}
+                update_response = requests.post('/'.join([api_url, 'runs/']), data=run_data,
+                                                headers={'Authorization': 'Token {}'.format(token)})
 
                 if update_response.status_code != 201:
                     raise APIError('Failed to create run object:\n{}'.format(update_response.text))
-                run_url = '/'.join([API_URL, 'runs', str(update_response.json()['id']), ''])
+                run_url = '/'.join([api_url, 'runs', str(update_response.json()['id']), ''])
 
             if run_url not in report_runs:
                 report_runs.append(run_url)
@@ -169,8 +174,8 @@ def create_report(date: dt.datetime, groomed_runs: List[str], resort_id: int,
         # Log groomed runs
         logger.info('Groomed runs: {}'.format(', '.join(groomed_runs)))
         report_response['runs'] = report_runs
-        update_report_response = requests.put('/'.join([API_URL, report_url]), data=report_response,
-                                              headers={'Authorization': 'Token {}'.format(TOKEN)})
+        update_report_response = requests.put('/'.join([api_url, report_url]), data=report_response,
+                                              headers={'Authorization': 'Token {}'.format(token)})
 
         if update_report_response.status_code == 200:
             logger.info('Successfully tied groomed runs to report')
@@ -178,9 +183,95 @@ def create_report(date: dt.datetime, groomed_runs: List[str], resort_id: int,
             raise APIError('Failed to update report object:\n{}'.format(update_report_response.text))
 
 
+def get_users_to_notify(get_api_wrapper, api_url) -> List[List[str]]:
+    """
+    Query the API to find the list of users who need to be notified about a new BM report.
+
+    :param get_api_wrapper: lambda function that takes relative url for GET request and returns request in JSON
+    :param api_url: api url location
+    :return: list of user urls who need to be notified with the current report
+    """
+    # Get list of BMGUsers from api
+    bmg_users = get_api_wrapper('bmgusers/')
+    bmg_users = [bmg_user for bmg_user in bmg_users if 'service' not in bmg_user['user']['username']]
+
+    # Get current report date for each resort
+    report_dates = {}
+    most_recent_reports = {}
+    resorts = get_api_wrapper('resorts/')
+    for resort in resorts:
+        reports = get_api_wrapper('reports/?resort={}'.format(resort['name'].replace(' ', '%20')))
+        # Only include reports with run objects attached
+        reports = [report for report in reports if len(report['runs']) > 0]
+        report_dates_list = [dt.datetime.strptime(report['date'], '%Y-%m-%d').date() for report in
+                                            reports]
+        report_dates[resort['name']] = max(report_dates_list)
+        # Store the url to the most recent bmreport for each resort
+        most_recent_reports[resort['name']] = '{}/bmreports/{}/'.format(
+            api_url, reports[report_dates_list.index(max(report_dates_list))]['id']
+        )
+
+    # Loop through users
+    contact_list = []
+    for user in bmg_users:
+        for resort in user['resorts']:
+            resort_data = get_api_wrapper(resort.replace(api_url, ''))
+            max_resort_report = report_dates[resort_data['name']]
+
+            # Check if notification sent for this report
+            notification_response = get_api_wrapper('notifications/?user={}&resort={}&report_date={}'.format(
+                user['user']['username'],
+                resort_data['name'].replace(' ', '%20'),
+                max_resort_report.strftime('%Y-%m-%d')
+            ))
+
+            if len(notification_response) == 0:
+                # No notification posted for this report
+                contact_list.append(['{}/bmgusers/{}/'.format(api_url, user['id']),
+                                     most_recent_reports[resort_data['name']]])
+            else:
+                assert len(notification_response) == 1
+
+    return contact_list
+
+
+def post_messages(contact_list: List[List[str]]) -> None:
+    """
+    Post the input messages to the SQS queue
+
+    :param contact_list: list of [user, report] to notify
+    """
+    sqs = boto3.client('sqs', region_name='us-west-2', aws_access_key_id=os.getenv('ACCESS_ID'),
+                       aws_secret_access_key=os.getenv('SECRET_ACCESS_KEY'))
+
+    # Post to SQS Queue
+    for user, report in contact_list:
+        QUEUE_URL = os.getenv('NOTIFY_WORKER_QUEUE_URL')
+        message_attrs = {
+            'user': {
+                'DataType': 'String',
+                'StringValue': user
+            },
+            'report': {
+                'DataType': 'String',
+                'StringValue': report
+            }
+        }
+        body = 'Send notification to user {}'.format(user)
+        response = sqs.send_message(
+            QueueUrl=QUEUE_URL,
+            DelaySeconds=10,
+            MessageAttributes=message_attrs,
+            MessageBody=body
+        )
+        logger.info('Posted message {} to SQS user notification queue'.format(response['MessageId']))
+
+
 def application(environ, start_response):
     API_URL = os.getenv('DEV_URL')
     TOKEN = os.getenv('DEV_TOKEN')
+    get_api_wrapper = lambda x: get_api(x, headers={'Authorization': 'Token {}'.format(TOKEN)},
+                                        api_url=API_URL)
 
     path = environ['PATH_INFO']
     method = environ['REQUEST_METHOD']
@@ -190,14 +281,13 @@ def application(environ, start_response):
                 request_body_size = int(environ['CONTENT_LENGTH'])
                 request_body = environ['wsgi.input'].read(request_body_size).decode()
                 logger.info("Received message: %s" % request_body)
-            elif path == '/scheduled':
+            elif path == '/grmrpt_schedule':
                 logger.info("Received task %s scheduled at %s", environ['HTTP_X_AWS_SQSD_TASKNAME'],
                             environ['HTTP_X_AWS_SQSD_SCHEDULED_AT'])
 
                 # Run scheduled task
                 # Get list of resorts from api
-                resorts = get_api('resorts/', headers={'Authorization': 'Token {}'.format(TOKEN)},
-                                  API_URL=API_URL)
+                resorts = get_api_wrapper('resorts/')
 
                 # Fetch grooming report for each resort
                 for resort_dict in resorts:
@@ -207,9 +297,18 @@ def application(environ, start_response):
                     date, groomed_runs = get_grooming_report(report_url)
                     logger.info('Got grooming report for {} on {}'.format(resort, date.strftime('%Y-%m-%d')))
 
-                    create_report(date, groomed_runs, resort_dict['id'], API_URL, TOKEN)
+                    create_report(date, groomed_runs, resort_dict['id'], API_URL, TOKEN, requests, get_api)
 
                 response = 'Successfully processed grooming reports for all resorts'
+
+            elif path == '/users_schedule':
+                logger.info("Received task %s scheduled at %s", environ['HTTP_X_AWS_SQSD_TASKNAME'],
+                            environ['HTTP_X_AWS_SQSD_SCHEDULED_AT'])
+
+                resort_user_list = get_users_to_notify(get_api_wrapper, API_URL)
+                post_messages(resort_user_list)
+
+                response = 'Successfully checked for notification events'
 
         except (TypeError, ValueError):
             logger.warning('Error retrieving request body for async work.')
