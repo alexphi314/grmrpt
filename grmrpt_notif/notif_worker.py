@@ -88,27 +88,51 @@ def application(environ, start_response):
                     raise APIError('Could not fetch resort data from api: {}'.format(resort_response.text))
                 resort_data = resort_response.json()
 
-                if user_data['contact_method'] == 'PH':
-                    sns = boto3.client('sns', region_name='us-west-2', aws_access_key_id=os.getenv('ACCESS_ID'),
-                                       aws_secret_access_key=os.getenv('SECRET_ACCESS_KEY'))
+                # Check for sent notification
+                notification_response = requests.get('{}/notifications/?user={}&resort={}&report_date={}'.format(
+                    API_URL,
+                    user_data['user']['username'],
+                    resort_data['name'].replace(' ', '%20'),
+                    report_data['date']
+                ), headers=head)
+                if notification_response.status_code != 200:
+                    raise APIError('Could not fetch notification data from api: {}'.format(
+                        notification_response.text))
+                notification_response = notification_response.json()
 
-                    run_names = [requests.get(run, headers=head).json()['name'] for run in report_data['runs']]
-                    bm_msg = '{} {} Blue Moon Grooming Report\n' \
-                             '  * {}\n' \
-                             'Full report: {}'.format(
-                        report_data['date'],
-                        resort_data['name'],
-                        '\n  * '.join(run_names),
-                        resort_data['report_url']
-                    )
+                if len(notification_response) == 0:
+                    if user_data['contact_method'] == 'PH':
+                        sns = boto3.client('sns', region_name='us-west-2', aws_access_key_id=os.getenv('ACCESS_ID'),
+                                           aws_secret_access_key=os.getenv('SECRET_ACCESS_KEY'))
 
-                    msg = sns.publish(
-                        PhoneNumber=user_data['phone'],
-                        Message=bm_msg
-                    )
-                    logger.info('Sent SMS message with id {}'.format(msg['MessageId']))
+                        run_names = [requests.get(run, headers=head).json()['name'] for run in report_data['runs']]
+                        bm_msg = '{} {} Blue Moon Grooming Report\n' \
+                                 '  * {}\n\n' \
+                                 'Full report: {}'.format(
+                            report_data['date'],
+                            resort_data['name'],
+                            '\n  * '.join(run_names),
+                            resort_data['report_url']
+                        )
 
-                response = 'Notified user of new report'
+                        msg = sns.publish(
+                            PhoneNumber=user_data['phone'],
+                            Message=bm_msg
+                        )
+                        logger.info('Sent SMS message with id {}'.format(msg['MessageId']))
+
+                        # Post notification record
+                        notification_data = {'bm_user': user, 'bm_report': report}
+                        response = requests.post('{}/notifications/'.format(API_URL), data=notification_data,
+                                                 headers=head)
+                        if response.status_code != 201:
+                            raise APIError('Unable to create notification record in api: {}'.format(
+                                response.text
+                            ))
+
+                    response = 'Notified user of new report'
+                else:
+                    response = 'Already notified user'
 
         except (TypeError, ValueError):
             logger.warning('Error retrieving request body for async work.')

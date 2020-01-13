@@ -201,6 +201,8 @@ def get_users_to_notify(get_api_wrapper, api_url) -> List[List[str]]:
     resorts = get_api_wrapper('resorts/')
     for resort in resorts:
         reports = get_api_wrapper('reports/?resort={}'.format(resort['name'].replace(' ', '%20')))
+        # Only include reports with run objects attached
+        reports = [report for report in reports if len(report['runs']) > 0]
         report_dates_list = [dt.datetime.strptime(report['date'], '%Y-%m-%d').date() for report in
                                             reports]
         report_dates[resort['name']] = max(report_dates_list)
