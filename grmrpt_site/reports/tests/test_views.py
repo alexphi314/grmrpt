@@ -27,7 +27,7 @@ class ResortViewTestCase(TestCase):
         cls.rando_token = Token.objects.get(user__username='test2')
 
         # Create resort object
-        cls.resort_data = {'name': 'Beaver Creek', 'location': 'CO', 'report_url': 'foo'}
+        cls.resort_data = {'name': 'Beaver Creek TEST', 'location': 'CO', 'report_url': 'foo'}
         resort_response = cls.client.post('/resorts/', cls.resort_data, format='json')
         assert resort_response.status_code == 201
 
@@ -48,6 +48,7 @@ class ResortViewTestCase(TestCase):
 
         # Add id to resort data
         self.resort_data['id'] = 1
+        response[0].pop('sns_arn')
         self.assertDictEqual(response[0], self.resort_data)
 
         # Check random user has get access
@@ -61,7 +62,7 @@ class ResortViewTestCase(TestCase):
         client = APIClient()
 
         # Check no user cannot post
-        resort_data = {'name': 'Vail', 'location': 'CO', 'report_url': 'bar'}
+        resort_data = {'name': 'Vail TEST', 'location': 'CO', 'report_url': 'bar'}
         self.assertEqual(client.post('/resorts/', resort_data, format='json').status_code, 401)
 
         # Check POST behavior for logged in staff user
@@ -72,8 +73,10 @@ class ResortViewTestCase(TestCase):
 
         response = response.json()
         self.assertTrue('id' in response.keys())
+        self.assertTrue('sns_arn' in response.keys())
         # Remove id from dict -> we care that it was returned but not what it is
         response.pop('id')
+        response.pop('sns_arn')
         self.assertDictEqual(resort_data, response)
 
         # Check random user has no post access
@@ -114,7 +117,7 @@ class ResortViewTestCase(TestCase):
         client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
 
         # Check logged in staff DELETE works
-        resort_data = {'name': 'Vail', 'location': 'CO', 'report_url': 'bar'}
+        resort_data = {'name': 'Vail TEST', 'location': 'CO', 'report_url': 'bar'}
         response = client.post('/resorts/', resort_data, format='json')
         id = response.json()['id']
 
@@ -148,7 +151,7 @@ class RunViewTestCase(TestCase):
         cls.rando_token = Token.objects.get(user__username='test2')
 
         # Create resort, report, and run objects
-        cls.resort_data = {'name': 'Beaver Creek', 'location': 'CO', 'report_url': 'foo'}
+        cls.resort_data = {'name': 'Beaver Creek TEST', 'location': 'CO', 'report_url': 'foo'}
         resort_response = cls.client.post('/resorts/', cls.resort_data, format='json')
         assert resort_response.status_code == 201
         cls.resort_url = 'http://testserver/resorts/{}/'.format(resort_response.json()['id'])
@@ -291,7 +294,7 @@ class ReportViewTestCase(TestCase):
         cls.rando_token = Token.objects.get(user__username='test2')
 
         # Create report, run, and resort objects
-        cls.resort_data = {'name': 'Beaver Creek', 'location': 'CO', 'report_url': 'foo'}
+        cls.resort_data = {'name': 'Beaver Creek TEST', 'location': 'CO', 'report_url': 'foo'}
         resort_response = cls.client.post('/resorts/', cls.resort_data, format='json')
         assert resort_response.status_code == 201
         cls.resort_url = 'http://testserver/resorts/{}/'.format(resort_response.json()['id'])
@@ -620,7 +623,7 @@ class BMReportViewTestCase(TestCase):
         cls.rando_token = Token.objects.get(user__username='test2')
 
         # Create report, resort, run objects
-        cls.resort_data = {'name': 'Beaver Creek', 'location': 'CO', 'report_url': 'foo'}
+        cls.resort_data = {'name': 'Beaver Creek TEST', 'location': 'CO', 'report_url': 'foo'}
         resort_response = cls.client.post('/resorts/', cls.resort_data, format='json')
         assert resort_response.status_code == 201
         cls.resort_url = 'http://testserver/resorts/{}/'.format(resort_response.json()['id'])
@@ -913,7 +916,7 @@ class BMGUserViewTestCase(TestCase):
         # Create report, resort, run objects
         cls.client = APIClient()
         cls.client.credentials(HTTP_AUTHORIZATION='Token ' + cls.token.key)
-        cls.resort_data = {'name': 'Beaver Creek', 'location': 'CO', 'report_url': 'foo'}
+        cls.resort_data = {'name': 'Beaver Creek TEST', 'location': 'CO', 'report_url': 'foo'}
         resort_response = cls.client.post('/resorts/', cls.resort_data, format='json')
         assert resort_response.status_code == 201
         cls.resort_url = 'http://testserver/resorts/{}/'.format(resort_response.json()['id'])
@@ -1049,12 +1052,12 @@ class NotifyUsersTestCase(TestCase):
         cls.client.credentials(HTTP_AUTHORIZATION='Token ' + cls.token.key)
 
         # Create report, resort, run objects
-        cls.resort_data = {'name': 'Beaver Creek', 'location': 'CO', 'report_url': 'foo'}
+        cls.resort_data = {'name': 'Beaver Creek TEST', 'location': 'CO', 'report_url': 'foo'}
         resort_response = cls.client.post('/resorts/', cls.resort_data, format='json')
         assert resort_response.status_code == 201
         cls.resort_url = 'http://testserver/resorts/{}/'.format(resort_response.json()['id'])
 
-        cls.resort_data2 = {'name': 'Vail', 'location': 'CO', 'report_url': 'foo'}
+        cls.resort_data2 = {'name': 'Vail TEST', 'location': 'CO', 'report_url': 'foo'}
         resort_response2 = cls.client.post('/resorts/', cls.resort_data2, format='json')
         assert resort_response2.status_code == 201
         cls.resort_url2 = 'http://testserver/resorts/{}/'.format(resort_response2.json()['id'])
@@ -1200,9 +1203,9 @@ class NotificationViewTestCase(TestCase):
         cls.rando_token = Token.objects.get(user__username='user1')
 
         # Create report, resort, etc
-        cls.resort = Resort.objects.create(name='BC', location='CO', report_url='foo')
+        cls.resort = Resort.objects.create(name='BC TEST', location='CO', report_url='foo')
         cls.report = Report.objects.create(date=dt.datetime(2020, 1, 1).date(), resort=cls.resort)
-        cls.resort2 = Resort.objects.create(name='Vail', location='CO', report_url='foo')
+        cls.resort2 = Resort.objects.create(name='Vail TEST', location='CO', report_url='foo')
         cls.report2 = Report.objects.create(date=dt.datetime(2020, 1, 2).date(), resort=cls.resort2)
         cls.report3 = Report.objects.create(date=dt.datetime(2020, 1, 3).date(), resort=cls.resort2)
 
@@ -1240,7 +1243,7 @@ class NotificationViewTestCase(TestCase):
 
         # Create notification, test query params work for resort
         Notification.objects.create(bm_user=self.user.bmg_user, bm_report=self.report3.bm_report)
-        query_response = client.get('/notifications/?resort=Vail').json()
+        query_response = client.get('/notifications/?resort=Vail%20TEST').json()
         self.assertEqual(len(query_response), 1)
         self.assertEqual(query_response[0]['bm_user'], 'http://testserver/bmgusers/1/')
         self.assertEqual(query_response[0]['bm_report'], 'http://testserver/bmreports/3/')
@@ -1343,7 +1346,7 @@ class FetchCreateReportTestCase(TestCase):
         cls.token = Token.objects.get(user__username='test')
 
         # Create report, resort, etc
-        cls.resort = Resort.objects.create(name='BC', location='CO', report_url='foo')
+        cls.resort = Resort.objects.create(name='BC TEST', location='CO', report_url='foo')
         cls.report = Report.objects.create(date=dt.datetime(2020, 1, 1).date(), resort=cls.resort)
         cls.run1 = Run.objects.create(name='Ripsaw', resort=cls.resort)
         cls.run2 = Run.objects.create(name='Centennial', resort=cls.resort)

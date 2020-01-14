@@ -8,20 +8,20 @@ from reports.models import *
 class ResortTestCase(TestCase):
     @classmethod
     def setUpTestData(cls):
-        cls.resort = Resort.objects.create(name='Beaver Creek', report_url='reports/tests/test_files/dec23.pdf',
+        cls.resort = Resort.objects.create(name='Beaver Creek TEST', report_url='reports/tests/test_files/dec23.pdf',
                                            location='Avon, CO')
 
     def test_str(self) -> None:
         """
         Test __str__ method of model works correctly
         """
-        self.assertEqual(str(self.resort), 'Beaver Creek')
+        self.assertEqual(str(self.resort), 'Beaver Creek TEST')
 
 
 class ReportTestCase(TestCase):
     @classmethod
     def setUpTestData(cls):
-        cls.resort = Resort.objects.create(name='Beaver Creek', report_url='reports/tests/test_files/dec23.pdf',
+        cls.resort = Resort.objects.create(name='Beaver Creek TEST', report_url='reports/tests/test_files/dec23.pdf',
                                            location='Avon, CO')
         cls.report = Report.objects.create(date=dt.datetime.strptime('2019-01-09', '%Y-%m-%d'),
                                            resort=cls.resort)
@@ -30,14 +30,14 @@ class ReportTestCase(TestCase):
         """
         Test __str__ method of model works correctly
         """
-        self.assertEqual(str(self.report), 'Beaver Creek: 2019-01-09')
+        self.assertEqual(str(self.report), 'Beaver Creek TEST: 2019-01-09')
 
     def test_bmreport_update(self) -> None:
         """
         test bmreport object changes accordingly as report object updates
         """
         self.report.date = dt.datetime(2020, 1, 10)
-        self.report.resort = Resort.objects.create(name='Vail', report_url='foo', location='Vail')
+        self.report.resort = Resort.objects.create(name='Vail TEST', report_url='foo', location='Vail')
         self.report.save()
 
         bm_report = self.report.bm_report
@@ -53,7 +53,7 @@ class ReportTestCase(TestCase):
 class BMReportTestCase(TestCase):
     @classmethod
     def setUpTestData(cls):
-        cls.resort = Resort.objects.create(name='Beaver Creek', report_url='reports/tests/test_files/dec23.pdf',
+        cls.resort = Resort.objects.create(name='Beaver Creek TEST', report_url='reports/tests/test_files/dec23.pdf',
                                            location='Avon, CO')
         report = Report.objects.create(date=dt.datetime.strptime('2019-01-09', '%Y-%m-%d'),
                                              resort=cls.resort)
@@ -68,13 +68,13 @@ class BMReportTestCase(TestCase):
         """
         Test __str__ method of model works correctly
         """
-        self.assertEqual(str(self.bmreport), 'Beaver Creek: 2019-01-09')
+        self.assertEqual(str(self.bmreport), 'Beaver Creek TEST: 2019-01-09')
 
 
 class RunTestCase(TestCase):
     @classmethod
     def setUpTestData(cls):
-        cls.resort = Resort.objects.create(name='Beaver Creek', report_url='reports/tests/test_files/dec23.pdf',
+        cls.resort = Resort.objects.create(name='Beaver Creek TEST', report_url='reports/tests/test_files/dec23.pdf',
                                            location='Avon, CO')
         cls.report = Report.objects.create(date=dt.datetime.strptime('2019-01-09', '%Y-%m-%d'),
                                            resort=cls.resort)
@@ -107,7 +107,7 @@ class NotificationTestCase(TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.user = User.objects.create(username='foo')
-        cls.resort = Resort.objects.create(name='Vail', report_url='foo', location='Vail')
+        cls.resort = Resort.objects.create(name='Vail TEST', report_url='foo', location='Vail')
         cls.report = Report.objects.create(date=dt.datetime(2019, 1, 2).date(), resort=cls.resort)
         cls.notif = Notification.objects.create(bm_report=cls.report.bm_report, bm_user=cls.user.bmg_user)
 
@@ -119,8 +119,8 @@ class SNSTopicSubscriptionTestCase(TestCase):
     @classmethod
     def setUpTestData(cls):
         # Create 2 resorts
-        cls.resort = Resort.objects.create(name='Vail', report_url='foo', location='Vail')
-        cls.resort2 = Resort.objects.create(name='BC', report_url='foo', location='Avon')
+        cls.resort = Resort.objects.create(name='Vail TEST', report_url='foo', location='Vail')
+        cls.resort2 = Resort.objects.create(name='BC TEST', report_url='foo', location='Avon')
 
         # Create 2 users
         cls.user = User.objects.create(username='foo', email='foo@gmail.com')

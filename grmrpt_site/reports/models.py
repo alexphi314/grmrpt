@@ -5,7 +5,7 @@ import os
 
 from django.db import models
 from django.contrib.auth.models import User
-from django.db.models.signals import post_save, m2m_changed, pre_delete
+from django.db.models.signals import post_save, m2m_changed, post_delete
 from django.dispatch import receiver
 from rest_framework.authtoken.models import Token
 import boto3
@@ -51,7 +51,7 @@ def create_sns_topic(instance: Resort, created: bool, **kwargs) -> None:
         instance.save()
 
 
-@receiver(pre_delete, sender=Resort)
+@receiver(post_delete, sender=Resort)
 def remove_sns_topic(instance: Resort, **kwargs) -> None:
     """
     Upon resort object deletion, delete the sns topic
@@ -233,21 +233,23 @@ def subscribe_user_to_topic(instance: BMGUser, client: boto3.client) -> List[str
     :return: list of subscription arns
     """
     if instance.contact_method == 'PH':
-        protocol = 'sms'
-        endpoint = instance.phone
+        protl = 'sms'
+        endpt = instance.phone
     else:
-        protocol = 'email'
-        endpoint = instance.user.email
+        protl = 'email'
+        endpt = instance.user.email
 
     sub_arns = []
-    for resort in instance.resorts.all():
-        response = client.subscribe(
-            TopicArn='{}'.format(resort.sns_arn),
-            Protocol=protocol,
-            Endpoint=endpoint
+    if endpt != '':
+        for resort in instance.resorts.all():
             # Include attributes here to create filter policy
-        )
-        sub_arns.append(response['SubscriptionArn'])
+            response = client.subscribe(
+                TopicArn=resort.sns_arn,
+                Protocol=protl,
+                ReturnSubscriptionArn=True,
+                Endpoint=endpt,
+            )
+            sub_arns.append(response['SubscriptionArn'])
 
     return sub_arns
 
