@@ -1,12 +1,14 @@
 import datetime as dt
-from typing import List, Union
+from typing import List, Union, Set
 import logging
+import os
 
 from django.db import models
 from django.contrib.auth.models import User
-from django.db.models.signals import post_save, m2m_changed
+from django.db.models.signals import post_save, m2m_changed, pre_delete
 from django.dispatch import receiver
 from rest_framework.authtoken.models import Token
+import boto3
 
 
 class Resort(models.Model):
@@ -16,9 +18,49 @@ class Resort(models.Model):
     name = models.CharField("Name of the resort", max_length=1000)
     location = models.CharField("Location of the resort", max_length=1000, blank=True, null=True)
     report_url = models.CharField("URL to grooming report", max_length=2000, blank=True, null=True)
+    sns_arn = models.CharField("AWS SNS Topic identifier", max_length=1000, blank=True, null=True)
 
     def __str__(self) -> str:
         return self.name
+
+
+@receiver(post_save, sender=Resort)
+def create_sns_topic(instance: Resort, created: bool, **kwargs) -> None:
+    """
+    Create a SNS topic corresponding to this resort when the resort is first created.
+
+    :param instance: Resort object being created
+    :param created: True if the object is first created
+    """
+    if created:
+        client = boto3.client('sns', region_name='us-west-2', aws_access_key_id=os.getenv('ACCESS_ID'),
+                              aws_secret_access_key=os.getenv('SECRET_ACCESS_KEY'))
+        response = client.create_topic(
+            Name='{}_bmgrm_rpt'.format(instance.name.lower().replace(' ', '_')),
+            Attributes={
+                'DisplayName': '{} BMGRM:'.format(instance.name)
+            },
+            Tags=[
+                {
+                    'Key': 'resort',
+                    'Value': '{}'.format(instance.name)
+                },
+            ]
+        )
+        instance.sns_arn = response['TopicArn']
+        instance.save()
+
+
+@receiver(pre_delete, sender=Resort)
+def remove_sns_topic(instance: Resort, **kwargs) -> None:
+    """
+    Upon resort object deletion, delete the sns topic
+
+    :param instance: Resort object being deleted
+    """
+    client = boto3.client('sns', region_name='us-west-2', aws_access_key_id=os.getenv('ACCESS_ID'),
+                          aws_secret_access_key=os.getenv('SECRET_ACCESS_KEY'))
+    client.delete_topic(TopicArn=instance.sns_arn)
 
 
 class Report(models.Model):
@@ -142,6 +184,7 @@ class BMGUser(models.Model):
     favorite_runs = models.ManyToManyField(Run, related_name='users_favorited')
     phone = models.CharField("User Phone number", blank=True, null=True, max_length=15)
     resorts = models.ManyToManyField(Resort, related_name='bmg_users')
+    sub_arn = models.CharField("AWS SNS Subscription arns", max_length=1000, blank=True, null=True)
 
     PHONE = 'PH'
     EMAIL = 'EM'
@@ -179,6 +222,100 @@ def create_user_token(instance: User, created: bool, **kwargs) -> None:
     """
     if created:
         Token.objects.create(user=instance)
+
+
+def subscribe_user_to_topic(instance: BMGUser, client: boto3.client) -> List[str]:
+    """
+    Subscribe a BMGUser to a topic
+
+    :param instance: BMGUser instance
+    :param client: boto3 sns client
+    :return: list of subscription arns
+    """
+    if instance.contact_method == 'PH':
+        protocol = 'sms'
+        endpoint = instance.phone
+    else:
+        protocol = 'email'
+        endpoint = instance.user.email
+
+    sub_arns = []
+    for resort in instance.resorts.all():
+        response = client.subscribe(
+            TopicArn='{}'.format(resort.sns_arn),
+            Protocol=protocol,
+            Endpoint=endpoint
+            # Include attributes here to create filter policy
+        )
+        sub_arns.append(response['SubscriptionArn'])
+
+    return sub_arns
+
+
+def unsubscribe_user_to_topic(instance: BMGUser, client: boto3.client, resort: Resort) -> List[str]:
+    """
+    Unsubscribe a BMGUser to a topic
+
+    :param instance: BMGUser instance
+    :param client: boto3 sns client
+    :param resort: resort instance that is being unsubscribed from
+    :return: list of subscription arns with arn for removed resort removed
+    """
+    # Loop through subscription arns for user and delete the one that corresponds to this resort
+    sub_arns = instance.sub_arn.split('!')
+    for sub_arn in sub_arns:
+        response = client.get_subscription_attributes(SubscriptionArn=sub_arn)
+        if response['Attributes']['TopicArn'] == resort.sns_arn:
+            sub_arns.remove(sub_arn)
+
+    return sub_arns
+
+
+@receiver(m2m_changed, sender=BMGUser.resorts.through)
+def subscribe_sns_topic(instance: Union[BMGUser, Resort], action: str, reverse: bool, pk_set: Set[int],
+                        **kwargs) -> None:
+    """
+    Subscribe or unsubscribe the user to the relevant resort SNS topic, if resort added to their obj
+
+    :param instance: BMGUser or Resort object being updated
+    :param action: type of update on relation
+    :param reverse: True if BMGUser is being modified directly; false if Resort object is being modified
+    """
+    # Instance -> BMGUser
+    client = boto3.client('sns', region_name='us-west-2', aws_access_key_id=os.getenv('ACCESS_ID'),
+                          aws_secret_access_key=os.getenv('SECRET_ACCESS_KEY'))
+    if action == 'post_add' and reverse:
+
+        sub_arns = subscribe_user_to_topic(instance, client)
+        instance.sub_arn = '!'.join(sub_arns)
+
+    # Instance -> BMGUser
+    elif action == 'pre_remove' and reverse:
+        for id in pk_set:
+            resort = Resort.objects.get(pk=id)
+            sub_arns = unsubscribe_user_to_topic(instance, client, resort)
+
+            instance.sub_arn = '!'.join(sub_arns)
+            instance.save()
+
+    # Instance -> Resort
+    elif action == 'pre_add' and not reverse:
+        users = BMGUser.objects.filter(pk__in=pk_set)
+
+        for user in users:
+            sub_arns = subscribe_user_to_topic(user, client)
+            user.sub_arn = '!'.join(sub_arns)
+            user.save()
+
+    # Instance -> Resort
+    elif action == 'pre_remove' and not reverse:
+        users = BMGUser.objects.filter(pk__in=pk_set)
+
+        for user in users:
+            sub_arns = unsubscribe_user_to_topic(user, client, instance)
+
+            user.sub_arn = '!'.join(sub_arns)
+            user.save()
 
 
 class Notification(models.Model):

@@ -113,3 +113,16 @@ class NotificationTestCase(TestCase):
 
     def test_str(self) -> None:
         self.assertEqual(str(self.notif), 'foo: 2019-01-02')
+
+
+class SNSTopicSubscriptionTestCase(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        # Create 2 resorts
+        cls.resort = Resort.objects.create(name='Vail', report_url='foo', location='Vail')
+        cls.resort2 = Resort.objects.create(name='BC', report_url='foo', location='Avon')
+
+        # Create 2 users
+        cls.user = User.objects.create(username='foo', email='foo@gmail.com')
+        cls.user.bmg_user.contact_method = 'EM'
+

@@ -6,9 +6,11 @@ class ResortSerializer(serializers.ModelSerializer):
     """
     Serializer for resort model
     """
+    sns_arn = serializers.CharField(read_only=True)
+
     class Meta:
         model = Resort
-        fields = ['name', 'location', 'report_url', 'id']
+        fields = ['name', 'location', 'report_url', 'id', 'sns_arn']
 
 
 class RunSerializer(serializers.ModelSerializer):
@@ -77,10 +79,11 @@ class BMGUserSerializer(serializers.ModelSerializer):
                                                         queryset=Run.objects.all())
     resorts = serializers.HyperlinkedRelatedField(many=True, view_name='resort-detail',
                                                   queryset=Resort.objects.all())
+    sub_arn = serializers.CharField(read_only=True)
 
     class Meta:
         model = BMGUser
-        fields = ['id', 'phone', 'user', 'favorite_runs', 'resorts', 'contact_method']
+        fields = ['id', 'phone', 'user', 'favorite_runs', 'resorts', 'contact_method', 'sub_arn']
 
 
 class NotificationSerializer(serializers.ModelSerializer):
