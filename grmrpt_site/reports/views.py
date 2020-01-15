@@ -222,10 +222,10 @@ class NotificationList(generics.ListCreateAPIView):
         if date is not None:
             queryset = queryset.filter(bm_report__date=dt.datetime.strptime(date, '%Y-%m-%d').date())
 
-        # If given, filter by username
-        user = self.request.query_params.get('user', None)
-        if user is not None:
-            queryset = queryset.filter(bm_user__user__username=user)
+        # If given, filter by bm_report pk
+        bm_pk = self.request.query_params.get('bm_pk', None)
+        if bm_pk is not None:
+            queryset = queryset.filter(bm_report__pk=bm_pk)
 
         return queryset
 

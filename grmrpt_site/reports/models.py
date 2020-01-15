@@ -329,7 +329,7 @@ class Notification(models.Model):
     """
     Model a notification sent about a report
     """
-    bm_report = models.ForeignKey(BMReport, related_name='notifications', on_delete=models.CASCADE)
+    bm_report = models.OneToOneField(BMReport, related_name='notification', on_delete=models.CASCADE)
     sent = models.DateTimeField("Time when the notification was sent", auto_now_add=True)
 
     def __str__(self) -> str:

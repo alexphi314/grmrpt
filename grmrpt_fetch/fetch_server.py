@@ -183,21 +183,15 @@ def create_report(date: dt.datetime, groomed_runs: List[str], resort_id: int,
             raise APIError('Failed to update report object:\n{}'.format(update_report_response.text))
 
 
-def get_users_to_notify(get_api_wrapper, api_url) -> List[List[str]]:
+def get_resorts_to_notify(get_api_wrapper, api_url) -> List[str]:
     """
-    Query the API to find the list of users who need to be notified about a new BM report.
+    Query the API to find the list of resorts that need to be notified about a new BM report.
 
     :param get_api_wrapper: lambda function that takes relative url for GET request and returns request in JSON
     :param api_url: api url location
-    :return: list of user urls who need to be notified with the current report
+    :return: list of bm_report urls to notify for
     """
-    # Get list of BMGUsers from api
-    bmg_users = get_api_wrapper('bmgusers/')
-    bmg_users = [bmg_user for bmg_user in bmg_users if 'service' not in bmg_user['user']['username']]
-
-    # Get current report date for each resort
-    report_dates = {}
-    most_recent_reports = {}
+    contact_list = []
     resorts = get_api_wrapper('resorts/')
     for resort in resorts:
         reports = get_api_wrapper('reports/?resort={}'.format(resort['name'].replace(' ', '%20')))
@@ -205,66 +199,80 @@ def get_users_to_notify(get_api_wrapper, api_url) -> List[List[str]]:
         reports = [report for report in reports if len(report['runs']) > 0]
         report_dates_list = [dt.datetime.strptime(report['date'], '%Y-%m-%d').date() for report in
                                             reports]
-        report_dates[resort['name']] = max(report_dates_list)
+        max_report_date = max(report_dates_list)
         # Store the url to the most recent bmreport for each resort
-        most_recent_reports[resort['name']] = '{}/bmreports/{}/'.format(
-            api_url, reports[report_dates_list.index(max(report_dates_list))]['id']
+        most_recent_report_id = reports[report_dates_list.index(max(report_dates_list))]['id']
+        most_recent_report = '{}/bmreports/{}/'.format(
+            api_url, most_recent_report_id
         )
 
-    # Loop through users
-    contact_list = []
-    for user in bmg_users:
-        for resort in user['resorts']:
-            resort_data = get_api_wrapper(resort.replace(api_url, ''))
-            max_resort_report = report_dates[resort_data['name']]
+        # Check if notification sent for this report
+        notification_response = get_api_wrapper('notifications/?bm_pk={}'.format(
+            most_recent_report_id
+        ))
 
-            # Check if notification sent for this report
-            notification_response = get_api_wrapper('notifications/?user={}&resort={}&report_date={}'.format(
-                user['user']['username'],
-                resort_data['name'].replace(' ', '%20'),
-                max_resort_report.strftime('%Y-%m-%d')
-            ))
-
-            if len(notification_response) == 0:
-                # No notification posted for this report
-                contact_list.append(['{}/bmgusers/{}/'.format(api_url, user['id']),
-                                     most_recent_reports[resort_data['name']]])
-            else:
-                assert len(notification_response) == 1
+        if len(notification_response) == 0:
+            # No notification posted for this report
+            contact_list.append(most_recent_report)
+        else:
+            assert len(notification_response) == 1
 
     return contact_list
 
 
-def post_messages(contact_list: List[List[str]]) -> None:
+def post_messages(contact_list: List[str], headers: Dict[str, str]) -> None:
     """
     Post the input messages to the SQS queue
 
-    :param contact_list: list of [user, report] to notify
+    :param contact_list: list of bm_report urls to notify
+    :param headers: http request headers for authentication
     """
-    sqs = boto3.client('sqs', region_name='us-west-2', aws_access_key_id=os.getenv('ACCESS_ID'),
+    sns = boto3.client('sns', region_name='us-west-2', aws_access_key_id=os.getenv('ACCESS_ID'),
                        aws_secret_access_key=os.getenv('SECRET_ACCESS_KEY'))
 
-    # Post to SQS Queue
-    for user, report in contact_list:
-        QUEUE_URL = os.getenv('NOTIFY_WORKER_QUEUE_URL')
-        message_attrs = {
-            'user': {
-                'DataType': 'String',
-                'StringValue': user
-            },
-            'report': {
-                'DataType': 'String',
-                'StringValue': report
-            }
-        }
-        body = 'Send notification to user {}'.format(user)
-        response = sqs.send_message(
-            QueueUrl=QUEUE_URL,
-            DelaySeconds=10,
-            MessageAttributes=message_attrs,
-            MessageBody=body
+    # Post to SNS topic
+    for report in contact_list:
+        report_data = requests.get(report, headers=headers).json()
+        report_date = dt.datetime.strptime(report_data['date'], '%Y-%m-%d')
+        resort_data = requests.get(report_data['resort'], headers=headers).json()
+
+        run_names = [requests.get(run, headers=headers).json()['name'] for run in report_data['runs']]
+        email_subj = '{} {} Blue Moon Grooming Report'.format(
+            report_data['date'],
+            resort_data['name'],
         )
-        logger.info('Posted message {} to SQS user notification queue'.format(response['MessageId']))
+        phone_msg = '{}\n' \
+                    '  * {}\n\n' \
+                    'Full report: {}'.format(
+                        email_subj,
+                        '\n  * '.join(run_names),
+                        resort_data['report_url']
+                    )
+        email_msg = 'Good morning!\n\n'\
+                    'Today\'s Blue Moon Grooming Report for {} contains:\n'\
+                    '  * {}\n\n'\
+                    'Full report: {}'.format(
+                        resort_data['name'],
+                        '\n  * '.join(run_names),
+                        resort_data['report_url']
+                    )
+
+        sns.publish(
+            TopicArn=resort_data['sns_arn'],
+            MessageStructure='json',
+            Message={
+                'email': email_msg,
+                'sms': phone_msg,
+                'default': email_msg
+            },
+            Subject=email_subj,
+            MessageAttributes={
+                'day_of_week': {
+                    'Type': 'String',
+                    'Value': report_date.strftime('%a')
+                }
+            }
+        )
 
 
 def application(environ, start_response):
@@ -305,8 +313,8 @@ def application(environ, start_response):
                 logger.info("Received task %s scheduled at %s", environ['HTTP_X_AWS_SQSD_TASKNAME'],
                             environ['HTTP_X_AWS_SQSD_SCHEDULED_AT'])
 
-                resort_user_list = get_users_to_notify(get_api_wrapper, API_URL)
-                post_messages(resort_user_list)
+                resort_list = get_resorts_to_notify(get_api_wrapper, API_URL)
+                post_messages(resort_list)
 
                 response = 'Successfully checked for notification events'
 
