@@ -202,19 +202,18 @@ def get_resorts_to_notify(get_api_wrapper, api_url) -> List[str]:
                                             reports]
         max_report_date = max(report_dates_list)
         # Store the url to the most recent bmreport for each resort
-        most_recent_report_id = reports[report_dates_list.index(max(report_dates_list))]['id']
-        most_recent_report = '{}/bmreports/{}/'.format(
-            api_url, most_recent_report_id
-        )
+        most_recent_report = reports[report_dates_list.index(max(report_dates_list))]
+        most_recent_report_url = most_recent_report['bm_report']
+        bm_report_data = get_api_wrapper(most_recent_report_url.replace('{}/'.format(api_url), ''))
 
         # Check if notification sent for this report
         notification_response = get_api_wrapper('notifications/?bm_pk={}'.format(
-            most_recent_report_id
+            bm_report_data['id']
         ))
 
         if len(notification_response) == 0:
             # No notification posted for this report
-            contact_list.append(most_recent_report)
+            contact_list.append(most_recent_report_url)
         else:
             assert len(notification_response) == 1
 
@@ -327,7 +326,8 @@ def application(environ, start_response):
                             environ['HTTP_X_AWS_SQSD_SCHEDULED_AT'])
 
                 resort_list = get_resorts_to_notify(get_api_wrapper, API_URL)
-                post_messages(resort_list)
+                post_messages(resort_list, headers={'Authorization': 'Token {}'.format(TOKEN)},
+                              api_url=API_URL)
 
                 response = 'Successfully checked for notification events'
 
