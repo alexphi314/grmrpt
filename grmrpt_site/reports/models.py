@@ -263,12 +263,17 @@ def unsubscribe_user_to_topic(instance: BMGUser, client: boto3.client, resort: R
     :param resort: resort instance that is being unsubscribed from
     :return: list of subscription arns with arn for removed resort removed
     """
+    logger = logging.getLogger(__name__)
     # Loop through subscription arns for user and delete the one that corresponds to this resort
     sub_arns = instance.sub_arn.split('!')
     for sub_arn in sub_arns:
         response = client.get_subscription_attributes(SubscriptionArn=sub_arn)
         if response['Attributes']['TopicArn'] == resort.sns_arn:
             sub_arns.remove(sub_arn)
+            try:
+                client.unsubscribe(SubscriptionArn=sub_arn)
+            except Exception as e:
+                logger.warning('Unable to unsubscribe user:\n {}'.format(e))
 
     return sub_arns
 
@@ -286,13 +291,13 @@ def subscribe_sns_topic(instance: Union[BMGUser, Resort], action: str, reverse: 
     # Instance -> BMGUser
     client = boto3.client('sns', region_name='us-west-2', aws_access_key_id=os.getenv('ACCESS_ID'),
                           aws_secret_access_key=os.getenv('SECRET_ACCESS_KEY'))
-    if action == 'post_add' and reverse:
+    if action == 'post_add' and not reverse:
 
         sub_arns = subscribe_user_to_topic(instance, client)
         instance.sub_arn = '!'.join(sub_arns)
 
     # Instance -> BMGUser
-    elif action == 'pre_remove' and reverse:
+    elif action == 'pre_remove' and not reverse:
         for id in pk_set:
             resort = Resort.objects.get(pk=id)
             sub_arns = unsubscribe_user_to_topic(instance, client, resort)
@@ -301,16 +306,16 @@ def subscribe_sns_topic(instance: Union[BMGUser, Resort], action: str, reverse: 
             instance.save()
 
     # Instance -> Resort
-    elif action == 'pre_add' and not reverse:
-        users = BMGUser.objects.filter(pk__in=pk_set)
+    elif action == 'post_add' and reverse:
 
-        for user in users:
-            sub_arns = subscribe_user_to_topic(user, client)
-            user.sub_arn = '!'.join(sub_arns)
-            user.save()
+        for indx, user in enumerate(instance.bmg_users.all()):
+            if user.pk in pk_set:
+                sub_arns = subscribe_user_to_topic(user, client)
+                user.sub_arn = '!'.join(sub_arns)
+                user.save()
 
     # Instance -> Resort
-    elif action == 'pre_remove' and not reverse:
+    elif action == 'pre_remove' and reverse:
         users = BMGUser.objects.filter(pk__in=pk_set)
 
         for user in users:

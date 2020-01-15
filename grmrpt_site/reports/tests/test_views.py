@@ -135,6 +135,12 @@ class ResortViewTestCase(TestCase):
         self.assertEqual(response.status_code, 204)
         self.assertEqual(client.get('/resorts/{}/'.format(id)).status_code, 404)
 
+    @classmethod
+    def tearDownClass(cls):
+        # Delete the created resort objects to clean up created SNS topics
+        Resort.objects.all().delete()
+        super().tearDownClass()
+
 
 class RunViewTestCase(TestCase):
     @classmethod
@@ -275,6 +281,12 @@ class RunViewTestCase(TestCase):
         self.assertEqual(run_response.status_code, 204)
 
         self.assertEqual(client.get('/runs/{}/'.format(id)).status_code, 404)
+
+    @classmethod
+    def tearDownClass(cls):
+        # Delete the created resort objects to clean up created SNS topics
+        Resort.objects.all().delete()
+        super().tearDownClass()
 
 
 class ReportViewTestCase(TestCase):
@@ -607,6 +619,12 @@ class ReportViewTestCase(TestCase):
 
         self.assertEqual(client.get('/reports/{}/'.format(id)).status_code, 404)
 
+    @classmethod
+    def tearDownClass(cls):
+        # Delete the created resort objects to clean up created SNS topics
+        Resort.objects.all().delete()
+        super().tearDownClass()
+
 
 class BMReportViewTestCase(TestCase):
     @classmethod
@@ -754,6 +772,12 @@ class BMReportViewTestCase(TestCase):
         bmreport_response = bmreport_response.json()
         self.assertEqual(len(bmreport_response), 0)
 
+    @classmethod
+    def tearDownClass(cls):
+        # Delete the created resort objects to clean up created SNS topics
+        Resort.objects.all().delete()
+        super().tearDownClass()
+
 
 class UserViewTestCase(TestCase):
     @classmethod
@@ -900,6 +924,12 @@ class UserViewTestCase(TestCase):
         self.assertEqual(response.status_code, 204)
         self.assertEqual(client.get(user_url).status_code, 404)
 
+    @classmethod
+    def tearDownClass(cls):
+        # Delete the created resort objects to clean up created SNS topics
+        Resort.objects.all().delete()
+        super().tearDownClass()
+
 
 class BMGUserViewTestCase(TestCase):
     @classmethod
@@ -987,6 +1017,7 @@ class BMGUserViewTestCase(TestCase):
 
 
         # Add fields
+        response.pop('sub_arn')
         response['phone'] = '1800-290-7856'
         response['favorite_runs'] = [self.run1_url]
         response['resorts'] = [self.resort_url]
@@ -1006,7 +1037,9 @@ class BMGUserViewTestCase(TestCase):
         put_response = client.put('/bmgusers/3/', data=json.dumps(response), content_type='application/json')
         self.assertEqual(put_response.status_code, 200)
 
-        self.assertDictEqual(response, put_response.json())
+        put_response = put_response.json()
+        put_response.pop('sub_arn')
+        self.assertDictEqual(response, put_response)
         client.delete('/users/3/')
 
     def test_delete(self) -> None:
@@ -1031,6 +1064,12 @@ class BMGUserViewTestCase(TestCase):
         self.assertEqual(resp.status_code, 204)
         self.assertEqual(client.get('/bmgusers/3/').status_code, 404)
         self.assertEqual(len(client.get('/bmgusers/').json()), 2)
+
+    @classmethod
+    def tearDownClass(cls):
+        # Delete the created resort objects to clean up created SNS topics
+        Resort.objects.all().delete()
+        super().tearDownClass()
 
 
 class NotifyUsersTestCase(TestCase):
@@ -1189,6 +1228,12 @@ class NotifyUsersTestCase(TestCase):
             [rando4_url, self.resort2_report_url]
         ]))
 
+    @classmethod
+    def tearDownClass(cls):
+        # Delete the created resort objects to clean up created SNS topics
+        Resort.objects.all().delete()
+        super().tearDownClass()
+
 
 class NotificationViewTestCase(TestCase):
     @classmethod
@@ -1335,6 +1380,12 @@ class NotificationViewTestCase(TestCase):
         self.assertEqual(client.get('/notifications/2/').status_code, 404)
         self.assertEqual(len(client.get('/notifications/').json()), 1)
 
+    @classmethod
+    def tearDownClass(cls):
+        # Delete the created resort objects to clean up created SNS topics
+        Resort.objects.all().delete()
+        super().tearDownClass()
+
 
 class FetchCreateReportTestCase(TestCase):
     @classmethod
@@ -1372,3 +1423,9 @@ class FetchCreateReportTestCase(TestCase):
         create_report(date, ['Ripsaw', 'Larkspur'], 1, 'http://testserver', self.token.key, client, get_api)
 
         self.assertListEqual([self.run1, self.run3], list(self.report.runs.all()))
+
+    @classmethod
+    def tearDownClass(cls):
+        # Delete the created resort objects to clean up created SNS topics
+        Resort.objects.all().delete()
+        super().tearDownClass()
