@@ -1242,9 +1242,9 @@ class NotificationViewTestCase(TestCase):
         response = client.get('/bmreports/1/').json()
         self.assertEqual(response['notification'], 'http://testserver/notifications/1/')
 
-
         # Create notification
-        Notification.objects.create(bm_report=self.report.bm_report)
+        rpt = Report.objects.create(date=dt.datetime(2020, 1, 5).date(), resort=self.resort)
+        Notification.objects.create(bm_report=rpt.bm_report)
 
         # Create notification, test query params work for resort
         Notification.objects.create(bm_report=self.report3.bm_report)
@@ -1278,8 +1278,9 @@ class NotificationViewTestCase(TestCase):
 
         # Check post works for staff
         client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
+        rpt = Report.objects.create(date=dt.datetime(2020, 1, 6).date(), resort=self.resort2)
         post_data = {
-            'bm_report': 'http://testserver/bmreports/1/',
+            'bm_report': 'http://testserver/bmreports/{}/'.format(rpt.id),
         }
         response = client.post('/notifications/', post_data, format='json')
         self.assertEqual(response.status_code, 201)
@@ -1326,7 +1327,8 @@ class NotificationViewTestCase(TestCase):
         client = APIClient()
 
         # Create notification
-        Notification.objects.create(bm_report=self.report.bm_report)
+        report4 = Report.objects.create(date=dt.datetime(2020, 1, 4).date(), resort=self.resort2)
+        Notification.objects.create(bm_report=report4.bm_report)
 
         # Check delete fails for anon or rando
         self.assertEqual(client.delete('/notifications/2/').status_code, 401)

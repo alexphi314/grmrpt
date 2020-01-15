@@ -36,7 +36,9 @@ def create_sns_topic(instance: Resort, created: bool, **kwargs) -> None:
         client = boto3.client('sns', region_name='us-west-2', aws_access_key_id=os.getenv('ACCESS_ID'),
                               aws_secret_access_key=os.getenv('SECRET_ACCESS_KEY'))
         response = client.create_topic(
-            Name='{}_bmgrm_rpt'.format(instance.name.lower().replace(' ', '_')),
+            Name='{}_{}_bmgrm'.format(os.getenv('ENVIRON_TYPE', ''),
+                                          instance.name.lower().replace(' ', '_')
+                                          ),
             Attributes={
                 'DisplayName': '{} BMGRM:'.format(instance.name)
             },
