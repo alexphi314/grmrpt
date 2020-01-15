@@ -40,7 +40,7 @@ def create_sns_topic(instance: Resort, created: bool, **kwargs) -> None:
                                           instance.name.lower().replace(' ', '_')
                                           ),
             Attributes={
-                'DisplayName': '{} BMGRM:'.format(instance.name)
+                'DisplayName': '{} Blue Moon Grooming Report:'.format(instance.name)
             },
             Tags=[
                 {
@@ -267,7 +267,11 @@ def unsubscribe_user_to_topic(instance: BMGUser, client: boto3.client, resort: R
     """
     logger = logging.getLogger(__name__)
     # Loop through subscription arns for user and delete the one that corresponds to this resort
-    sub_arns = instance.sub_arn.split('!')
+    try:
+        sub_arns = instance.sub_arn.split('!')
+    except AttributeError:
+        sub_arns = ''
+
     for sub_arn in sub_arns:
         response = client.get_subscription_attributes(SubscriptionArn=sub_arn)
         if response['Attributes']['TopicArn'] == resort.sns_arn:

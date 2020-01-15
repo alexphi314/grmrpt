@@ -7,6 +7,7 @@ import os
 from copy import deepcopy
 from wsgiref.simple_server import make_server
 from collections import Counter
+import json
 
 from tika import parser
 import requests
@@ -220,12 +221,13 @@ def get_resorts_to_notify(get_api_wrapper, api_url) -> List[str]:
     return contact_list
 
 
-def post_messages(contact_list: List[str], headers: Dict[str, str]) -> None:
+def post_messages(contact_list: List[str], headers: Dict[str, str], api_url: str) -> None:
     """
     Post the input messages to the SQS queue
 
     :param contact_list: list of bm_report urls to notify
     :param headers: http request headers for authentication
+    :param api_url: api url link
     """
     sns = boto3.client('sns', region_name='us-west-2', aws_access_key_id=os.getenv('ACCESS_ID'),
                        aws_secret_access_key=os.getenv('SECRET_ACCESS_KEY'))
@@ -244,7 +246,7 @@ def post_messages(contact_list: List[str], headers: Dict[str, str]) -> None:
         phone_msg = '{}\n' \
                     '  * {}\n\n' \
                     'Full report: {}'.format(
-                        email_subj,
+                        report_data['date'],
                         '\n  * '.join(run_names),
                         resort_data['report_url']
                     )
@@ -257,22 +259,33 @@ def post_messages(contact_list: List[str], headers: Dict[str, str]) -> None:
                         resort_data['report_url']
                     )
 
-        sns.publish(
+        response = sns.publish(
             TopicArn=resort_data['sns_arn'],
             MessageStructure='json',
-            Message={
+            Message=json.dumps({
                 'email': email_msg,
                 'sms': phone_msg,
                 'default': email_msg
-            },
+            }),
             Subject=email_subj,
             MessageAttributes={
                 'day_of_week': {
-                    'Type': 'String',
-                    'Value': report_date.strftime('%a')
+                    'DataType': 'String',
+                    'StringValue': report_date.strftime('%a')
                 }
             }
         )
+        logger.info('Posted message with id {} to {}'.format(response['MessageId'], resort_data['sns_arn']))
+
+        if response['MessageId']:
+            # Post notification record
+            notification_data = {'bm_report': report}
+            response = requests.post('{}/notifications/'.format(api_url), data=notification_data,
+                                     headers=headers)
+            if response.status_code != 201:
+                raise APIError('Unable to create notification record in api: {}'.format(
+                    response.text
+                ))
 
 
 def application(environ, start_response):

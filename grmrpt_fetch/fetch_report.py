@@ -5,7 +5,7 @@ import argparse
 
 import boto3
 
-from fetch_server import get_users_to_notify, get_api, get_grooming_report, create_report, post_messages
+from fetch_server import get_resorts_to_notify, get_api, get_grooming_report, create_report, post_messages
 
 if __name__ == "__main__":
     logger = logging.getLogger(__name__)
@@ -44,5 +44,5 @@ if __name__ == "__main__":
     # Check for notif
     get_api_wrapper = lambda x: get_api(x, headers={'Authorization': 'Token {}'.format(TOKEN)},
                                         api_url=API_URL)
-    resort_user_list = get_users_to_notify(get_api_wrapper, API_URL)
-    post_messages(resort_user_list)
+    resort_list = get_resorts_to_notify(get_api_wrapper, API_URL)
+    post_messages(resort_list, headers={'Authorization': 'Token {}'.format(TOKEN)}, api_url=API_URL)
