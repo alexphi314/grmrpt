@@ -280,9 +280,9 @@ def unsubscribe_user_to_topic(instance: BMGUser, client: boto3.client, resort: R
     logger = logging.getLogger(__name__)
     # Loop through subscription arns for user and delete the one that corresponds to this resort
     try:
-        sub_arns = instance.sub_arn.split('!')
+        sub_arns = json.loads(instance.sub_arn)
     except AttributeError:
-        sub_arns = ''
+        sub_arns = []
 
     for sub_arn in sub_arns:
         response = client.get_subscription_attributes(SubscriptionArn=sub_arn)
@@ -312,7 +312,7 @@ def subscribe_sns_topic(instance: Union[BMGUser, Resort], action: str, reverse: 
     if action == 'post_add' and not reverse:
 
         sub_arns = subscribe_user_to_topic(instance, client)
-        instance.sub_arn = '!'.join(sub_arns)
+        instance.sub_arn = json.dumps(sub_arns)
 
     # Instance -> BMGUser
     elif action == 'pre_remove' and not reverse:
@@ -320,7 +320,7 @@ def subscribe_sns_topic(instance: Union[BMGUser, Resort], action: str, reverse: 
             resort = Resort.objects.get(pk=id)
             sub_arns = unsubscribe_user_to_topic(instance, client, resort)
 
-            instance.sub_arn = '!'.join(sub_arns)
+            instance.sub_arn = json.dumps(sub_arns)
             instance.save()
 
     # Instance -> Resort
@@ -329,7 +329,7 @@ def subscribe_sns_topic(instance: Union[BMGUser, Resort], action: str, reverse: 
         for indx, user in enumerate(instance.bmg_users.all()):
             if user.pk in pk_set:
                 sub_arns = subscribe_user_to_topic(user, client)
-                user.sub_arn = '!'.join(sub_arns)
+                user.sub_arn = json.dumps(sub_arns)
                 user.save()
 
     # Instance -> Resort
@@ -339,7 +339,7 @@ def subscribe_sns_topic(instance: Union[BMGUser, Resort], action: str, reverse: 
         for user in users:
             sub_arns = unsubscribe_user_to_topic(user, client, instance)
 
-            user.sub_arn = '!'.join(sub_arns)
+            user.sub_arn = json.dumps(sub_arns)
             user.save()
 
 

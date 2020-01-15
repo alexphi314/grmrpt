@@ -188,7 +188,7 @@ class SNSTopicSubscriptionTestCase(TestCase):
         self.user.bmg_user.resorts.set([self.resort, self.resort2])
         self.user.bmg_user.save()
 
-        for indx, subscription in enumerate(self.user.bmg_user.sub_arn.split('!')):
+        for indx, subscription in enumerate(json.loads(self.user.bmg_user.sub_arn)):
             response = sns.get_subscription_attributes(SubscriptionArn=subscription)
             if indx == 0:
                 arn = self.resort.sns_arn
@@ -200,13 +200,13 @@ class SNSTopicSubscriptionTestCase(TestCase):
         # Link user to resort3
         resort3 = Resort.objects.create(name='test3', report_url='foo', location='Vail')
         self.user.bmg_user.resorts.add(resort3)
-        self.assertEqual(len(self.user.bmg_user.sub_arn.split('!')), 3)
+        self.assertEqual(len(json.loads(self.user.bmg_user.sub_arn)), 3)
 
         # Remove link to resort2
         self.user.bmg_user.resorts.remove(self.resort2)
-        self.assertEqual(len(self.user.bmg_user.sub_arn.split('!')), 2)
+        self.assertEqual(len(json.loads(self.user.bmg_user.sub_arn)), 2)
 
-        for indx, subscription in enumerate(self.user.bmg_user.sub_arn.split('!')):
+        for indx, subscription in enumerate(json.loads(self.user.bmg_user.sub_arn)):
             response = sns.get_subscription_attributes(SubscriptionArn=subscription)
             if indx == 0:
                 arn = self.resort.sns_arn
@@ -238,7 +238,7 @@ class SNSTopicSubscriptionTestCase(TestCase):
                            aws_secret_access_key=os.getenv('SECRET_ACCESS_KEY'))
         # Link user2 to resort2
         self.resort2.bmg_users.add(self.user2.bmg_user)
-        self.assertEqual(len(self.user2.bmg_user.sub_arn.split('!')), 1)
+        self.assertEqual(len(json.loads(self.user2.bmg_user.sub_arn)), 1)
         response = sns.get_subscription_attributes(SubscriptionArn=self.user2.bmg_user.sub_arn)
         self.assertEqual(response['Attributes']['TopicArn'], self.resort2.sns_arn)
 
