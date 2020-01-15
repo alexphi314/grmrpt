@@ -3,8 +3,9 @@
 *.log
 *migrations*
 *.secret*
+*static*
 # Elastic Beanstalk Files
-*.elasticbeanstalk/*
+*elasticbeanstalk*
 *!.elasticbeanstalk/*.cfg.yml
 *!.elasticbeanstalk/*.global.yml
 *__pycache__*
