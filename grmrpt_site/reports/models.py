@@ -327,11 +327,10 @@ def subscribe_sns_topic(instance: Union[BMGUser, Resort], action: str, reverse: 
 
 class Notification(models.Model):
     """
-    Model a notification sent to a user
+    Model a notification sent about a report
     """
-    bm_user = models.ForeignKey(BMGUser, related_name='notifications', on_delete=models.CASCADE)
     bm_report = models.ForeignKey(BMReport, related_name='notifications', on_delete=models.CASCADE)
     sent = models.DateTimeField("Time when the notification was sent", auto_now_add=True)
 
     def __str__(self) -> str:
-        return '{}: {}'.format(self.bm_user, self.bm_report.date.strftime('%Y-%m-%d'))
+        return '{}'.format(self.bm_report.date.strftime('%Y-%m-%d'))

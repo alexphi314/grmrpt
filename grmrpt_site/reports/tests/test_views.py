@@ -1140,7 +1140,7 @@ class NotifyUsersTestCase(TestCase):
             user.resorts.set([Resort.objects.all()[0]])
             user.save()
 
-            Notification.objects.create(bm_user=user, bm_report=Report.objects.get(pk=1).bm_report)
+            Notification.objects.create(bm_report=Report.objects.get(pk=1).bm_report)
 
             cls.user_urls.append('http://testserver/bmgusers/{}/'.format(user.pk))
 
@@ -1255,7 +1255,7 @@ class NotificationViewTestCase(TestCase):
         cls.report3 = Report.objects.create(date=dt.datetime(2020, 1, 3).date(), resort=cls.resort2)
 
         # Create notification
-        cls.notification = Notification.objects.create(bm_user=cls.rando.bmg_user, bm_report=cls.report.bm_report)
+        cls.notification = Notification.objects.create(bm_report=cls.report.bm_report)
 
     def test_get(self) -> None:
         """
@@ -1274,30 +1274,22 @@ class NotificationViewTestCase(TestCase):
         response = response.json()[0]
 
         self.assertEqual(response['id'], 1)
-        self.assertEqual(response['bm_user'], 'http://testserver/bmgusers/2/')
         self.assertEqual(response['bm_report'], 'http://testserver/bmreports/1/')
         self.assertTrue('sent' in response.keys())
 
         # Create notification
-        Notification.objects.create(bm_user=self.user.bmg_user, bm_report=self.report.bm_report)
-
-        # Test query params work for user
-        query_response = client.get('/notifications/?user=user1').json()
-        self.assertEqual(len(query_response), 1)
-        self.assertDictEqual(query_response[0], response)
+        Notification.objects.create(bm_report=self.report.bm_report)
 
         # Create notification, test query params work for resort
-        Notification.objects.create(bm_user=self.user.bmg_user, bm_report=self.report3.bm_report)
+        Notification.objects.create(bm_report=self.report3.bm_report)
         query_response = client.get('/notifications/?resort=Vail%20TEST').json()
         self.assertEqual(len(query_response), 1)
-        self.assertEqual(query_response[0]['bm_user'], 'http://testserver/bmgusers/1/')
         self.assertEqual(query_response[0]['bm_report'], 'http://testserver/bmreports/3/')
 
         # Create notification, test query params work for report
-        Notification.objects.create(bm_user=self.rando.bmg_user, bm_report=self.report2.bm_report)
+        Notification.objects.create(bm_report=self.report2.bm_report)
         query_response = client.get('/notifications/?report_date=2020-01-02').json()
         self.assertEqual(len(query_response), 1)
-        self.assertEqual(query_response[0]['bm_user'], 'http://testserver/bmgusers/2/')
         self.assertEqual(query_response[0]['bm_report'], 'http://testserver/bmreports/2/')
 
         # Check combined query works - no results
@@ -1318,7 +1310,6 @@ class NotificationViewTestCase(TestCase):
         # Check post works for staff
         client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
         post_data = {
-            'bm_user': 'http://testserver/bmgusers/1/',
             'bm_report': 'http://testserver/bmreports/1/',
         }
         response = client.post('/notifications/', post_data, format='json')
@@ -1342,7 +1333,7 @@ class NotificationViewTestCase(TestCase):
         notification = client.get('/notifications/').json()[0]
 
         # Update data
-        notification['bm_user'] = 'http://testserver/bmgusers/1/'
+        notification['bm_report'] = 'http://testserver/bmreports/2/'
 
         # Check PUT fails for rando and anon user
         client.credentials()
@@ -1366,7 +1357,7 @@ class NotificationViewTestCase(TestCase):
         client = APIClient()
 
         # Create notification
-        Notification.objects.create(bm_user=self.user.bmg_user, bm_report=self.report.bm_report)
+        Notification.objects.create(bm_report=self.report.bm_report)
 
         # Check delete fails for anon or rando
         self.assertEqual(client.delete('/notifications/2/').status_code, 401)

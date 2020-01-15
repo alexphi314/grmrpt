@@ -137,13 +137,12 @@ class BMGUserTestCase(TestCase):
 class NotificationTestCase(TestCase):
     @classmethod
     def setUpTestData(cls):
-        cls.user = User.objects.create(username='foo')
         cls.resort = Resort.objects.create(name='Vail TEST', report_url='foo', location='Vail')
         cls.report = Report.objects.create(date=dt.datetime(2019, 1, 2).date(), resort=cls.resort)
-        cls.notif = Notification.objects.create(bm_report=cls.report.bm_report, bm_user=cls.user.bmg_user)
+        cls.notif = Notification.objects.create(bm_report=cls.report.bm_report)
 
     def test_str(self) -> None:
-        self.assertEqual(str(self.notif), 'foo: 2019-01-02')
+        self.assertEqual(str(self.notif), '2019-01-02')
 
     @classmethod
     def tearDownClass(cls):
