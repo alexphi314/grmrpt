@@ -2,6 +2,7 @@ import datetime as dt
 from typing import List, Union, Set
 import logging
 import os
+import json
 
 from django.db import models
 from django.contrib.auth.models import User
@@ -187,6 +188,7 @@ class BMGUser(models.Model):
     phone = models.CharField("User Phone number", blank=True, null=True, max_length=15)
     resorts = models.ManyToManyField(Resort, related_name='bmg_users')
     sub_arn = models.CharField("AWS SNS Subscription arns", max_length=1000, blank=True, null=True)
+    contact_days = models.CharField("string array of allowed contact days", max_length=1000, blank=True, null=True)
 
     PHONE = 'PH'
     EMAIL = 'EM'
@@ -241,6 +243,11 @@ def subscribe_user_to_topic(instance: BMGUser, client: boto3.client) -> List[str
         protl = 'email'
         endpt = instance.user.email
 
+    try:
+        dow_arry = json.loads(instance.contact_days)
+    except TypeError:
+        dow_arry = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+
     sub_arns = []
     if endpt != '':
         for resort in instance.resorts.all():
@@ -250,6 +257,11 @@ def subscribe_user_to_topic(instance: BMGUser, client: boto3.client) -> List[str
                 Protocol=protl,
                 ReturnSubscriptionArn=True,
                 Endpoint=endpt,
+                Attributes={
+                    'FilterPolicy': json.dumps({
+                        'day_of_week': dow_arry
+                    })
+                }
             )
             sub_arns.append(response['SubscriptionArn'])
 

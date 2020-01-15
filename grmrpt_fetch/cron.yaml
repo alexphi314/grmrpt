@@ -5,4 +5,4 @@ cron:
     schedule: "*/10 13-17 * * *"
   - name: "query_users"
     url: "/notif_schedule"
-    schedule: "*/10 * * * *"
+    schedule: "*/10 13-18 * * *"

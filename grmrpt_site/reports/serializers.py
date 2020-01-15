@@ -85,7 +85,8 @@ class BMGUserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = BMGUser
-        fields = ['id', 'phone', 'user', 'favorite_runs', 'resorts', 'contact_method', 'sub_arn']
+        fields = ['id', 'phone', 'user', 'favorite_runs', 'resorts', 'contact_method', 'sub_arn',
+                  'contact_days']
 
 
 class NotificationSerializer(serializers.ModelSerializer):

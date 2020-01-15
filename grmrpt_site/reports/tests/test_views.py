@@ -981,6 +981,7 @@ class BMGUserViewTestCase(TestCase):
                                                 'is_staff': True})
         self.assertListEqual(response[0]['favorite_runs'], [])
         self.assertListEqual(response[0]['resorts'], [])
+        self.assertIsNone(response[0]['contact_days'])
 
         self.assertEqual(response[1]['id'], 2)
         self.assertEqual(response[1]['phone'], None)
@@ -989,6 +990,7 @@ class BMGUserViewTestCase(TestCase):
                                                 'is_staff': False})
         self.assertListEqual(response[1]['favorite_runs'], [])
         self.assertListEqual(response[1]['resorts'], [])
+        self.assertIsNone(response[1]['contact_days'])
 
     def test_post(self) -> None:
         """

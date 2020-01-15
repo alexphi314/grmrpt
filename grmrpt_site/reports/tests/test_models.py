@@ -161,6 +161,7 @@ class SNSTopicSubscriptionTestCase(TestCase):
         # Create 2 users
         cls.user = User.objects.create(username='foo', email='foo@gmail.com')
         cls.user.bmg_user.contact_method = 'EM'
+        cls.user.bmg_user.contact_days = json.dumps(['Tue'])
 
         cls.user2 = User.objects.create(username='bar', email='bar@gmail.com')
         cls.user2.bmg_user.contact_method = 'PH'
