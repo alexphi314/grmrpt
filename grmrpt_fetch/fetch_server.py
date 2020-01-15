@@ -309,7 +309,7 @@ def application(environ, start_response):
 
                 response = 'Successfully processed grooming reports for all resorts'
 
-            elif path == '/users_schedule':
+            elif path == '/notif_schedule':
                 logger.info("Received task %s scheduled at %s", environ['HTTP_X_AWS_SQSD_TASKNAME'],
                             environ['HTTP_X_AWS_SQSD_SCHEDULED_AT'])
 
