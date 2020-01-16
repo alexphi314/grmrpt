@@ -186,6 +186,7 @@ class SNSTopicSubscriptionTestCase(TestCase):
 
         # Link user to resort and resort2
         self.user.bmg_user.resorts.set([self.resort, self.resort2])
+        self.user2.bmg_user.resorts.set([self.resort])
         self.user.bmg_user.save()
 
         for indx, subscription in enumerate(json.loads(self.user.bmg_user.sub_arn)):
@@ -204,6 +205,7 @@ class SNSTopicSubscriptionTestCase(TestCase):
 
         # Remove link to resort2
         self.user.bmg_user.resorts.remove(self.resort2)
+        self.user2.bmg_user.resorts.remove(self.resort)
         self.assertEqual(len(json.loads(self.user.bmg_user.sub_arn)), 2)
 
         for indx, subscription in enumerate(json.loads(self.user.bmg_user.sub_arn)):

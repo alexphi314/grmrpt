@@ -3,6 +3,7 @@ from typing import List, Union, Set
 import logging
 import os
 import json
+from json.decoder import JSONDecodeError
 
 from django.db import models
 from django.contrib.auth.models import User
@@ -281,7 +282,7 @@ def unsubscribe_user_to_topic(instance: BMGUser, client: boto3.client, resort: R
     # Loop through subscription arns for user and delete the one that corresponds to this resort
     try:
         sub_arns = json.loads(instance.sub_arn)
-    except AttributeError:
+    except (TypeError, JSONDecodeError):
         sub_arns = []
 
     for sub_arn in sub_arns:
@@ -289,7 +290,9 @@ def unsubscribe_user_to_topic(instance: BMGUser, client: boto3.client, resort: R
         if response['Attributes']['TopicArn'] == resort.sns_arn:
             sub_arns.remove(sub_arn)
             try:
-                client.unsubscribe(SubscriptionArn=sub_arn)
+                resp = client.unsubscribe(SubscriptionArn=sub_arn)
+                logger.info('Successfully unsubscribed, with status code {}'.format(resp['ResponseMetadata']
+                                                                                    ['HTTPStatusCode']))
             except Exception as e:
                 logger.warning('Unable to unsubscribe user:\n {}'.format(e))
 
@@ -309,10 +312,12 @@ def subscribe_sns_topic(instance: Union[BMGUser, Resort], action: str, reverse: 
     # Instance -> BMGUser
     client = boto3.client('sns', region_name='us-west-2', aws_access_key_id=os.getenv('ACCESS_ID'),
                           aws_secret_access_key=os.getenv('SECRET_ACCESS_KEY'))
+    logger = logging.getLogger(__name__)
     if action == 'post_add' and not reverse:
-
         sub_arns = subscribe_user_to_topic(instance, client)
+        logger.debug('Updated sub_arn field for user {} with {}'.format(instance, json.dumps(sub_arns)))
         instance.sub_arn = json.dumps(sub_arns)
+        instance.save()
 
     # Instance -> BMGUser
     elif action == 'pre_remove' and not reverse:
@@ -320,6 +325,7 @@ def subscribe_sns_topic(instance: Union[BMGUser, Resort], action: str, reverse: 
             resort = Resort.objects.get(pk=id)
             sub_arns = unsubscribe_user_to_topic(instance, client, resort)
 
+            logger.debug('Updated sub_arn field for user {} with {}'.format(instance, json.dumps(sub_arns)))
             instance.sub_arn = json.dumps(sub_arns)
             instance.save()
 
@@ -329,6 +335,7 @@ def subscribe_sns_topic(instance: Union[BMGUser, Resort], action: str, reverse: 
         for indx, user in enumerate(instance.bmg_users.all()):
             if user.pk in pk_set:
                 sub_arns = subscribe_user_to_topic(user, client)
+                logger.debug('Updated sub_arn field for user {} with {}'.format(instance, json.dumps(sub_arns)))
                 user.sub_arn = json.dumps(sub_arns)
                 user.save()
 
@@ -338,7 +345,7 @@ def subscribe_sns_topic(instance: Union[BMGUser, Resort], action: str, reverse: 
 
         for user in users:
             sub_arns = unsubscribe_user_to_topic(user, client, instance)
-
+            logger.debug('Updated sub_arn field for user {} with {}'.format(instance, json.dumps(sub_arns)))
             user.sub_arn = json.dumps(sub_arns)
             user.save()
 

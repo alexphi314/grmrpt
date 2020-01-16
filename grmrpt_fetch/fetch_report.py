@@ -46,3 +46,6 @@ if __name__ == "__main__":
                                         api_url=API_URL)
     resort_list = get_resorts_to_notify(get_api_wrapper, API_URL)
     post_messages(resort_list, headers={'Authorization': 'Token {}'.format(TOKEN)}, api_url=API_URL)
+    post_messages(['http://dev-env.exm5cdp7tw.us-west-2.elasticbeanstalk.com/bmreports/29/'],
+                  headers={'Authorization': 'Token {}'.format(TOKEN)}, api_url=API_URL)
+    FOO = 1
