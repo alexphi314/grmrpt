@@ -21,6 +21,8 @@ class Resort(models.Model):
     location = models.CharField("Location of the resort", max_length=1000, blank=True, null=True)
     report_url = models.CharField("URL to grooming report", max_length=2000, blank=True, null=True)
     sns_arn = models.CharField("AWS SNS Topic identifier", max_length=1000, blank=True, null=True)
+    parse_mode = models.CharField("Type of parsing to apply to grooming report url", max_length=100,
+                                  default='tika')
 
     def __str__(self) -> str:
         return self.name
@@ -246,7 +248,7 @@ def subscribe_user_to_topic(instance: BMGUser, client: boto3.client) -> List[str
 
     try:
         dow_arry = json.loads(instance.contact_days)
-    except TypeError:
+    except (TypeError, JSONDecodeError):
         dow_arry = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
     sub_arns = []
