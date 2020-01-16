@@ -308,6 +308,7 @@ def subscribe_sns_topic(instance: Union[BMGUser, Resort], action: str, reverse: 
     :param instance: BMGUser or Resort object being updated
     :param action: type of update on relation
     :param reverse: True if BMGUser is being modified directly; false if Resort object is being modified
+    :param pk_set: set of primary keys being added or removed to the m2m field
     """
     # Instance -> BMGUser
     client = boto3.client('sns', region_name='us-west-2', aws_access_key_id=os.getenv('ACCESS_ID'),
