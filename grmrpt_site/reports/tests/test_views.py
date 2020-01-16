@@ -27,7 +27,8 @@ class ResortViewTestCase(TestCase):
         cls.rando_token = Token.objects.get(user__username='test2')
 
         # Create resort object
-        cls.resort_data = {'name': 'Beaver Creek TEST', 'location': 'CO', 'report_url': 'foo'}
+        cls.resort_data = {'name': 'Beaver Creek TEST', 'location': 'CO', 'report_url': 'foo',
+                           'parse_mode': 'tika'}
         resort_response = cls.client.post('/resorts/', cls.resort_data, format='json')
         assert resort_response.status_code == 201
 
@@ -62,7 +63,7 @@ class ResortViewTestCase(TestCase):
         client = APIClient()
 
         # Check no user cannot post
-        resort_data = {'name': 'Vail TEST', 'location': 'CO', 'report_url': 'bar'}
+        resort_data = {'name': 'Vail TEST', 'location': 'CO', 'report_url': 'bar', 'parse_mode': 'tika'}
         self.assertEqual(client.post('/resorts/', resort_data, format='json').status_code, 401)
 
         # Check POST behavior for logged in staff user
