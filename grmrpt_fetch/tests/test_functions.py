@@ -274,21 +274,21 @@ class ReportFuncTestCase(unittest.TestCase):
         """
         Test function properly strips the run names from the file
         """
-        date, groomed_runs = get_grooming_report(self.report_url, 'tika')
+        date, groomed_runs = get_grooming_report('tika', self.report_url)
         self.assertEqual(date, dt.datetime.strptime('12-23-2019', '%m-%d-%Y').date())
         self.assertListEqual(groomed_runs, self.exp_groomed_runs)
 
-        date, groomed_runs = get_grooming_report(self.report_url2, 'tika')
+        date, groomed_runs = get_grooming_report('tika', self.report_url2)
         self.assertEqual(date, dt.datetime(2020, 1, 2).date())
         self.assertListEqual(groomed_runs, self.exp_groomed_runs2)
 
-        date, groomed_runs = get_grooming_report(self.report_url3, 'tika')
+        date, groomed_runs = get_grooming_report('tika', self.report_url3)
         self.assertEqual(date, dt.datetime(2020, 1, 7).date())
         self.assertListEqual(groomed_runs, self.exp_groomed_runs3)
 
         requests_session = requests.session()
         requests_session.mount('file://', LocalFileAdapter())
         response = requests_session.get('file://{}/{}'.format(os.getcwd(), self.report_url4))
-        date, groomed_runs = get_grooming_report(self.report_url4, 'bs4', response)
+        date, groomed_runs = get_grooming_report('json', response=response)
         self.assertEqual(date, dt.datetime(2020, 1, 16, tzinfo=pytz.timezone('US/Mountain')).date())
         self.assertListEqual(groomed_runs, self.exp_groomed_runs4)

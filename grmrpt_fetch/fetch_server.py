@@ -1,7 +1,6 @@
 from typing import List, Tuple, Union, Dict
 import re
 import datetime as dt
-import pytz
 import logging
 import logging.handlers
 import os
@@ -13,7 +12,6 @@ import json
 from tika import parser
 import requests
 import boto3
-from bs4 import BeautifulSoup
 
 # Create logger
 logger = logging.getLogger(__name__)
@@ -61,13 +59,13 @@ def get_api(relative_url: str, headers: Dict, api_url: str) -> Dict:
     return response.json()
 
 
-def get_grooming_report(url: str, parse_mode: str,
+def get_grooming_report(parse_mode: str, url: str = None,
                         response: requests.Response = None) -> Tuple[Union[None, dt.datetime], List[str]]:
     """
     Fetch the grooming report and return groomed runs
 
-    :param url: url where the grooming report pdf can be found
     :param parse_mode: type of parsing to apply to grooming report
+    :param url: optional url where the grooming report pdf can be found
     :param response: optional parameter containing fetched report data
     :return: date and list of groomed run names
     """
@@ -88,7 +86,7 @@ def get_grooming_report(url: str, parse_mode: str,
     else:
         response = response.json()
 
-        date_options = [dt.datetime.strptime(response['LastUpdate'], '%Y-%m-%dT%H:%M:%S%z')]
+        date_options = []
         runs = []
         for area in response['MountainAreas']:
             date_options.append(dt.datetime.strptime(area['LastUpdate'], '%Y-%m-%dT%H:%M:%S%z'))
@@ -339,9 +337,9 @@ def application(environ, start_response):
                         if response.status_code != 200:
                             raise ValueError('Unable to fetch grooming report: {}'.format(response.text))
 
-                        date, groomed_runs = get_grooming_report(report_url, parse_mode, response)
+                        date, groomed_runs = get_grooming_report(parse_mode, response=response)
                     else:
-                        date, groomed_runs = get_grooming_report(report_url, parse_mode)
+                        date, groomed_runs = get_grooming_report(parse_mode, url=report_url)
 
                     logger.info('Got grooming report for {} on {}'.format(resort, date.strftime('%Y-%m-%d')))
 
