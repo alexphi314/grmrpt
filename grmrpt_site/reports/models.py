@@ -131,8 +131,8 @@ def get_bm_runs(report: Report) -> List[Run]:
             num_shared_reports = len(list(set(run.reports.all()).intersection(past_reports)))
             ratio = float(num_shared_reports) / float(len(past_reports))
 
-            logger.info('Run {} groomed {:.2%} over the last week'.format(run.name, ratio))
-            if ratio < 0.3:
+            logger.debug('Run {} groomed {:.2%} over the last week'.format(run.name, ratio))
+            if ratio < 0.2:
                 bmreport_runs.append(run)
 
     return bmreport_runs

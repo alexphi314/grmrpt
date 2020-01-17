@@ -391,7 +391,7 @@ class ReportViewTestCase(TestCase):
         report_response = report_response.json()
         report_url = 'http://testserver/reports/{}/'.format(report_response['id'])
 
-        # Check HDreport objects created correctly
+        # Check BMreport objects created correctly
         bmreport_response = client.get('/bmreports/', format='json')
         self.assertEqual(bmreport_response.status_code, 200)
         bmreport_response = bmreport_response.json()
@@ -421,7 +421,7 @@ class ReportViewTestCase(TestCase):
 
         report_data4 = {'date': '2020-01-05',
                         'resort': self.resort_url,
-                        'runs': [self.run2_url, self.run1_url]}
+                        'runs': [self.run1_url]}
         report_response4 = client.post('/reports/', report_data4, format='json').json()
         report_url4 = 'http://testserver/reports/{}/'.format(report_response4['id'])
 

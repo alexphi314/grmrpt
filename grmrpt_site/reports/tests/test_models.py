@@ -9,7 +9,8 @@ from reports.models import *
 class ResortTestCase(TestCase):
     @classmethod
     def setUpTestData(cls):
-        cls.resort = Resort.objects.create(name='Beaver Creek TEST', report_url='reports/tests/test_files/dec23.pdf',
+        cls.resort = Resort.objects.create(name='Beaver Creek TEST',
+                                           report_url='reports/tests/test_files/dec23.pdf',
                                            location='Avon, CO')
 
     def test_str(self) -> None:
@@ -28,7 +29,8 @@ class ResortTestCase(TestCase):
 class ReportTestCase(TestCase):
     @classmethod
     def setUpTestData(cls):
-        cls.resort = Resort.objects.create(name='Beaver Creek TEST', report_url='reports/tests/test_files/dec23.pdf',
+        cls.resort = Resort.objects.create(name='Beaver Creek TEST',
+                                           report_url='reports/tests/test_files/dec23.pdf',
                                            location='Avon, CO')
         cls.report = Report.objects.create(date=dt.datetime.strptime('2019-01-09', '%Y-%m-%d'),
                                            resort=cls.resort)
@@ -66,7 +68,8 @@ class ReportTestCase(TestCase):
 class BMReportTestCase(TestCase):
     @classmethod
     def setUpTestData(cls):
-        cls.resort = Resort.objects.create(name='Beaver Creek TEST', report_url='reports/tests/test_files/dec23.pdf',
+        cls.resort = Resort.objects.create(name='Beaver Creek TEST',
+                                           report_url='reports/tests/test_files/dec23.pdf',
                                            location='Avon, CO')
         report = Report.objects.create(date=dt.datetime.strptime('2019-01-09', '%Y-%m-%d'),
                                              resort=cls.resort)
@@ -93,7 +96,8 @@ class BMReportTestCase(TestCase):
 class RunTestCase(TestCase):
     @classmethod
     def setUpTestData(cls):
-        cls.resort = Resort.objects.create(name='Beaver Creek TEST', report_url='reports/tests/test_files/dec23.pdf',
+        cls.resort = Resort.objects.create(name='Beaver Creek TEST',
+                                           report_url='reports/tests/test_files/dec23.pdf',
                                            location='Avon, CO')
         cls.report = Report.objects.create(date=dt.datetime.strptime('2019-01-09', '%Y-%m-%d'),
                                            resort=cls.resort)
