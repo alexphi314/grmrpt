@@ -2,4 +2,3 @@
 tika
 requests
 boto3
-beautifulsoup4

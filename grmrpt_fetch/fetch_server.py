@@ -1,6 +1,7 @@
 from typing import List, Tuple, Union, Dict
 import re
 import datetime as dt
+import pytz
 import logging
 import logging.handlers
 import os
@@ -12,6 +13,7 @@ import json
 from tika import parser
 import requests
 import boto3
+from bs4 import BeautifulSoup
 
 # Create logger
 logger = logging.getLogger(__name__)
@@ -59,26 +61,42 @@ def get_api(relative_url: str, headers: Dict, api_url: str) -> Dict:
     return response.json()
 
 
-def get_grooming_report(url: str) -> Tuple[Union[None, dt.datetime], List[str]]:
+def get_grooming_report(url: str, parse_mode: str,
+                        response: requests.Response = None) -> Tuple[Union[None, dt.datetime], List[str]]:
     """
     Fetch the grooming report and return groomed runs
 
     :param url: url where the grooming report pdf can be found
+    :param parse_mode: type of parsing to apply to grooming report
+    :param response: optional parameter containing fetched report data
     :return: date and list of groomed run names
     """
-    parsed = parser.from_file(url)
-    content = parsed['content'].strip()
-    trial_re = re.compile('^\d+\s(?P<name>(?!\d).*\w+.+(?<!")+$)')
-    date_re = re.compile('^\w*\s\d*,\s\d*')
+    if parse_mode == 'tika':
+        parsed = parser.from_file(url)
+        content = parsed['content'].strip()
+        trial_re = re.compile('^\d+\s(?P<name>(?!\d).*\w+.+(?<!")+$)')
+        date_re = re.compile('^\w*\s\d*,\s\d*')
 
-    runs = []
-    date = None
-    for line in content.split('\n'):
-        if date_re.search(line.strip()):
-            date = dt.datetime.strptime(line.strip(), '%B %d, %Y').date()
+        runs = []
+        date = None
+        for line in content.split('\n'):
+            if date_re.search(line.strip()):
+                date = dt.datetime.strptime(line.strip(), '%B %d, %Y').date()
 
-        if trial_re.search(line.strip()):
-            runs.append(trial_re.search(line.strip()).group('name').strip())
+            if trial_re.search(line.strip()):
+                runs.append(trial_re.search(line.strip()).group('name').strip())
+    else:
+        response = response.json()
+
+        date_options = [dt.datetime.strptime(response['LastUpdate'], '%Y-%m-%dT%H:%M:%S%z')]
+        runs = []
+        for area in response['MountainAreas']:
+            date_options.append(dt.datetime.strptime(area['LastUpdate'], '%Y-%m-%dT%H:%M:%S%z'))
+            for trial in area['Trails']:
+                if trial['Grooming'] == 'Yes':
+                    runs.append(trial['Name'])
+
+        date = min(date_options).date()
 
     return date, runs
 
@@ -141,7 +159,8 @@ def create_report(date: dt.datetime, groomed_runs: List[str], resort_id: int,
 
     # Check if the groomed runs from this report match the groomed runs from the previous report
     if Counter(groomed_runs) == Counter(prev_report_runs):
-        logger.info('Found list of groomed runs identical to yesterday\'s report. Not appending these runs to report'
+        logger.info('Found list of groomed runs identical to yesterday\'s report. '
+                    'Not appending these runs to report'
                     ' object.')
         return
 
@@ -313,8 +332,17 @@ def application(environ, start_response):
                 for resort_dict in resorts:
                     resort = resort_dict['name']
                     report_url = resort_dict['report_url']
+                    parse_mode = resort_dict['parse_mode']
 
-                    date, groomed_runs = get_grooming_report(report_url)
+                    if parse_mode == 'json':
+                        response = requests.get(report_url)
+                        if response.status_code != 200:
+                            raise ValueError('Unable to fetch grooming report: {}'.format(response.text))
+
+                        date, groomed_runs = get_grooming_report(report_url, parse_mode, response)
+                    else:
+                        date, groomed_runs = get_grooming_report(report_url, parse_mode)
+
                     logger.info('Got grooming report for {} on {}'.format(resort, date.strftime('%Y-%m-%d')))
 
                     create_report(date, groomed_runs, resort_dict['id'], API_URL, TOKEN, requests, get_api)

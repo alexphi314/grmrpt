@@ -5,4 +5,3 @@ awsebcli
 urllib3<1.25,>=1.24.1
 tika
 boto3
-beautifulsoup4
