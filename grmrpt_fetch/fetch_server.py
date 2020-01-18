@@ -215,9 +215,14 @@ def get_resorts_to_notify(get_api_wrapper, api_url) -> List[str]:
         reports = get_api_wrapper('reports/?resort={}'.format(resort['name'].replace(' ', '%20')))
         # Only include reports with run objects attached
         reports = [report for report in reports if len(report['runs']) > 0]
+        # Only include reports with bm reports with runs on them
+        reports = [report for report in reports if len(get_api_wrapper(report['bm_report'])['runs']) > 0]
         report_dates_list = [dt.datetime.strptime(report['date'], '%Y-%m-%d').date() for report in
                                             reports]
-        max_report_date = max(report_dates_list)
+
+        if len(report_dates_list) == 0:
+            continue
+
         # Store the url to the most recent bmreport for each resort
         most_recent_report = reports[report_dates_list.index(max(report_dates_list))]
         most_recent_report_url = most_recent_report['bm_report']

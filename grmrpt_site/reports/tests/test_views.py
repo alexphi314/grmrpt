@@ -1130,6 +1130,9 @@ class NotifyUsersTestCase(TestCase):
         assert report_response.status_code == 201
         cls.resort2_report_url = 'http://testserver/bmreports/{}/'.format(report_response.json()['id'])
         cls.resort2_id = report_response.json()['id']
+        # Link run to bmr
+        bmr = BMReport.objects.get(pk=2)
+        bmr.runs.add(Run.objects.get(pk=1))
 
         # Create notification
         Notification.objects.create(bm_report=Report.objects.get(pk=1).bm_report)
@@ -1159,6 +1162,12 @@ class NotifyUsersTestCase(TestCase):
         assert report_response.status_code == 201
         report_url = 'http://testserver/bmreports/{}/'.format(report_response.json()['id'])
         resorts = get_resorts_to_notify(get_wrapper, 'http://testserver')
+        self.assertListEqual(resorts, [self.resort2_report_url])
+
+        # Add run to BMR and check resort is now on notification list
+        bmr = BMReport.objects.get(pk=client.get(report_response.json()['bm_report']).json()['id'])
+        bmr.runs.add(Run.objects.get(pk=1))
+        resorts = get_resorts_to_notify(get_wrapper, 'http://testserver')
         self.assertListEqual(resorts, [report_url, self.resort2_report_url])
 
         # Add report on 1-6
@@ -1169,6 +1178,8 @@ class NotifyUsersTestCase(TestCase):
         assert report_response.status_code == 201
         report_url = 'http://testserver/bmreports/{}/'.format(report_response.json()['id'])
         resort1_id = report_response.json()['id']
+        bmr = BMReport.objects.get(pk=client.get(report_response.json()['bm_report']).json()['id'])
+        bmr.runs.add(Run.objects.get(pk=1))
 
         # With new report, notify resort2 and updated report
         resorts = get_resorts_to_notify(get_wrapper, 'http://testserver')
@@ -1182,7 +1193,7 @@ class NotifyUsersTestCase(TestCase):
         resorts = get_resorts_to_notify(get_wrapper, 'http://testserver')
         self.assertListEqual(resorts, [])
 
-        # Create a bogus bm_report with no runs attached
+        # Create a bogus report with no runs attached
         report_data = {'date': '2020-01-07',
                        'resort': self.resort_url,
                        'runs': []}
