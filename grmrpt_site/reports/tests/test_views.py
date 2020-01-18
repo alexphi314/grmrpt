@@ -1144,12 +1144,9 @@ class NotifyUsersTestCase(TestCase):
         client = APIClient()
         client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
         def get_wrapper(x: str):
-            if 'http' in x:
-                return client.get(x).json()
-            elif x[0] != '/':
-                return client.get('/{}'.format(x)).json()
-            else:
-                return client.get(x).json()
+            return client.get('/{}'.format(x)).json()
+            # else:
+            #     return client.get(x).json()
 
         resorts = get_resorts_to_notify(get_wrapper, 'http://testserver')
         self.assertListEqual(resorts, [self.resort2_report_url])

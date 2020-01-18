@@ -216,7 +216,9 @@ def get_resorts_to_notify(get_api_wrapper, api_url) -> List[str]:
         # Only include reports with run objects attached
         reports = [report for report in reports if len(report['runs']) > 0]
         # Only include reports with bm reports with runs on them
-        reports = [report for report in reports if len(get_api_wrapper(report['bm_report'])['runs']) > 0]
+        reports = [report for report in reports if len(get_api_wrapper(
+            report['bm_report'].replace('{}/'.format(api_url), ''))['runs']
+                                                       ) > 0]
         report_dates_list = [dt.datetime.strptime(report['date'], '%Y-%m-%d').date() for report in
                                             reports]
 
