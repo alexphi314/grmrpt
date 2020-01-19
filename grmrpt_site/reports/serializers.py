@@ -55,10 +55,11 @@ class BMReportSerializer(serializers.ModelSerializer):
                                                       queryset=Report.objects.all())
     notification = serializers.HyperlinkedRelatedField(many=False, view_name='notification-detail',
                                                        read_only=True)
+    updated = serializers.BooleanField(read_only=True)
 
     class Meta:
         model = BMReport
-        fields = ['date', 'resort', 'runs', 'id', 'full_report', 'notification']
+        fields = ['date', 'resort', 'runs', 'id', 'full_report', 'notification', 'updated']
 
 
 class UserSerializer(serializers.ModelSerializer):
