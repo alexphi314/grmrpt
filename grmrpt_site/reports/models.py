@@ -4,12 +4,10 @@ import logging
 import os
 import json
 from json.decoder import JSONDecodeError
-from collections import Counter
-from copy import deepcopy
 
 from django.db import models
 from django.contrib.auth.models import User
-from django.db.models.signals import post_save, m2m_changed, post_delete, pre_save
+from django.db.models.signals import post_save, m2m_changed, post_delete
 from django.dispatch import receiver
 from rest_framework.authtoken.models import Token
 import boto3
@@ -103,8 +101,6 @@ class BMReport(models.Model):
     resort = models.ForeignKey(Resort, on_delete=models.CASCADE, related_name='bm_reports')
     runs = models.ManyToManyField(Run, related_name='bm_reports')
     full_report = models.OneToOneField(Report, on_delete=models.CASCADE, related_name='bm_report')
-    updated = models.BooleanField("Whether this report has been updated with new data",
-                                  default=False)
 
     def __str__(self) -> str:
         return '{}: {}'.format(self.resort, self.date.strftime('%Y-%m-%d'))
@@ -151,43 +147,16 @@ def create_update_bmreport(instance: Report, created: bool, **kwargs) -> None:
     :param instance: Report object being saved
     :param created: True if new object being created; False for update
     """
+    bmreport_runs = get_bm_runs(instance)
     if created:
-        BMReport.objects.create(date=instance.date, resort=instance.resort,
-                                full_report=instance)
+        bm_report = BMReport.objects.create(date=instance.date, resort=instance.resort,
+                                            full_report=instance)
+        bm_report.runs.set(bmreport_runs)
     else:
         bm_report = instance.bm_report
-
         bm_report.date = instance.date
         bm_report.resort = instance.resort
-
-        # Update runs
-        old_bm_runs = deepcopy(instance.runs.all())
-        bm_runs = get_bm_runs(instance)
-        delete_old_notif(old_bm_runs, bm_runs, bm_report)
-        bm_report.runs.set(bm_runs)
-
-        bm_report.save()
-
-
-def delete_old_notif(old_runs: List[Run], updated_runs: List[Run], bm_report: BMReport) -> None:
-    """
-    If the updated run list for a BMReport is different than before, clear out the old notification
-    and mark the report as updated
-
-    :param old_runs: list of previous runs
-    :param updated_run: updated list of runs
-    :param bm_report: BMReport object being updated/checked
-    """
-    # Check if bm runs updated as well
-    if Counter(old_runs) != Counter(updated_runs):
-        # Delete any old notification objects
-        try:
-            notif = Notification.objects.get(bm_report_id=bm_report.id)
-            notif.delete()
-        except Notification.DoesNotExist:
-            pass
-
-        bm_report.updated = True
+        bm_report.runs.set(bmreport_runs)
         bm_report.save()
 
 
@@ -204,31 +173,13 @@ def update_bmreport(instance: Union[Report, Run], action: str, reverse: bool, **
     # Instance -> Report
     if action == 'post_add' and reverse:
         bmreport_runs = get_bm_runs(instance)
-
-        old_bm_runs = instance.bm_report.runs.all()
         instance.bm_report.runs.set(bmreport_runs)
-        delete_old_notif(old_bm_runs, bmreport_runs, instance.bm_report)
-
     # If the Run object is being modified (i.e. run created and assigned to report)
     # Instance -> Run
     elif action == 'post_add' and not reverse:
         for report in instance.reports.all():
             bmreport_runs = get_bm_runs(report)
-            old_bm_runs = report.bm_report.runs.all()
             report.bm_report.runs.set(bmreport_runs)
-            delete_old_notif(old_bm_runs, bmreport_runs, report.bm_report)
-
-
-@receiver(pre_save, sender=BMReport)
-def mark_updated(instance: BMReport, **kwargs) -> None:
-    """
-    For updated objects, mark self.updated as True
-
-    :param instance: the BMReport object being saved
-    :param update_fields: set of field names being updated
-    """
-    if not instance._state.adding:
-        instance.updated = True
 
 
 class BMGUser(models.Model):

@@ -453,39 +453,15 @@ class ReportViewTestCase(TestCase):
         bmreport_response = client.get(report_response7['bm_report']).json()
         self.assert_bmreport_report_equal(bmreport_response, report_data7, [self.run2_url], report_url7)
 
-        # Check all bm_reports show updated as false
-        for bm_report in BMReport.objects.all():
-            self.assertFalse(bm_report.updated)
-
-        # Create a new run and add it to the most recent grooming report
-        run4 = Run.objects.create(name='foo', resort_id=1)
-        run4.reports.add(Report.objects.get(id=int(report_response7['id'])))
-        run4_url = 'http://testserver/runs/{}/'.format(run4.id)
-
-        bmreport_response = client.get(report_response7['bm_report']).json()
-        self.assert_bmreport_report_equal(bmreport_response, report_data7, [self.run2_url, run4_url],
-                                          report_url7)
-        self.assertTrue(bmreport_response['updated'])
-        # delete run4
-        run4.delete()
-
         # Adjust one day to include a run2 groom -> run2 no longer under 30% groom rate
         report_response = client.get(report_url6).json()
         report_response['runs'].append(self.run2_url)
         client.put(report_url6, data=json.dumps(report_response), content_type='application/json')
         # TODO: Updating an upstream report does not cause BMReport object to automatically update; must put
         # corresponding report object to get BMReport to update
-        resp = client.put(report_url7, data=json.dumps(report_response7), content_type='application/json')
-        self.assertEqual(resp.status_code, 200)
+        client.put(report_url7, data=json.dumps(report_response7), content_type='application/json')
         bmreport_response = client.get(report_response7['bm_report']).json()
         self.assert_bmreport_report_equal(bmreport_response, report_data7, [], report_url7)
-
-        # Check updated bm_report objects show as updated
-        for bm_report in BMReport.objects.all():
-            if bm_report.id in [int(report_response6['id']), int(report_response7['id'])]:
-                self.assertTrue(bm_report.updated)
-            else:
-                self.assertFalse(bm_report.updated)
 
         # Delete the posted reports
         response = client.delete(report_url)
@@ -725,7 +701,6 @@ class BMReportViewTestCase(TestCase):
         response = response[0]
 
         response.pop('id')
-        self.assertFalse(response.pop('updated'))
         self.assertEqual(response, self.bmreport_data)
 
     def test_post(self) -> None:
@@ -769,10 +744,7 @@ class BMReportViewTestCase(TestCase):
         run_response_new = client.put('/bmreports/1/', data=json.dumps(report_response),
                                            content_type='application/json')
         self.assertEqual(run_response_new.status_code, 200)
-        run_response_new = run_response_new.json()
-        self.assertTrue(run_response_new.pop('updated'))
-        report_response.pop('updated')
-        self.assertDictEqual(run_response_new, report_response)
+        self.assertDictEqual(run_response_new.json(), report_response)
 
     def test_delete(self) -> None:
         """

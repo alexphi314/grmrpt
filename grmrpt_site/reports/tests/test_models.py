@@ -72,7 +72,7 @@ class BMReportTestCase(TestCase):
                                            report_url='reports/tests/test_files/dec23.pdf',
                                            location='Avon, CO')
         report = Report.objects.create(date=dt.datetime.strptime('2019-01-09', '%Y-%m-%d'),
-                                       resort=cls.resort)
+                                             resort=cls.resort)
         cls.bmreport = report.bm_report
         run_obj1 = Run.objects.create(name='Cabin Fever', difficulty='green', resort=cls.resort)
         run_obj2 = Run.objects.create(name='Ripsaw', difficulty='black', resort=cls.resort)
