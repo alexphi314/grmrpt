@@ -92,7 +92,7 @@ def get_grooming_report(parse_mode: str, url: str = None,
             date_options.append(dt.datetime.strptime(area['LastUpdate'], '%Y-%m-%dT%H:%M:%S%z'))
             for trial in area['Trails']:
                 if trial['Grooming'] == 'Yes':
-                    runs.append(trial['Name'])
+                    runs.append(trial['Name'].strip())
 
         date = min(date_options).date()
 

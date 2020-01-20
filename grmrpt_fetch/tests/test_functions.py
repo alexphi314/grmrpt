@@ -255,7 +255,7 @@ class ReportFuncTestCase(unittest.TestCase):
             'Traverse',
             'Two O\'Clock',
             'Vagabond',
-            'Valley View ',
+            'Valley View',
             'Valley View Lower',
             'Velvet',
             'Vogue',
