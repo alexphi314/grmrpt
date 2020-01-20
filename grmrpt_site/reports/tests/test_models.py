@@ -50,7 +50,7 @@ class ReportTestCase(TestCase):
         self.report.save()
 
         bm_report = self.report.bm_report
-        self.assertEqual(bm_report.date, dt.datetime(2020, 1, 10).date())
+        self.assertEqual(bm_report.date, dt.datetime(2020, 1, 10))
         self.assertEqual(bm_report.resort, self.report.resort)
 
         # Change resort back to original so other tests dont fail
