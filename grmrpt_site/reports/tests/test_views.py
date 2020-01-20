@@ -453,6 +453,20 @@ class ReportViewTestCase(TestCase):
         bmreport_response = client.get(report_response7['bm_report']).json()
         self.assert_bmreport_report_equal(bmreport_response, report_data7, [self.run2_url], report_url7)
 
+        # Create a new run and add it to the most recent grooming report
+        run4 = Run.objects.create(name='foo', resort_id=1)
+        most_recent_report = Report.objects.get(id=int(report_response7['id']))
+        last_modified = most_recent_report.bm_report.updated
+        run4.reports.add(most_recent_report)
+        self.assertTrue(most_recent_report.bm_report.updated > last_modified)
+        run4_url = 'http://testserver/runs/{}/'.format(run4.id)
+
+        bmreport_response = client.get(report_response7['bm_report']).json()
+        self.assert_bmreport_report_equal(bmreport_response, report_data7, [self.run2_url, run4_url],
+                                          report_url7)
+        # delete run4
+        run4.delete()
+
         # Adjust one day to include a run2 groom -> run2 no longer under 30% groom rate
         report_response = client.get(report_url6).json()
         report_response['runs'].append(self.run2_url)

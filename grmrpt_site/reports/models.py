@@ -4,11 +4,13 @@ import logging
 import os
 import json
 from json.decoder import JSONDecodeError
+from collections import Counter
 
 from django.db import models
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save, m2m_changed, post_delete
 from django.dispatch import receiver
+from django.utils import timezone
 from rest_framework.authtoken.models import Token
 import boto3
 
@@ -101,6 +103,7 @@ class BMReport(models.Model):
     resort = models.ForeignKey(Resort, on_delete=models.CASCADE, related_name='bm_reports')
     runs = models.ManyToManyField(Run, related_name='bm_reports')
     full_report = models.OneToOneField(Report, on_delete=models.CASCADE, related_name='bm_report')
+    updated = models.DateTimeField("Time of last update", blank=True, null=True)
 
     def __str__(self) -> str:
         return '{}: {}'.format(self.resort, self.date.strftime('%Y-%m-%d'))
@@ -156,7 +159,12 @@ def create_update_bmreport(instance: Report, created: bool, **kwargs) -> None:
         bm_report = instance.bm_report
         bm_report.date = instance.date
         bm_report.resort = instance.resort
+
+        if Counter(bmreport_runs) != Counter(bm_report.runs.all()):
+            bm_report.update = timezone.now()
+
         bm_report.runs.set(bmreport_runs)
+        bm_report.full_clean()
         bm_report.save()
 
 
@@ -173,13 +181,25 @@ def update_bmreport(instance: Union[Report, Run], action: str, reverse: bool, **
     # Instance -> Report
     if action == 'post_add' and reverse:
         bmreport_runs = get_bm_runs(instance)
+
+        if Counter(bmreport_runs) != Counter(instance.bm_report.runs.all()):
+            instance.bm_report.updated = timezone.now()
+
         instance.bm_report.runs.set(bmreport_runs)
+        instance.bm_report.full_clean()
+        instance.bm_report.save()
     # If the Run object is being modified (i.e. run created and assigned to report)
     # Instance -> Run
     elif action == 'post_add' and not reverse:
         for report in instance.reports.all():
             bmreport_runs = get_bm_runs(report)
+
+            if Counter(bmreport_runs) != Counter(report.bm_report.runs.all()):
+                report.bm_report.updated = timezone.now()
+
             report.bm_report.runs.set(bmreport_runs)
+            report.bm_report.full_clean()
+            report.bm_report.save()
 
 
 class BMGUser(models.Model):
