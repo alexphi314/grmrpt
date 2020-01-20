@@ -1,6 +1,8 @@
 import datetime as dt
 
 from django.contrib.auth.models import User
+from django.shortcuts import render
+from django.db import transaction
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
@@ -11,6 +13,7 @@ from reports.models import Report, Run, Resort, BMReport, BMGUser, Notification
 from reports.serializers import ReportSerializer, RunSerializer, ResortSerializer, BMReportSerializer, \
     UserSerializer, BMGUserSerializer, NotificationSerializer
 from reports.permissions import IsAdminOrReadOnly
+from reports.forms import BMGUserCreationForm, SignupForm
 
 
 @api_view(['GET'])
@@ -237,3 +240,24 @@ class NotificationDetail(generics.RetrieveUpdateDestroyAPIView):
     queryset = Notification.objects.all()
     serializer_class = NotificationSerializer
     permission_classes = [IsAdminUser]
+
+
+@transaction.atomic
+def create_user(request):
+    if request.method == 'POST':
+        user_form = SignupForm(request.POST)
+        bmg_user_form = BMGUserCreationForm(request.POST)
+        if user_form.is_valid() and bmg_user_form.is_valid():
+            user = user_form.save()
+            user.refresh_from_db()  # This will load the Profile created by the Signal
+            bmg_form = BMGUserCreationForm(request.POST, instance=user.bmg_user)
+            bmg_form.full_clean()  # Manually clean the form this time
+            bmg_form.save()  # Gracefully save the form
+    else:
+        user_form = SignupForm()
+        bmg_user_form = BMGUserCreationForm()
+
+    return render(request, 'signup.html', {
+        'user_form': user_form,
+        'profile_form': bmg_user_form
+    })

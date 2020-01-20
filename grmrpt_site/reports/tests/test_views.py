@@ -3,6 +3,7 @@ import datetime as dt
 import sys
 
 from django.test import TestCase
+from django.urls import reverse
 from django.contrib.auth.models import User
 from rest_framework.test import APIClient
 from rest_framework.authtoken.models import Token
@@ -1423,3 +1424,39 @@ class FetchCreateReportTestCase(TestCase):
         # Delete the created resort objects to clean up created SNS topics
         Resort.objects.all().delete()
         super().tearDownClass()
+
+
+class SignupTestCase(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        # Create resort
+        cls.resort = Resort.objects.create(name='test1')
+
+    def test_signup(self) -> None:
+        # Attempt to signup
+        user_data = {
+            'username': 'alexphi',
+            'first_name': 'alex',
+            'last_name': 'bill',
+            'email': 'foo@gmail.com',
+            'password1': 'barfoobas',
+            'password2': 'barfoobas',
+            'phone': '13038776576',
+            'contact_method': 'EM',
+            'contact_days': ['Mon'],
+            'resorts': ['test1']
+        }
+        resp = self.client.post(reverse('signup'), data=user_data)
+        self.assertEqual(resp.status_code, 200)
+
+        users = User.objects.all()
+        self.assertEqual(len(users), 1)
+        usr = users[0]
+
+        self.assertEqual(usr.username, 'alexphi')
+        self.assertEqual(usr.first_name, 'alex')
+        self.assertEqual(usr.last_name, 'bill')
+        self.assertEqual(usr.email, 'foo@gmail.com')
+        self.assertEqual(usr.bmg_user.phone, '13038776576')
+        self.assertEqual(usr.bmg_user.contact_method, 'Email')
+        self.assertEqual(usr.bmg_user.contact_days, json.dumps(['Mon']))
