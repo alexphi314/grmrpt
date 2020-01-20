@@ -785,12 +785,12 @@ class UserViewTestCase(TestCase):
     @classmethod
     def setUpTestData(cls):
         # Create users
-        cls.user = User.objects.create_user(username='test', password='foo', email='foo@gmail.com')
+        cls.user = User.objects.create_user(username='test', password='foo', email='AP_TEST')
         cls.user.is_staff = True
         cls.user.save()
         cls.token = Token.objects.get(user__username='test')
 
-        cls.rando = User.objects.create_user(username='test2', password='bar', email='bar@gmail.com')
+        cls.rando = User.objects.create_user(username='test2', password='bar', email='AP_TEST')
         cls.rando_token = Token.objects.get(user__username='test2')
 
     def test_get(self) -> None:
@@ -813,12 +813,12 @@ class UserViewTestCase(TestCase):
 
         self.assertTrue('bmg_user' in response[0].keys())
         self.assertEqual(response[0]['username'], 'test')
-        self.assertEqual(response[0]['email'], 'foo@gmail.com')
+        self.assertEqual(response[0]['email'], 'AP_TEST')
         self.assertTrue(response[0]['is_staff'])
 
         self.assertTrue('bmg_user' in response[1].keys())
         self.assertEqual(response[1]['username'], 'test2')
-        self.assertEqual(response[1]['email'], 'bar@gmail.com')
+        self.assertEqual(response[1]['email'], 'AP_TEST')
         self.assertFalse(response[1]['is_staff'])
 
     def test_post(self) -> None:
@@ -839,7 +839,7 @@ class UserViewTestCase(TestCase):
 
         user_data = {
             'username': 'test3',
-            'email': 'bas@gmail.com',
+            'email': 'AP_TEST@gmail.com',
             'password': 'secret_password'
         }
         response = client.post('/users/', user_data, format='json')
@@ -869,14 +869,14 @@ class UserViewTestCase(TestCase):
         client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
         user_data = {
             'username': 'test3',
-            'email': 'bas@gmail.com',
+            'email': 'AP_TEST@gmail.com',
             'password': 'secret_password'
         }
         response = client.post('/users/', user_data, format='json')
         response = response.json()
         user_url = '/users/{}/'.format(response['id'])
 
-        response['email'] = 'bag@gmail.com'
+        response['email'] = 'AP_TEST@gmail.com'
 
         # Check put fails for anon and rando users
         client.credentials()
@@ -895,7 +895,7 @@ class UserViewTestCase(TestCase):
         response = response.json()
         self.assertFalse(response['is_staff'])
         self.assertEqual(response['username'], user_data['username'])
-        self.assertEqual(response['email'], 'bag@gmail.com')
+        self.assertEqual(response['email'], 'AP_TEST@gmail.com')
 
         client.delete(user_url)
 
@@ -907,7 +907,7 @@ class UserViewTestCase(TestCase):
         client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
         user_data = {
             'username': 'test3',
-            'email': 'bas@gmail.com',
+            'email': 'AP_TEST@gmail.com',
             'password': 'secret_password'
         }
         response = client.post('/users/', user_data, format='json')
@@ -937,12 +937,12 @@ class BMGUserViewTestCase(TestCase):
     @classmethod
     def setUpTestData(cls):
         # Create users
-        cls.user = User.objects.create_user(username='test', password='foo', email='foo@gmail.com')
+        cls.user = User.objects.create_user(username='test', password='foo', email='AP_TEST')
         cls.user.is_staff = True
         cls.user.save()
         cls.token = Token.objects.get(user__username='test')
 
-        cls.rando = User.objects.create_user(username='test2', password='bar', email='bar@gmail.com')
+        cls.rando = User.objects.create_user(username='test2', password='bar', email='AP_TEST')
         cls.rando_token = Token.objects.get(user__username='test2')
 
         # Create report, resort, run objects
@@ -977,7 +977,7 @@ class BMGUserViewTestCase(TestCase):
 
         self.assertEqual(response[0]['id'], 1)
         self.assertEqual(response[0]['phone'], None)
-        self.assertDictEqual(response[0]['user'], {'id': 1, 'username': 'test', 'email': 'foo@gmail.com',
+        self.assertDictEqual(response[0]['user'], {'id': 1, 'username': 'test', 'email': 'AP_TEST',
                                                 'bmg_user': 'http://testserver/bmgusers/1/',
                                                 'is_staff': True})
         self.assertListEqual(response[0]['favorite_runs'], [])
@@ -986,7 +986,7 @@ class BMGUserViewTestCase(TestCase):
 
         self.assertEqual(response[1]['id'], 2)
         self.assertEqual(response[1]['phone'], None)
-        self.assertDictEqual(response[1]['user'], {'id': 2, 'username': 'test2', 'email': 'bar@gmail.com',
+        self.assertDictEqual(response[1]['user'], {'id': 2, 'username': 'test2', 'email': 'AP_TEST',
                                                 'bmg_user': 'http://testserver/bmgusers/2/',
                                                 'is_staff': False})
         self.assertListEqual(response[1]['favorite_runs'], [])
@@ -1014,7 +1014,7 @@ class BMGUserViewTestCase(TestCase):
         test put method
         """
         # Create new user
-        User.objects.create_user(username='test3', password='bus', email='bat@gmail.com')
+        User.objects.create_user(username='test3', password='bus', email='AP_TEST')
         client = APIClient()
         client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
         response = client.get('/bmgusers/3/').json()
@@ -1051,7 +1051,7 @@ class BMGUserViewTestCase(TestCase):
         test delete method
         """
         # Create new user
-        User.objects.create_user(username='test3', password='bus', email='bat@gmail.com')
+        User.objects.create_user(username='test3', password='bus', email='AP_TEST')
         client = APIClient()
 
         # Check delete fails for rando and anon
@@ -1080,7 +1080,7 @@ class NotifyUsersTestCase(TestCase):
     @classmethod
     def setUpTestData(cls):
         # Create users
-        cls.user = User.objects.create_user(username='test', password='foo', email='foo@gmail.com')
+        cls.user = User.objects.create_user(username='test', password='foo', email='AP_TEST')
         cls.user.is_staff = True
         cls.user.save()
         cls.token = Token.objects.get(user__username='test')
@@ -1211,7 +1211,7 @@ class NotificationViewTestCase(TestCase):
     @classmethod
     def setUpTestData(cls):
         # Create users
-        cls.user = User.objects.create_user(username='test', password='foo', email='foo@gmail.com')
+        cls.user = User.objects.create_user(username='test', password='foo', email='AP_TEST')
         cls.user.is_staff = True
         cls.user.save()
         cls.token = Token.objects.get(user__username='test')
@@ -1364,7 +1364,7 @@ class FetchCreateReportTestCase(TestCase):
     @classmethod
     def setUpTestData(cls):
         # Create users
-        cls.user = User.objects.create_user(username='test', password='foo', email='foo@gmail.com')
+        cls.user = User.objects.create_user(username='test', password='foo', email='AP_TEST')
         cls.user.is_staff = True
         cls.user.save()
         cls.token = Token.objects.get(user__username='test')

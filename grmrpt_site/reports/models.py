@@ -252,7 +252,7 @@ def subscribe_user_to_topic(instance: BMGUser, client: boto3.client) -> List[str
         dow_arry = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
     sub_arns = []
-    if endpt != '':
+    if endpt != '' and 'AP_TEST' not in endpt:
         for resort in instance.resorts.all():
             # Include attributes here to create filter policy
             response = client.subscribe(

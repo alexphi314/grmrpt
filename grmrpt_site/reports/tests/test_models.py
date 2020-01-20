@@ -163,13 +163,13 @@ class SNSTopicSubscriptionTestCase(TestCase):
         cls.resort2 = Resort.objects.create(name='test2', report_url='foo', location='Avon')
 
         # Create 2 users
-        cls.user = User.objects.create(username='foo', email='foo@gmail.com')
+        cls.user = User.objects.create(username='foo', email='aop314@icloud.com')
         cls.user.bmg_user.contact_method = 'EM'
         cls.user.bmg_user.contact_days = json.dumps(['Tue'])
 
-        cls.user2 = User.objects.create(username='bar', email='bar@gmail.com')
+        cls.user2 = User.objects.create(username='bar', email='aop314@icloud.com')
         cls.user2.bmg_user.contact_method = 'PH'
-        cls.user2.bmg_user.phone = '13038175674'
+        cls.user2.bmg_user.phone = '13035799557'
 
     def test_sns_topic_creation(self) -> None:
         """
