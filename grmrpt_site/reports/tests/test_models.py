@@ -159,8 +159,8 @@ class SNSTopicSubscriptionTestCase(TestCase):
     @classmethod
     def setUpTestData(cls):
         # Create 2 resorts
-        cls.resort = Resort.objects.create(name='test1', report_url='foo', location='Vail')
-        cls.resort2 = Resort.objects.create(name='test2', report_url='foo', location='Avon')
+        cls.resort = Resort.objects.create(name='resort1', report_url='foo', location='Vail')
+        cls.resort2 = Resort.objects.create(name='resort2', report_url='foo', location='Avon')
 
         # Create 2 users
         cls.user = User.objects.create(username='foo', email='aop314@icloud.com')
@@ -203,7 +203,7 @@ class SNSTopicSubscriptionTestCase(TestCase):
             self.assertEqual(response['Attributes']['TopicArn'], arn)
 
         # Link user to resort3
-        resort3 = Resort.objects.create(name='test3', report_url='foo', location='Vail')
+        resort3 = Resort.objects.create(name='resort3', report_url='foo', location='Vail')
         self.user.bmg_user.resorts.add(resort3)
         self.assertEqual(len(json.loads(self.user.bmg_user.sub_arn)), 3)
 
@@ -228,7 +228,7 @@ class SNSTopicSubscriptionTestCase(TestCase):
         """
         test deleting resort removes sns topic
         """
-        resort = Resort.objects.create(name='test4', report_url='foo', location='Vail')
+        resort = Resort.objects.create(name='resort4', report_url='foo', location='Vail')
         arn = resort.sns_arn
         resort.delete()
 

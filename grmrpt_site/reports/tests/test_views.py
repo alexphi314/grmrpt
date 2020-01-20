@@ -1200,6 +1200,27 @@ class NotifyUsersTestCase(TestCase):
         resorts = get_resorts_to_notify(get_wrapper, 'http://testserver')
         self.assertListEqual(resorts, [])
 
+        # Create identical bm report and check no notification is readied
+        run1 = Run.objects.get(pk=1)
+        run2 = Run.objects.get(pk=2)
+        bmr = BMReport.objects.get(date=dt.datetime(2020, 1, 7))
+        bmr.full_report.runs.set([run1])
+        bmr.runs.set([run1])
+
+        rpt = Report.objects.create(date=dt.datetime(2020, 1, 8), resort=Resort.objects.get(pk=1))
+        bm2 = rpt.bm_report
+        rpt.runs.set([run1])
+        bm2.runs.set([run1])
+
+        # Confirm no notifications to go out
+        resorts = get_resorts_to_notify(get_wrapper, 'http://testserver')
+        self.assertListEqual(resorts, [])
+
+        bm2.runs.add(run2)
+        # Confirm notification ready to go out
+        resorts = get_resorts_to_notify(get_wrapper, 'http://testserver')
+        self.assertListEqual(resorts, ['http://testserver/bmreports/{}/'.format(bm2.pk)])
+
     @classmethod
     def tearDownClass(cls):
         # Delete the created resort objects to clean up created SNS topics

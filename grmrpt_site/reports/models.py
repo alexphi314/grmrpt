@@ -36,7 +36,7 @@ def create_sns_topic(instance: Resort, created: bool, **kwargs) -> None:
     :param instance: Resort object being created
     :param created: True if the object is first created
     """
-    if created:
+    if created and 'test' not in instance.name.lower():
         client = boto3.client('sns', region_name='us-west-2', aws_access_key_id=os.getenv('ACCESS_ID'),
                               aws_secret_access_key=os.getenv('SECRET_ACCESS_KEY'))
         response = client.create_topic(
@@ -64,9 +64,10 @@ def remove_sns_topic(instance: Resort, **kwargs) -> None:
 
     :param instance: Resort object being deleted
     """
-    client = boto3.client('sns', region_name='us-west-2', aws_access_key_id=os.getenv('ACCESS_ID'),
-                          aws_secret_access_key=os.getenv('SECRET_ACCESS_KEY'))
-    client.delete_topic(TopicArn=instance.sns_arn)
+    if instance.sns_arn is not None:
+        client = boto3.client('sns', region_name='us-west-2', aws_access_key_id=os.getenv('ACCESS_ID'),
+                              aws_secret_access_key=os.getenv('SECRET_ACCESS_KEY'))
+        client.delete_topic(TopicArn=instance.sns_arn)
 
 
 class Report(models.Model):

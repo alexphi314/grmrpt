@@ -220,7 +220,7 @@ def get_resorts_to_notify(get_api_wrapper, api_url) -> List[str]:
             report['bm_report'].replace('{}/'.format(api_url), ''))['runs']
                                                        ) > 0]
         report_dates_list = [dt.datetime.strptime(report['date'], '%Y-%m-%d').date() for report in
-                                            reports]
+                             reports]
 
         if len(report_dates_list) == 0:
             continue
@@ -230,16 +230,27 @@ def get_resorts_to_notify(get_api_wrapper, api_url) -> List[str]:
         most_recent_report_url = most_recent_report['bm_report']
         bm_report_data = get_api_wrapper(most_recent_report_url.replace('{}/'.format(api_url), ''))
 
+        # Get the bm report for yesterday, if it exists, and get the run list
+        yesterday = max(report_dates_list) - dt.timedelta(days=1)
+        yesterday_report = get_api_wrapper('reports/?date={}'.format(yesterday.strftime('%Y-%m-%d')))
+        if len(yesterday_report) > 0:
+            assert len(yesterday_report) == 1
+            yesterday_runs = get_api_wrapper(yesterday_report[0]['bm_report'].replace(
+                '{}/'.format(api_url), ''
+            ))['runs']
+        else:
+            yesterday_runs = []
+
         # Check if notification sent for this report
         notification_response = get_api_wrapper('notifications/?bm_pk={}'.format(
             bm_report_data['id']
         ))
 
-        if len(notification_response) == 0:
+        if len(notification_response) == 0 and Counter(bm_report_data['runs']) != Counter(yesterday_runs):
             # No notification posted for this report
             contact_list.append(most_recent_report_url)
-        else:
-            assert len(notification_response) == 1
+        elif Counter(bm_report_data['runs']) == Counter(yesterday_runs):
+            logger.info('BM report run list identical to yesterday -- not sending notification')
 
     return contact_list
 
