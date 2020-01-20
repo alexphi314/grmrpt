@@ -232,7 +232,10 @@ def get_resorts_to_notify(get_api_wrapper, api_url) -> List[str]:
 
         # Get the bm report for yesterday, if it exists, and get the run list
         yesterday = max(report_dates_list) - dt.timedelta(days=1)
-        yesterday_report = get_api_wrapper('reports/?date={}'.format(yesterday.strftime('%Y-%m-%d')))
+        yesterday_report = get_api_wrapper('reports/?date={}&resort={}'.format(
+            yesterday.strftime('%Y-%m-%d'),
+            resort['name']
+        ))
         if len(yesterday_report) > 0:
             assert len(yesterday_report) == 1
             yesterday_runs = get_api_wrapper(yesterday_report[0]['bm_report'].replace(
