@@ -1438,10 +1438,10 @@ class SignupTestCase(TestCase):
             'username': 'alexphi',
             'first_name': 'alex',
             'last_name': 'bill',
-            'email': 'foo@gmail.com',
+            'email': 'AP_TEST_foo@gmail.com',
             'password1': 'barfoobas',
             'password2': 'barfoobas',
-            'phone': '13038776576',
+            'phone': '+1303-877-6576',
             'contact_method': 'EM',
             'contact_days': ['Mon'],
             'resorts': ['test1']
@@ -1456,7 +1456,7 @@ class SignupTestCase(TestCase):
         self.assertEqual(usr.username, 'alexphi')
         self.assertEqual(usr.first_name, 'alex')
         self.assertEqual(usr.last_name, 'bill')
-        self.assertEqual(usr.email, 'foo@gmail.com')
-        self.assertEqual(usr.bmg_user.phone, '13038776576')
-        self.assertEqual(usr.bmg_user.contact_method, 'Email')
-        self.assertEqual(usr.bmg_user.contact_days, json.dumps(['Mon']))
+        self.assertEqual(usr.email, 'AP_TEST_foo@gmail.com')
+        self.assertEqual(usr.bmg_user.phone, '+13038776576')
+        self.assertEqual(usr.bmg_user.contact_method, 'EM')
+        self.assertListEqual(json.loads(usr.bmg_user.contact_days), ['Mon'])

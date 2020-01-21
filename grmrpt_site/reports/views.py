@@ -258,6 +258,5 @@ def create_user(request):
         bmg_user_form = BMGUserCreationForm()
 
     return render(request, 'signup.html', {
-        'user_form': user_form,
-        'profile_form': bmg_user_form
+        'forms': [user_form, bmg_user_form],
     })
