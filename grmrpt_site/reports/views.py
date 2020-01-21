@@ -3,6 +3,7 @@ import datetime as dt
 from django.contrib.auth.models import User
 from django.shortcuts import render
 from django.db import transaction
+from django.http import HttpResponseBadRequest
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
@@ -253,6 +254,8 @@ def create_user(request):
             bmg_form = BMGUserCreationForm(request.POST, instance=user.bmg_user)
             bmg_form.full_clean()  # Manually clean the form this time
             bmg_form.save()  # Gracefully save the form
+        else:
+            return HttpResponseBadRequest(content=[user_form.errors, bmg_user_form.errors])
     else:
         user_form = SignupForm()
         bmg_user_form = BMGUserCreationForm()

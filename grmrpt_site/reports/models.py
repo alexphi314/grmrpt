@@ -9,6 +9,7 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save, m2m_changed, post_delete
 from django.dispatch import receiver
+from django.core.validators import RegexValidator
 from rest_framework.authtoken.models import Token
 import boto3
 
@@ -183,13 +184,17 @@ def update_bmreport(instance: Union[Report, Run], action: str, reverse: bool, **
             report.bm_report.runs.set(bmreport_runs)
 
 
+phone_regex = RegexValidator(regex=r'^\+?1?\d{9,15}$',
+                             message="Phone number must be entered in the format: '+999999999'. "
+                                     "Up to 15 digits allowed.")
 class BMGUser(models.Model):
     """
     Extend the User model to include a few more fields
     """
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='bmg_user')
     favorite_runs = models.ManyToManyField(Run, related_name='users_favorited')
-    phone = models.CharField("User Phone number", blank=True, null=True, max_length=15)
+    phone = models.CharField("User Phone number", blank=True, null=True, max_length=17,
+                             validators=[phone_regex])
     resorts = models.ManyToManyField(Resort, related_name='bmg_users')
     sub_arn = models.CharField("AWS SNS Subscription arns", max_length=1000, blank=True, null=True)
     contact_days = models.CharField("string array of allowed contact days", max_length=1000, blank=True, null=True)

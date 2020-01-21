@@ -2,7 +2,7 @@ from django import forms
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
 
-from reports.models import BMGUser, Resort
+from reports.models import BMGUser, Resort, phone_regex
 
 
 class SignupForm(UserCreationForm):
@@ -16,7 +16,8 @@ class SignupForm(UserCreationForm):
 
 
 class BMGUserCreationForm(forms.ModelForm):
-    phone = forms.CharField(help_text='Required. Phone number to receive text alerts. +1XXX-XXX-XXXX')
+    phone = forms.CharField(help_text='Required. Phone number to receive text alerts. +1XXXXXXXXXX',
+                            validators=[phone_regex], max_length=17)
     resorts = forms.ModelMultipleChoiceField(help_text='Resorts you want to follow',
                                              queryset=Resort.objects.all(),
                                              to_field_name='name',
