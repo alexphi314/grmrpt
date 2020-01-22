@@ -163,11 +163,11 @@ class SNSTopicSubscriptionTestCase(TestCase):
         cls.resort2 = Resort.objects.create(name='resort2', report_url='foo', location='Avon')
 
         # Create 2 users
-        cls.user = User.objects.create(username='foo', email='aop314@icloud.com')
+        cls.user = User.objects.create(username='foo', email='foo@gmail.com')
         cls.user.bmg_user.contact_method = 'EM'
         cls.user.bmg_user.contact_days = json.dumps(['Tue'])
 
-        cls.user2 = User.objects.create(username='bar', email='aop314@icloud.com')
+        cls.user2 = User.objects.create(username='bar', email='foo@gmail.com')
         cls.user2.bmg_user.contact_method = 'PH'
         cls.user2.bmg_user.phone = '13035799557'
 
@@ -256,6 +256,3 @@ class SNSTopicSubscriptionTestCase(TestCase):
         # Delete the created resort objects to clean up created SNS topics
         Resort.objects.all().delete()
         super().tearDownClass()
-
-
-

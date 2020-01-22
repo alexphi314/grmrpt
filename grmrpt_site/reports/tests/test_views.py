@@ -1023,7 +1023,7 @@ class BMGUserViewTestCase(TestCase):
 
         # Add fields
         response.pop('sub_arn')
-        response['phone'] = '1800-290-7856'
+        response['phone'] = '18002907856'
         response['favorite_runs'] = [self.run1_url]
         response['resorts'] = [self.resort_url]
 
