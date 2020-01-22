@@ -1,5 +1,6 @@
 from django.urls import path
 from django.conf.urls import include
+from django.contrib.auth.views import LoginView, LogoutView
 from rest_framework.urlpatterns import format_suffix_patterns
 from rest_framework.authtoken.views import obtain_auth_token
 
@@ -14,7 +15,7 @@ urlpatterns = [
     path('resorts/<int:pk>/', views.ResortDetail.as_view(), name='resort-detail'),
     path('bmreports/', views.BMReportList.as_view(), name='bmreport-list'),
     path('bmreports/<int:pk>/', views.BMReportDetail.as_view(), name='bmreport-detail'),
-    path('', views.api_root),
+    path('', views.api_root, name='index'),
     path('api-auth/', include('rest_framework.urls')),
     path('api-token-auth/', obtain_auth_token, name='api_token_auth'),
     path('users/', views.UserList.as_view(), name='user-list'),
@@ -23,7 +24,9 @@ urlpatterns = [
     path('bmgusers/<int:pk>/', views.BMGUserDetail.as_view(), name='bmguser-detail'),
     path('notifications/', views.NotificationList.as_view(), name='notification-list'),
     path('notifications/<int:pk>/', views.NotificationDetail.as_view(), name='notification-detail'),
-    path('signup/', views.create_user, name='signup')
+    path('signup/', views.create_user, name='signup'),
+    path('login/', LoginView.as_view(), name='login'),
+    path('logout/', LogoutView.as_view(), name='logout')
 ]
 
 urlpatterns = format_suffix_patterns(urlpatterns)
