@@ -278,7 +278,7 @@ def create_user(request):
     if request.method == 'POST':
         return create_update_user(request, SignupForm)
     else:
-        if request.user.is_authenticated is not None:
+        if request.user.is_authenticated:
             return HttpResponseRedirect('/profile')
 
         user_form = SignupForm()

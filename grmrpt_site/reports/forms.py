@@ -1,4 +1,5 @@
 import json
+from json.decoder import JSONDecodeError
 
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
@@ -31,7 +32,7 @@ class JsonCheckboxSelectMultiple(forms.CheckboxSelectMultiple):
     def render(self, name, value, attrs=None, renderer=None):
         try:
             value = json.loads(value.replace('\'', '\"'))
-        except AttributeError:
+        except (AttributeError, JSONDecodeError):
             pass
 
         return super().render(name, value, attrs, renderer)
