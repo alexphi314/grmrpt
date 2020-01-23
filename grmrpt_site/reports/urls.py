@@ -25,8 +25,9 @@ urlpatterns = [
     path('notifications/', views.NotificationList.as_view(), name='notification-list'),
     path('notifications/<int:pk>/', views.NotificationDetail.as_view(), name='notification-detail'),
     path('signup/', views.create_user, name='signup'),
+    path('profile/', views.profile_view, name='profile'),
     path('login/', LoginView.as_view(), name='login'),
-    path('logout/', LogoutView.as_view(), name='logout')
+    path('logout/', views.logout_user, name='logout')
 ]
 
 urlpatterns = format_suffix_patterns(urlpatterns)

@@ -1,9 +1,10 @@
 import datetime as dt
 
 from django.contrib.auth.models import User
+from django.contrib.auth import logout
 from django.shortcuts import render
 from django.db import transaction
-from django.http import HttpResponseBadRequest
+from django.http import HttpResponseBadRequest, HttpResponseRedirect
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
@@ -14,7 +15,8 @@ from reports.models import Report, Run, Resort, BMReport, BMGUser, Notification
 from reports.serializers import ReportSerializer, RunSerializer, ResortSerializer, BMReportSerializer, \
     UserSerializer, BMGUserSerializer, NotificationSerializer
 from reports.permissions import IsAdminOrReadOnly
-from reports.forms import BMGUserCreationForm, SignupForm
+from reports.forms import BMGUserCreationUpdateForm, SignupForm, UpdateForm
+from grmrptcore.settings import LOGIN_REDIRECT_URL
 
 
 @api_view(['GET'])
@@ -243,23 +245,77 @@ class NotificationDetail(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAdminUser]
 
 
+def create_update_user(request, UserForm, user=None):
+    """
+    Create or update a user instance in the db based on input forms
+
+    :param request: input request
+    :param UserForm: which user form to use
+    :param user: optionally provided logged in user
+    :return: HttpResponse of some sort
+    """
+    if user is None:
+        user_form = UserForm(request.POST)
+        bmg_user_form = BMGUserCreationUpdateForm(request.POST)
+    else:
+        user_form = UserForm(request.POST, instance=user)
+        bmg_user_form = BMGUserCreationUpdateForm(request.POST, instance=user.bmg_user)
+
+    if user_form.is_valid() and bmg_user_form.is_valid():
+        user = user_form.save()
+        user.refresh_from_db()  # This will load the Profile created by the Signal
+        bmg_form = BMGUserCreationUpdateForm(request.POST, instance=user.bmg_user)
+        bmg_form.full_clean()  # Manually clean the form this time
+        bmg_form.save()  # Gracefully save the form
+
+        return HttpResponseRedirect('/profile')
+    else:
+        return HttpResponseBadRequest(content=[user_form.errors, bmg_user_form.errors])
+
+
 @transaction.atomic
 def create_user(request):
     if request.method == 'POST':
-        user_form = SignupForm(request.POST)
-        bmg_user_form = BMGUserCreationForm(request.POST)
-        if user_form.is_valid() and bmg_user_form.is_valid():
-            user = user_form.save()
-            user.refresh_from_db()  # This will load the Profile created by the Signal
-            bmg_form = BMGUserCreationForm(request.POST, instance=user.bmg_user)
-            bmg_form.full_clean()  # Manually clean the form this time
-            bmg_form.save()  # Gracefully save the form
-        else:
-            return HttpResponseBadRequest(content=[user_form.errors, bmg_user_form.errors])
+        return create_update_user(request, SignupForm)
     else:
+        if request.user.is_authenticated is not None:
+            return HttpResponseRedirect('/profile')
+
         user_form = SignupForm()
-        bmg_user_form = BMGUserCreationForm()
+        bmg_user_form = BMGUserCreationUpdateForm()
 
     return render(request, 'signup.html', {
         'forms': [user_form, bmg_user_form],
+        'button_label': 'signup',
+        'title': 'Sign Up'
     })
+
+
+@transaction.atomic
+def profile_view(request):
+    if request.method == 'GET':
+        if not request.user.is_authenticated:
+            return HttpResponseRedirect('/login')
+
+        user = request.user
+        user_form = UpdateForm(instance=user)
+        bmg_user_form = BMGUserCreationUpdateForm(instance=user.bmg_user)
+
+        return render(request, 'signup.html', {
+            'forms': [user_form, bmg_user_form],
+            'button_label': 'update',
+            'title': 'User Profile'
+        })
+
+    if request.method == 'POST':
+        if not request.user.is_authenticated:
+            return HttpResponseRedirect('/login')
+
+        return create_update_user(request, UpdateForm, request.user)
+
+
+def logout_user(request):
+    if request.method == 'GET':
+        logout(request)
+
+        return HttpResponseRedirect(LOGIN_REDIRECT_URL)

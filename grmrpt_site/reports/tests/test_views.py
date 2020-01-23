@@ -1443,11 +1443,11 @@ class SignupTestCase(TestCase):
             'password2': 'barfoobas',
             'phone': '+13038776576',
             'contact_method': 'EM',
-            'contact_days': ['Mon'],
+            'contact_days': ["Mon"],
             'resorts': ['test1']
         }
         resp = self.client.post(reverse('signup'), data=user_data)
-        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.status_code, 302)
 
         users = User.objects.all()
         self.assertEqual(len(users), 1)
@@ -1459,12 +1459,15 @@ class SignupTestCase(TestCase):
         self.assertEqual(usr.email, 'AP_TEST_foo@gmail.com')
         self.assertEqual(usr.bmg_user.phone, '+13038776576')
         self.assertEqual(usr.bmg_user.contact_method, 'EM')
-        self.assertListEqual(json.loads(usr.bmg_user.contact_days), ['Mon'])
+        self.assertListEqual(json.loads(usr.bmg_user.contact_days.replace('\'', '\"')), ['Mon'])
 
         user_data['phone'] = '3038776576'
         user_data['username'] = 'alexphi2'
-        self.assertEqual(self.client.post(reverse('signup'), data=user_data).status_code, 200)
+        self.assertEqual(self.client.post(reverse('signup'), data=user_data).status_code, 302)
 
         user_data['phone'] = '4'
         user_data['username'] = 'alexphi3'
         self.assertEqual(self.client.post(reverse('signup'), data=user_data).status_code, 400)
+
+        self.client.force_login(user=usr)
+        self.client.get(reverse('profile'))
