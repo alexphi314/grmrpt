@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    Blue Moon Groom is a daily grooming report delivered to your phone or email. It analyzes the grooming report
+    for you, telling you which runs have been groomed today that are not normally groomed ('once in a blue moon').
+
+    Blue Moon Groom currently provides reports for the following ski resorts:
+    <ul>
+    {% for resort in resorts %}
+        <li>{{ resort.name }}</li>
+    {%  endfor %}
+    </ul>
+{% endblock %}

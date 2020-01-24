@@ -4,7 +4,7 @@ from django.contrib.auth.models import User
 from django.contrib.auth import logout
 from django.shortcuts import render
 from django.db import transaction
-from django.http import HttpResponseBadRequest, HttpResponseRedirect
+from django.http import HttpResponseBadRequest, HttpResponseRedirect, HttpResponseNotFound
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
@@ -319,3 +319,10 @@ def logout_user(request):
         logout(request)
 
         return HttpResponseRedirect(LOGIN_REDIRECT_URL)
+
+
+def index(request):
+    if request.method == 'GET':
+        return render(request, 'index.html', {'resorts': [Resort.objects.all()]})
+    else:
+        return HttpResponseNotFound(request)
