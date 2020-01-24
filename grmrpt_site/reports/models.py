@@ -68,6 +68,12 @@ def remove_sns_topic(instance: Resort, **kwargs) -> None:
     if instance.sns_arn is not None:
         client = boto3.client('sns', region_name='us-west-2', aws_access_key_id=os.getenv('ACCESS_ID'),
                               aws_secret_access_key=os.getenv('SECRET_ACCESS_KEY'))
+
+        # Delete the subscriptions
+        for user in instance.bmg_users.all():
+            unsubscribe_user_to_topic(user, client, instance)
+
+        # Delete the topic
         client.delete_topic(TopicArn=instance.sns_arn)
 
 
