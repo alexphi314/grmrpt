@@ -323,6 +323,6 @@ def logout_user(request):
 
 def index(request):
     if request.method == 'GET':
-        return render(request, 'index.html', {'resorts': [Resort.objects.all()]})
+        return render(request, 'index.html', {'resorts': [resort.name for resort in Resort.objects.all()]})
     else:
         return HttpResponseNotFound(request)
