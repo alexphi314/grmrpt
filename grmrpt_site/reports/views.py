@@ -1,7 +1,7 @@
 import datetime as dt
 
 from django.contrib.auth.models import User
-from django.contrib.auth import logout
+from django.contrib.auth import logout, login
 from django.shortcuts import render
 from django.db import transaction
 from django.http import HttpResponseBadRequest, HttpResponseRedirect, HttpResponseNotFound
@@ -267,6 +267,9 @@ def create_update_user(request, UserForm, user=None):
         bmg_form = BMGUserCreationUpdateForm(request.POST, instance=user.bmg_user)
         bmg_form.full_clean()  # Manually clean the form this time
         bmg_form.save()  # Gracefully save the form
+
+        # Log the user in
+        login(request, user)
 
         return HttpResponseRedirect('/profile')
     else:

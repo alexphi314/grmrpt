@@ -35,8 +35,7 @@ if __name__ == "__main__":
     # Fetch grooming report for each resort
     for resort_dict in resorts:
         resort = resort_dict['name']
-        if resort != 'Steamboat':
-            continue
+
         report_url = resort_dict['report_url']
         parse_mode = resort_dict['parse_mode']
 
@@ -52,9 +51,9 @@ if __name__ == "__main__":
         create_report(date, groomed_runs, resort_dict['id'], API_URL, TOKEN, requests, get_api)
 
     # Check for notif
-    # get_api_wrapper = lambda x: get_api(x, headers={'Authorization': 'Token {}'.format(TOKEN)},
-    #                                     api_url=API_URL)
-    # resort_list = get_resorts_to_notify(get_api_wrapper, API_URL)
+    get_api_wrapper = lambda x: get_api(x, headers={'Authorization': 'Token {}'.format(TOKEN)},
+                                        api_url=API_URL)
+    resort_list = get_resorts_to_notify(get_api_wrapper, API_URL)
     # post_messages(resort_list, headers={'Authorization': 'Token {}'.format(TOKEN)}, api_url=API_URL)
     # post_messages(['http://dev-env.exm5cdp7tw.us-west-2.elasticbeanstalk.com/bmreports/29/'],
     #               headers={'Authorization': 'Token {}'.format(TOKEN)}, api_url=API_URL)
