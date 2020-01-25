@@ -246,7 +246,7 @@ class SNSTopicSubscriptionTestCase(TestCase):
         # Link user2 to resort2
         self.resort2.bmg_users.add(self.user2.bmg_user)
         self.assertEqual(len(json.loads(self.user2.bmg_user.sub_arn)), 1)
-        response = sns.get_subscription_attributes(SubscriptionArn=self.user2.bmg_user.sub_arn)
+        response = sns.get_subscription_attributes(SubscriptionArn=self.user2.bmg_user.sub_arn[0])
         self.assertEqual(response['Attributes']['TopicArn'], self.resort2.sns_arn)
 
         response = sns.get_topic_attributes(TopicArn=self.resort2.sns_arn)

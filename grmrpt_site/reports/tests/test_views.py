@@ -1023,7 +1023,7 @@ class BMGUserViewTestCase(TestCase):
 
         # Add fields
         response.pop('sub_arn')
-        response['phone'] = '18002907856'
+        response['phone'] = '+18002907856'
         response['favorite_runs'] = [self.run1_url]
         response['resorts'] = [self.resort_url]
 
@@ -1461,11 +1461,15 @@ class SignupTestCase(TestCase):
         self.assertEqual(usr.bmg_user.contact_method, 'EM')
         self.assertListEqual(json.loads(usr.bmg_user.contact_days.replace('\'', '\"')), ['Mon'])
 
-        user_data['phone'] = '3038776576'
+        user_data['phone'] = '+13038776576'
         user_data['username'] = 'alexphi2'
         self.assertEqual(self.client.post(reverse('signup'), data=user_data).status_code, 302)
 
         user_data['phone'] = '4'
+        user_data['username'] = 'alexphi3'
+        self.assertEqual(self.client.post(reverse('signup'), data=user_data).status_code, 400)
+
+        user_data['phone'] = '3038776576'
         user_data['username'] = 'alexphi3'
         self.assertEqual(self.client.post(reverse('signup'), data=user_data).status_code, 400)
 
