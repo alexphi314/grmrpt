@@ -276,6 +276,11 @@ def post_messages(contact_list: List[str], headers: Dict[str, str], api_url: str
         resort_data = requests.get(report_data['resort'], headers=headers).json()
 
         run_names = [requests.get(run, headers=headers).json()['name'] for run in report_data['runs']]
+        if resort_data['display_url'] is not None:
+            report_link = resort_data['display_url']
+        else:
+            report_link = resort_data['report_url']
+
         email_subj = '{} {} Blue Moon Grooming Report'.format(
             report_data['date'],
             resort_data['name'],
@@ -285,7 +290,7 @@ def post_messages(contact_list: List[str], headers: Dict[str, str], api_url: str
                     'Full report: {}'.format(
                         report_data['date'],
                         '\n  * '.join(run_names),
-                        resort_data['report_url']
+                        report_link
                     )
         email_msg = 'Good morning!\n\n'\
                     'Today\'s Blue Moon Grooming Report for {} contains:\n'\
@@ -293,7 +298,7 @@ def post_messages(contact_list: List[str], headers: Dict[str, str], api_url: str
                     'Full report: {}'.format(
                         resort_data['name'],
                         '\n  * '.join(run_names),
-                        resort_data['report_url']
+                        report_link
                     )
 
         response = sns.publish(

@@ -24,6 +24,8 @@ class Resort(models.Model):
     sns_arn = models.CharField("AWS SNS Topic identifier", max_length=1000, blank=True, null=True)
     parse_mode = models.CharField("Type of parsing to apply to grooming report url", max_length=100,
                                   default='tika')
+    display_url = models.CharField("URL users can click on to view grooming report", max_length=2000,
+                                   blank=True, null=True)
 
     def __str__(self) -> str:
         return self.name

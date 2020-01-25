@@ -10,7 +10,7 @@ class ResortSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Resort
-        fields = ['name', 'location', 'report_url', 'id', 'sns_arn', 'parse_mode']
+        fields = ['name', 'location', 'report_url', 'id', 'sns_arn', 'parse_mode', 'display_url']
 
 
 class RunSerializer(serializers.ModelSerializer):

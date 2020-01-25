@@ -51,6 +51,7 @@ class ResortViewTestCase(TestCase):
         # Add id to resort data
         self.resort_data['id'] = 1
         response[0].pop('sns_arn')
+        response[0].pop('display_url')
         self.assertDictEqual(response[0], self.resort_data)
 
         # Check random user has get access
@@ -79,6 +80,7 @@ class ResortViewTestCase(TestCase):
         # Remove id from dict -> we care that it was returned but not what it is
         response.pop('id')
         response.pop('sns_arn')
+        response.pop('display_url')
         self.assertDictEqual(resort_data, response)
 
         # Check random user has no post access
