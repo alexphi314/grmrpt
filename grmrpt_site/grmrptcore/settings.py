@@ -28,7 +28,8 @@ DEBUG = True
 ALLOWED_HOSTS = [
     'dev-env.exm5cdp7tw.us-west-2.elasticbeanstalk.com',
     '127.0.0.1',
-    'bluemoongroom.com'
+    'bluemoongroom.com',
+    'localhost'
 ]
 
 
@@ -44,6 +45,10 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework.authtoken',
     'reports.apps.ReportsConfig',
+    'health_check',
+    'health_check.db',
+    'health_check.cache',
+    'health_check.storage'
 ]
 
 REST_FRAMEWORK = {
