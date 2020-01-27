@@ -27,7 +27,8 @@ DEBUG = True
 
 ALLOWED_HOSTS = [
     'dev-env.exm5cdp7tw.us-west-2.elasticbeanstalk.com',
-    '127.0.0.1'
+    '127.0.0.1',
+    'bluemoongroom.com'
 ]
 
 
