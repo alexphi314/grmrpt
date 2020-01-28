@@ -26,9 +26,9 @@ SECRET_KEY = 's(qpl*tbapgq_b0p3!9(ax!!go=lhcs4*4=f66d!5-b$+e)33c'
 DEBUG = True
 
 ALLOWED_HOSTS = [
-    'dev-env.exm5cdp7tw.us-west-2.elasticbeanstalk.com',
+    '.elasticbeanstalk.com',
     '127.0.0.1',
-    'bluemoongroom.com',
+    '.bluemoongroom.com',
     'localhost'
 ]
 
