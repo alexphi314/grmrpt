@@ -1,11 +1,9 @@
 {% extends 'base.html' %}
 
 {% block content %}
-    NOTE: security has not been setup yet. thus your password will be sent as plain text over the internet.
-    do not use an existing password nor a password you would ever like to use again.
-    Use something super basic like “iloveskiing” or “snowboardersarebad”...
   <h2>{{ title }}</h2>
   <form method="post">
+  <div class="form-group">
     {% csrf_token %}
     {% for form in forms %}
         {% for field in form %}
@@ -21,6 +19,7 @@
           </p>
         {% endfor %}
     {% endfor %}
-    <button type="submit">{{ button_label }}</button>
+    <button type="submit" class="btn btn-primary btn-custom">{{ button_label }}</button>
+  </div>
   </form>
 {% endblock %}

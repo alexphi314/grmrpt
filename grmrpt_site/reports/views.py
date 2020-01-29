@@ -329,3 +329,10 @@ def index(request):
         return render(request, 'index.html', {'resorts': [resort.name for resort in Resort.objects.all()]})
     else:
         return HttpResponseNotFound(request)
+
+
+def about(request):
+    if request.method == 'GET':
+        return render(request, 'about.html', {})
+    else:
+        return HttpResponseBadRequest

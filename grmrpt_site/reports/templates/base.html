@@ -1,21 +1,55 @@
+{% load static %}
 
 <!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- Latest compiled and minified CSS -->
+    <link rel="stylesheet" href="{% static 'css/bootstrap.css' %}">
+
+    <!-- jQuery library -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+    <!-- Popper JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.16.0/umd/popper.min.js"></script>
+
+    <!-- Latest compiled JavaScript -->
+    <script src="{% static 'js/bootstrap.js' %}"></script>
+
     <title>{% block title %}Blue Moon Groom{% endblock %}</title>
   </head>
   <body>
     <header>
-        <h1><a href="/" style="text-decoration: none; color: black">Blue Moon Groom</a></h1>
-      {% if user.is_authenticated %}
-        <a href="{%  url 'profile' %}">profile</a> / <a href="{% url 'logout' %}">logout</a>
-      {% else %}
-        <a href="{% url 'login' %}">login</a> / <a href="{% url 'signup' %}">signup</a>
-      {% endif %}
-      <hr>
+        <a href="/" style="text-decoration: none; color: black" class="jumbotron-fluid">
+            <div class="container-fluid px-0">
+                <img src="{% static "banner.jpg" %}" alt="banner" class="img-responsive w-100">
+            </div>
+        </a>
+        <nav class="navbar navbar-custom navbar-expand-sm">
+            <ul class="navbar-nav">
+                {% if user.is_authenticated %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{%  url 'profile' %}">profile</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'logout' %}">logout</a>
+                    </li>
+                {% else %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'login' %}">login</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'signup' %}">signup</a>
+                    </li>
+                {% endif %}
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'about' %}">about</a>
+                </li>
+            </ul>
+        </nav>
     </header>
-    <main>
+    <main class="container-fluid px-2">
       {% block content %}
       {% endblock %}
     </main>
