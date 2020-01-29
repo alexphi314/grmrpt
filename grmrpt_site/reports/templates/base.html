@@ -21,9 +21,9 @@
   </head>
   <body>
     <header>
-        <a href="/" style="text-decoration: none; color: black" class="jumbotron-fluid">
+        <a href="/" style="text-decoration: none; color: black" class="page-header px-0">
             <div class="container-fluid px-0">
-                <img src="{% static "banner.jpg" %}" alt="banner" class="img-responsive w-100">
+                <img src="{% static "banner.png" %}" alt="banner" class="img-fluid w-100">
             </div>
         </a>
         <nav class="navbar navbar-custom navbar-expand-sm">
@@ -45,6 +45,9 @@
                 {% endif %}
                 <li class="nav-item">
                     <a class="nav-link" href="{% url 'about' %}">about</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'contact_us' %}">contact us</a>
                 </li>
             </ul>
         </nav>

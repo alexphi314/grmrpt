@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+
+<div class="container-fluid float-left ">
+    <div class="row">
+        <div class="col-md-3 container px-0">
+            <img src="{% static "about.jpeg" %}" class="img img-fluid">
+        </div>
+        <div class="col-md">
+            <p>
+                Blue Moon Groom was developed by Alex Philpott, out of a desire to more efficiently
+                get information from grooming reports. Alex grew up skiing in Colorado and has a background
+                in engineering and computer science.
+            </p>
+            <p>
+
+                For feedback, questions, or concerns, please contact him at
+                <a href="mailto:bluemoongroomingreport@gmail.com">bluemoongroomingreport@gmail.com</a>.
+            </p>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

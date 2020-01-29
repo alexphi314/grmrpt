@@ -326,13 +326,25 @@ def logout_user(request):
 
 def index(request):
     if request.method == 'GET':
-        return render(request, 'index.html', {'resorts': [resort.name for resort in Resort.objects.all()]})
+        num_resorts = Resort.objects.count()
+        return render(request, 'index.html', {'resorts_str': ', and '.join([
+            ', '.join([resort.name for resort in Resort.objects.all()[:num_resorts-1]]),
+            Resort.objects.all()[num_resorts-1].name
+        ])})
     else:
         return HttpResponseNotFound(request)
 
 
+def contact_us(request):
+    if request.method == 'GET':
+        return render(request, 'contact_us.html', {})
+    else:
+        return HttpResponseBadRequest
+
+
 def about(request):
     if request.method == 'GET':
-        return render(request, 'about.html', {})
+        return render(request, 'about.html', {'resorts': [resort.name for resort in
+                                                          Resort.objects.all()]})
     else:
         return HttpResponseBadRequest

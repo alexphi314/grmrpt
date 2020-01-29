@@ -3,26 +3,40 @@
 
 {% block content %}
 
-<div class="container-fluid float-left ">
-    <div class="row">
-        <div class="col-md-3 container px-0">
-            <img src="{% static "about.jpeg" %}" class="img img-fluid">
-        </div>
-        <div class="col-md">
-            <p>
-                Blue Moon Groom was developed by Alex Philpott, out of a desire to more efficiently
-                get information from grooming reports. Alex grew up skiing in Colorado and has a background
-                in engineering and computer science.
-            </p>
-            <br>
-            <br>
-            <p>
-
-                For feedback, questions, or concerns, please contact him at
-                bluemoongroomingreport@gmail.com.
-            </p>
-        </div>
+    <div class="container-md">
+    <h4 class="text-vivid">What is Blue Moon Groom?</h4>
+    <p>
+        Blue Moon Groom is a daily grooming report delivered to your phone or email.
+        It analyzes daily grooming reports issued by ski resorts for you, reporting today's "Blue Moon"
+        runs.
+    </p>
+    <h4 class="text-vivid">What are "Blue Moon" runs?</h4>
+    <p>
+        "Blue Moon" runs are the ski runs on today's grooming report that are only groomed
+        once or twice a week -- they're the runs groomed "once in a blue moon".
+    </p>
+    <h4 class="text-vivid">How and when will I receive the grooming report?</h4>
+    <p>
+        When signing up, you can elect to receive the reports via text message (free) or email.
+    </p>
+    <p>
+        You specify which days of the week you would like to receive the report. For example, if you only
+        ski on Saturday's, you can select to receive the report once per week on Saturday's. You can also
+        sign up to receive the report each day of the week. It's up to you.
+    </p>
+    <p>
+        Reports are usually delivered between 6 am and 8 am MST, depending on when
+        the ski resort posts today's grooming report.
+    </p>
+    <h4 class="text-vivid">Where can I use Blue Moon Groom?</h4>
+    <p>
+        We currently provide reports for the following ski resorts:
+            <ul class="list-group">
+            {% for resort in resorts %}
+                <li class="list-group-item">{{ resort }}</li>
+            {%  endfor %}
+            </ul>
+    </p>
     </div>
-</div>
 
 {% endblock %}
