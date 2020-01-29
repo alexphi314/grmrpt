@@ -3,7 +3,7 @@
 *.log
 *migrations*
 *.secret*
-*static/*
+static/
 # Elastic Beanstalk Files
 *elasticbeanstalk*
 *!.elasticbeanstalk/*.cfg.yml
