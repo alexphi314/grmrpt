@@ -261,7 +261,7 @@ class SNSTopicSubscriptionTestCase(TestCase):
         """
         usr3 = User.objects.create(username='bas', email='foobar1@gmail.com')
         usr3.bmg_user.contact_method = 'PH'
-        usr3.bmg_user.phone = '13039175364'
+        usr3.bmg_user.phone = '13037765456'
         usr3.bmg_user.save()
 
         # Check user linked to topic and removed when deleted
@@ -276,7 +276,7 @@ class SNSTopicSubscriptionTestCase(TestCase):
         # Confirm deleting BMGUser directly also removes sub
         usr3 = User.objects.create(username='basfoo', email='foobar2@gmail.com')
         usr3.bmg_user.contact_method = 'PH'
-        usr3.bmg_user.phone = '13039175364'
+        usr3.bmg_user.phone = '13037765456'
         usr3.bmg_user.save()
         usr3.bmg_user.resorts.set([self.resort2, self.resort])
         sub_arns = json.loads(usr3.bmg_user.sub_arn)

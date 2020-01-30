@@ -767,15 +767,15 @@ class BMReportViewTestCase(TestCase):
         self.assertEqual(report_response.status_code, 405)
 
         # Test that deleting report object deletes BMReport object
-        self.assertEqual(len(client.get('/bmreports/').json()['results']), 1)
+        self.assertEqual(client.get('/bmreports/').json()['count'], 1)
         report_response = client.delete(self.report_url)
         self.assertEqual(report_response.status_code, 204)
 
         bmreport_response = client.get('/bmreports/')
         self.assertEqual(bmreport_response.status_code, 200)
 
-        bmreport_response = bmreport_response.json()['results']
-        self.assertEqual(len(bmreport_response), 0)
+        bmreport_response = bmreport_response.json()['count']
+        self.assertEqual(bmreport_response, 0)
 
     @classmethod
     def tearDownClass(cls):
@@ -836,7 +836,7 @@ class UserViewTestCase(TestCase):
 
         # Check BMGUser objects created
         client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
-        self.assertEqual(len(client.get('/bmgusers/').json()['results']), 2)
+        self.assertEqual(client.get('/bmgusers/').json()['count'], 2)
 
         # Check POST works for staff user
 
@@ -1070,7 +1070,7 @@ class BMGUserViewTestCase(TestCase):
         resp = client.delete('/users/3/')
         self.assertEqual(resp.status_code, 204)
         self.assertEqual(client.get('/bmgusers/3/').status_code, 404)
-        self.assertEqual(len(client.get('/bmgusers/').json()['results']), 2)
+        self.assertEqual(client.get('/bmgusers/').json()['count'], 2)
 
     @classmethod
     def tearDownClass(cls):
@@ -1284,21 +1284,21 @@ class NotificationViewTestCase(TestCase):
         # Create notification, test query params work for resort
         Notification.objects.create(bm_report=self.report3.bm_report)
         query_response = client.get('/notifications/?resort=Vail%20TEST').json()
-        self.assertEqual(int(query_response['count']), 1)
+        self.assertEqual(query_response['count'], 1)
         self.assertEqual(query_response['results'][0]['bm_report'], 'http://testserver/bmreports/3/')
 
         # Create notification, test query params work for report
         Notification.objects.create(bm_report=self.report2.bm_report)
         query_response = client.get('/notifications/?report_date=2020-01-02').json()
-        self.assertEqual(int(query_response['count']), 1)
+        self.assertEqual(query_response['count'], 1)
         self.assertEqual(query_response['results'][0]['bm_report'], 'http://testserver/bmreports/2/')
         query_response = client.get('/notifications/?bm_pk=2').json()
-        self.assertEqual(int(query_response['count']), 1)
+        self.assertEqual(query_response['count'], 1)
         self.assertEqual(query_response['results'][0]['bm_report'], 'http://testserver/bmreports/2/')
 
         # Check combined query works - no results
         query_response = client.get('/notifications/?report_date=2020-01-02&resort=BC').json()
-        self.assertEqual(int(query_response['count']), 0)
+        self.assertEqual(query_response['count'], 0)
 
     def test_post(self) -> None:
         """
@@ -1375,7 +1375,7 @@ class NotificationViewTestCase(TestCase):
         response = client.delete('/notifications/2/')
         self.assertEqual(response.status_code, 204)
         self.assertEqual(client.get('/notifications/2/').status_code, 404)
-        self.assertEqual(len(client.get('/notifications/').json()['results']), 1)
+        self.assertEqual(client.get('/notifications/').json()['count'], 1)
 
     @classmethod
     def tearDownClass(cls):

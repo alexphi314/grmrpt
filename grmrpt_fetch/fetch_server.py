@@ -350,7 +350,11 @@ def application(environ, start_response):
 
                 # Run scheduled task
                 # Get list of resorts from api
-                resorts = get_api_wrapper('resorts/')
+                resorts_response = get_api_wrapper('resorts/')
+                resorts = resorts_response['results']
+                while resorts_response['next'] is not None:
+                    resorts_response = get_api_wrapper(resorts_response['next'])
+                    resorts.append(resorts_response['results'])
 
                 # Fetch grooming report for each resort
                 for resort_dict in resorts:
