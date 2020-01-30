@@ -231,6 +231,11 @@ button {
   border-radius: 0;
 }
 
+.button-dark {
+  background-color: var(--blackcoral);
+  border-color: var(--blackcoral);
+}
+
 button:focus {
   outline: 1px dotted;
   outline: 5px auto -webkit-focus-ring-color;
@@ -4419,6 +4424,10 @@ input[type="button"].btn-block {
   content: "";
   background: no-repeat center center;
   background-size: 100% 100%;
+}
+
+.navbar-toggler-white {
+  background-color: var(--cornflower);
 }
 
 @media (max-width: 575.98px) {
@@ -10247,5 +10256,9 @@ a.text-dark:hover, a.text-dark:focus {
 .no-padding {
   padding-left: 0;
   padding-right: 0;
+}
+
+.hide-me[aria-expanded="true"] {
+  display: none;
 }
 /*# sourceMappingURL=bootstrap.css.map */
