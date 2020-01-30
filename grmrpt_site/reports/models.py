@@ -7,7 +7,7 @@ from json.decoder import JSONDecodeError
 
 from django.db import models
 from django.contrib.auth.models import User
-from django.db.models.signals import post_save, m2m_changed, post_delete
+from django.db.models.signals import post_save, m2m_changed, post_delete, pre_delete
 from django.dispatch import receiver
 from django.core.validators import RegexValidator
 from rest_framework.authtoken.models import Token
@@ -285,6 +285,22 @@ def subscribe_user_to_topic(instance: BMGUser, client: boto3.client) -> List[str
     return sub_arns
 
 
+def unsubscribe_arn(client: boto3.client, sub_arn: str) -> None:
+    """
+    Unsubscribe the specific arn
+
+    :param client: boto3 sns client instance
+    :param sub_arn: arn string
+    """
+    logger = logging.getLogger(__name__)
+    try:
+        resp = client.unsubscribe(SubscriptionArn=sub_arn)
+        logger.info('Successfully unsubscribed, with status code {}'.format(resp['ResponseMetadata']
+                                                                            ['HTTPStatusCode']))
+    except Exception as e:
+        logger.warning('Unable to unsubscribe user:\n {}'.format(e))
+
+
 def unsubscribe_user_to_topic(instance: BMGUser, client: boto3.client, resort: Resort) -> List[str]:
     """
     Unsubscribe a BMGUser to a topic
@@ -294,7 +310,6 @@ def unsubscribe_user_to_topic(instance: BMGUser, client: boto3.client, resort: R
     :param resort: resort instance that is being unsubscribed from
     :return: list of subscription arns with arn for removed resort removed
     """
-    logger = logging.getLogger(__name__)
     # Loop through subscription arns for user and delete the one that corresponds to this resort
     try:
         sub_arns = json.loads(instance.sub_arn)
@@ -305,14 +320,33 @@ def unsubscribe_user_to_topic(instance: BMGUser, client: boto3.client, resort: R
         response = client.get_subscription_attributes(SubscriptionArn=sub_arn)
         if response['Attributes']['TopicArn'] == resort.sns_arn:
             sub_arns.remove(sub_arn)
-            try:
-                resp = client.unsubscribe(SubscriptionArn=sub_arn)
-                logger.info('Successfully unsubscribed, with status code {}'.format(resp['ResponseMetadata']
-                                                                                    ['HTTPStatusCode']))
-            except Exception as e:
-                logger.warning('Unable to unsubscribe user:\n {}'.format(e))
+            unsubscribe_arn(client, sub_arn)
 
     return sub_arns
+
+
+@receiver(pre_delete, sender=User)
+@receiver(pre_delete, sender=BMGUser)
+def unsubscribe_all(instance: Union[User, BMGUser], **kwargs) -> None:
+    """
+    After deleting, remove all subscriptions associated with this user
+
+    :param instance: User or BMGUser being deleted
+    """
+    client = boto3.client('sns', region_name='us-west-2', aws_access_key_id=os.getenv('ACCESS_ID'),
+                          aws_secret_access_key=os.getenv('SECRET_ACCESS_KEY'))
+    if isinstance(instance, User):
+        usr = instance.bmg_user
+    else:
+        usr = instance
+
+    try:
+        sub_arns = json.loads(usr.sub_arn)
+    except (TypeError, JSONDecodeError):
+        sub_arns = []
+
+    for sub_arn in sub_arns:
+        unsubscribe_arn(client, sub_arn)
 
 
 @receiver(m2m_changed, sender=BMGUser.resorts.through)

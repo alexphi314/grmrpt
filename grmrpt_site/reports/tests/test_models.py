@@ -1,4 +1,5 @@
 import datetime as dt
+import time
 
 from django.test import TestCase
 from botocore.client import ClientError
@@ -167,10 +168,12 @@ class SNSTopicSubscriptionTestCase(TestCase):
         cls.user.bmg_user.contact_method = 'PH'
         cls.user.bmg_user.contact_days = json.dumps(['Tue'])
         cls.user.bmg_user.phone = '13035799557'
+        cls.user.bmg_user.save()
 
         cls.user2 = User.objects.create(username='bar', email='foobar@gmail.com')
         cls.user2.bmg_user.contact_method = 'PH'
         cls.user2.bmg_user.phone = '13039175364'
+        cls.user2.save()
 
     def test_sns_topic_creation(self) -> None:
         """
@@ -252,8 +255,40 @@ class SNSTopicSubscriptionTestCase(TestCase):
         response = sns.get_topic_attributes(TopicArn=self.resort2.sns_arn)
         self.assertEqual(response['Attributes']['SubscriptionsConfirmed'], '1')
 
+    def test_user_delete(self) -> None:
+        """
+        test deleting user removes subscription
+        """
+        usr3 = User.objects.create(username='bas', email='foobar1@gmail.com')
+        usr3.bmg_user.contact_method = 'PH'
+        usr3.bmg_user.phone = '13039175364'
+        usr3.bmg_user.save()
+
+        # Check user linked to topic and removed when deleted
+        sns = boto3.client('sns', region_name='us-west-2', aws_access_key_id=os.getenv('ACCESS_ID'),
+                           aws_secret_access_key=os.getenv('SECRET_ACCESS_KEY'))
+        usr3.bmg_user.resorts.add(self.resort2)
+        sub_arn = json.loads(usr3.bmg_user.sub_arn)[0]
+        usr3.delete()
+        time.sleep(60)
+        self.assertRaises(ClientError, sns.get_subscription_attributes, SubscriptionArn=sub_arn)
+
+        # Confirm deleting BMGUser directly also removes sub
+        usr3 = User.objects.create(username='basfoo', email='foobar2@gmail.com')
+        usr3.bmg_user.contact_method = 'PH'
+        usr3.bmg_user.phone = '13039175364'
+        usr3.bmg_user.save()
+        usr3.bmg_user.resorts.set([self.resort2, self.resort])
+        sub_arns = json.loads(usr3.bmg_user.sub_arn)
+        usr3.bmg_user.delete()
+
+        time.sleep(60)
+        for sub_arn in sub_arns:
+            self.assertRaises(ClientError, sns.get_subscription_attributes, SubscriptionArn=sub_arn)
+
     @classmethod
     def tearDownClass(cls):
         # Delete the created resort objects to clean up created SNS topics
         Resort.objects.all().delete()
+        User.objects.all().delete()
         super().tearDownClass()
