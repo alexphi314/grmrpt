@@ -286,6 +286,51 @@ class SNSTopicSubscriptionTestCase(TestCase):
         for sub_arn in sub_arns:
             self.assertRaises(ClientError, sns.get_subscription_attributes, SubscriptionArn=sub_arn)
 
+    def test_contact_day_update(self) -> None:
+        """
+        test updating contact days causes subscription to update attrs
+        """
+        sns = boto3.client('sns', region_name='us-west-2', aws_access_key_id=os.getenv('ACCESS_ID'),
+                           aws_secret_access_key=os.getenv('SECRET_ACCESS_KEY'))
+        # Connect user2 to resort1
+        self.user2.bmg_user.resorts.add(self.resort)
+
+        # Check filter policy is set on resort sub
+        sub_arn = json.loads(self.user2.bmg_user.sub_arn)[0]
+        response = sns.get_subscription_attributes(SubscriptionArn=sub_arn)
+        filter_policy = response['Attributes']['FilterPolicy']
+
+        self.assertListEqual(filter_policy['day_of_week'], [])
+
+        # Add resort2
+        self.user2.bmg_user.resorts.add(self.resort2)
+        # Update contact days
+        self.user2.bmg_user.contact_days = json.dumps(['Tue', 'Wed'])
+        self.user2.save()
+        # Add resort4
+        resort4 = Resort.objects.create(name='resort4', report_url='foo', location='Vail')
+        self.user2.bmg_user.resorts.add(resort4)
+
+        # Check filter policy is set correctly
+        sub_arns = json.loads(self.user2.bmg_user.sub_arn)
+        for sub_arn in sub_arns:
+            response = sns.get_subscription_attributes(SubscriptionArn=sub_arn)
+            filter_policy = response['Attributes']['FilterPolicy']
+
+            self.assertListEqual(filter_policy['day_of_week'], ['Tue', 'Wed'])
+
+        # Change contact days again
+        self.user2.bmg_user.contact_days = json.dumps(['Thu'])
+        self.user2.save()
+
+        # Check filter policy is set correctly
+        sub_arns = json.loads(self.user2.bmg_user.sub_arn)
+        for sub_arn in sub_arns:
+            response = sns.get_subscription_attributes(SubscriptionArn=sub_arn)
+            filter_policy = response['Attributes']['FilterPolicy']
+
+            self.assertListEqual(filter_policy['day_of_week'], ['Thu'])
+
     @classmethod
     def tearDownClass(cls):
         # Delete the created resort objects to clean up created SNS topics

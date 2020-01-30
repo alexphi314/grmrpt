@@ -260,10 +260,7 @@ def subscribe_user_to_topic(instance: BMGUser, client: boto3.client) -> List[str
         protl = 'email'
         endpt = instance.user.email
 
-    try:
-        dow_arry = json.loads(instance.contact_days)
-    except (TypeError, JSONDecodeError):
-        dow_arry = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+    dow_arry = unpack_json_field(instance.contact_days)
 
     sub_arns = []
     if endpt != '' and 'AP_TEST' not in endpt:
@@ -301,6 +298,21 @@ def unsubscribe_arn(client: boto3.client, sub_arn: str) -> None:
         logger.warning('Unable to unsubscribe user:\n {}'.format(e))
 
 
+def unpack_json_field(json_str: str) -> List[str]:
+    """
+    Unpack a JSON string representation into an array
+
+    :param json_str: raw string representation
+    :return: Python array representation of string
+    """
+    try:
+        list_obj = json.loads(json_str)
+    except (TypeError, JSONDecodeError):
+        list_obj = []
+
+    return list_obj
+
+
 def unsubscribe_user_to_topic(instance: BMGUser, client: boto3.client, resort: Resort) -> List[str]:
     """
     Unsubscribe a BMGUser to a topic
@@ -311,10 +323,7 @@ def unsubscribe_user_to_topic(instance: BMGUser, client: boto3.client, resort: R
     :return: list of subscription arns with arn for removed resort removed
     """
     # Loop through subscription arns for user and delete the one that corresponds to this resort
-    try:
-        sub_arns = json.loads(instance.sub_arn)
-    except (TypeError, JSONDecodeError):
-        sub_arns = []
+    sub_arns = unpack_json_field(instance.sub_arn)
 
     for sub_arn in sub_arns:
         response = client.get_subscription_attributes(SubscriptionArn=sub_arn)
@@ -326,7 +335,7 @@ def unsubscribe_user_to_topic(instance: BMGUser, client: boto3.client, resort: R
 
 
 @receiver(pre_delete, sender=BMGUser)
-def unsubscribe_all(instance: Union[User, BMGUser], **kwargs) -> None:
+def unsubscribe_all(instance: BMGUser, **kwargs) -> None:
     """
     After deleting, remove all subscriptions associated with this user
 
@@ -334,18 +343,41 @@ def unsubscribe_all(instance: Union[User, BMGUser], **kwargs) -> None:
     """
     client = boto3.client('sns', region_name='us-west-2', aws_access_key_id=os.getenv('ACCESS_ID'),
                           aws_secret_access_key=os.getenv('SECRET_ACCESS_KEY'))
-    if isinstance(instance, User):
-        usr = instance.bmg_user
-    else:
-        usr = instance
 
-    try:
-        sub_arns = json.loads(usr.sub_arn)
-    except (TypeError, JSONDecodeError):
-        sub_arns = []
+    sub_arns = unpack_json_field(instance.sub_arn)
 
     for sub_arn in sub_arns:
         unsubscribe_arn(client, sub_arn)
+
+
+@receiver(post_save, sender=BMGUser)
+def update_subscription_attrs(instance: BMGUser, created: bool, **kwargs) -> None:
+    """
+    For model updates -- Check if contact_days was updated; if so,
+    update the subscription attributes on SNS
+
+    :param instance: BMGUser instance being saved
+    :param created: True if a new record was created
+    """
+    if not created:
+        sub_arns = unpack_json_field(instance.sub_arn)
+        contact_days = unpack_json_field(instance.contact_days)
+
+        sns = boto3.client('sns', region_name='us-west-2', aws_access_key_id=os.getenv('ACCESS_ID'),
+                           aws_secret_access_key=os.getenv('SECRET_ACCESS_KEY'))
+
+        for sub_arn in sub_arns:
+            response = sns.get_subscription_attributes(SubscriptionArn=sub_arn)
+            filter_policy = response['Attributes']['FilterPolicy']
+
+            # If the filter policy doesn't match, update it
+            if filter_policy['day_of_week'] != contact_days:
+                filter_policy['day_of_week'] = contact_days
+                sns.set_subscription_attributes(
+                    SubscriptionArn=sub_arn,
+                    AttributeName='FilterPolicy',
+                    AttributeValue=json.dumps(filter_policy)
+                )
 
 
 @receiver(m2m_changed, sender=BMGUser.resorts.through)
