@@ -325,7 +325,6 @@ def unsubscribe_user_to_topic(instance: BMGUser, client: boto3.client, resort: R
     return sub_arns
 
 
-@receiver(pre_delete, sender=User)
 @receiver(pre_delete, sender=BMGUser)
 def unsubscribe_all(instance: Union[User, BMGUser], **kwargs) -> None:
     """
