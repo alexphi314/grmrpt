@@ -2,6 +2,22 @@
 
 {% block content %}
   <h2 class="text-vivid">{{ title }}</h2>
+    {% if alert == 'True' %}
+        <div class="alert alert-success" role="alert">
+            New user created successfully.
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+            </button>
+        </div>
+    {% elif  error is not None %}
+        <div class="alert alert-danger" role="alert">
+            Please correct the errors shown below.
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+            </button>
+        </div>
+    {% endif %}
+
   <form method="post">
   <div class="form-group">
     {% csrf_token %}

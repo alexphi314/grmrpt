@@ -5,6 +5,8 @@ from django.contrib.auth import logout, login
 from django.shortcuts import render
 from django.db import transaction
 from django.http import HttpResponseBadRequest, HttpResponseRedirect, HttpResponseNotFound
+from django.urls import resolve
+from django.urls import reverse as django_reverse
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
@@ -271,9 +273,17 @@ def create_update_user(request, UserForm, user=None):
         # Log the user in
         login(request, user)
 
-        return HttpResponseRedirect('/profile')
+        url = django_reverse('profile-alert', kwargs={'alert': True})
+        return HttpResponseRedirect(url)
     else:
-        return HttpResponseBadRequest(content=[user_form.errors, bmg_user_form.errors])
+
+        # Load form showing errors
+        return render(request, 'signup.html', {
+            'forms': [user_form, bmg_user_form],
+            'button_label': 'signup',
+            'title': 'Sign Up',
+            'error': 'True'
+        })
 
 
 @transaction.atomic
@@ -282,7 +292,7 @@ def create_user(request):
         return create_update_user(request, SignupForm)
     else:
         if request.user.is_authenticated:
-            return HttpResponseRedirect('/profile')
+            return HttpResponseRedirect(django_reverse('profile'))
 
         user_form = SignupForm()
         bmg_user_form = BMGUserCreationUpdateForm()
@@ -295,24 +305,25 @@ def create_user(request):
 
 
 @transaction.atomic
-def profile_view(request):
+def profile_view(request, alert='False'):
     if request.method == 'GET':
         if not request.user.is_authenticated:
-            return HttpResponseRedirect('/login')
+            return HttpResponseRedirect(django_reverse('login'))
 
         user = request.user
         user_form = UpdateForm(instance=user)
         bmg_user_form = BMGUserCreationUpdateForm(instance=user.bmg_user)
 
-        return render(request, 'signup.html', {
-            'forms': [user_form, bmg_user_form],
-            'button_label': 'update',
-            'title': 'User Profile'
-        })
+        params = {}
+        params['alert'] = alert
+        params['forms'] = [user_form, bmg_user_form]
+        params['button_label'] = 'update'
+        params['title'] = 'User Profile'
+        return render(request, 'signup.html', params)
 
     if request.method == 'POST':
         if not request.user.is_authenticated:
-            return HttpResponseRedirect('/login')
+            return HttpResponseRedirect(django_reverse('login'))
 
         return create_update_user(request, UpdateForm, request.user)
 
