@@ -280,7 +280,7 @@ def create_update_user(request, UserForm, user=None):
         # Load form showing errors
         return render(request, 'signup.html', {
             'forms': [user_form, bmg_user_form],
-            'button_label': 'signup',
+            'button_label': 'Sign Up',
             'title': 'Sign Up',
             'error': 'True'
         })
@@ -299,7 +299,7 @@ def create_user(request):
 
     return render(request, 'signup.html', {
         'forms': [user_form, bmg_user_form],
-        'button_label': 'signup',
+        'button_label': 'Sign Up',
         'title': 'Sign Up'
     })
 
@@ -317,7 +317,7 @@ def profile_view(request, alert='False'):
         params = {}
         params['alert'] = alert
         params['forms'] = [user_form, bmg_user_form]
-        params['button_label'] = 'update'
+        params['button_label'] = 'Update'
         params['title'] = 'User Profile'
         return render(request, 'signup.html', params)
 
