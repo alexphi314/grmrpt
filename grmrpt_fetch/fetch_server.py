@@ -120,9 +120,9 @@ def create_report(date: dt.datetime, groomed_runs: List[str], resort_id: int,
     reports = get_api('reports/?resort={}&date={}'.format(
         resort_name,
         date.strftime('%Y-%m-%d')), head, api_url)
-    if len(reports) > 0:
-        assert len(reports) == 1
-        report_id = reports[0]['id']
+    if reports['count'] > 0:
+        assert reports['count'] == 1
+        report_id = reports['results'][0]['id']
         logger.info('Report object already present in api')
     else:
         report_dict = {'date': date.strftime('%Y-%m-%d'), 'resort': '/'.join([api_url, resort_url])}
@@ -146,11 +146,11 @@ def create_report(date: dt.datetime, groomed_runs: List[str], resort_id: int,
     past_report_list = get_api('reports/?resort={}&date={}'.format(
         resort_name,
         (date-dt.timedelta(days=1)).strftime('%Y-%m-%d')), head, api_url)
-    assert len(past_report_list) <= 1
+    assert past_report_list['count'] <= 1
 
     try:
         prev_report_runs = [
-            requests.get(run, headers=head).json()['name'] for run in past_report_list[0]['runs']
+            requests.get(run, headers=head).json()['name'] for run in past_report_list['results'][0]['runs']
         ]
     except IndexError:
         prev_report_runs = []
@@ -172,9 +172,9 @@ def create_report(date: dt.datetime, groomed_runs: List[str], resort_id: int,
             ), head, api_url)
 
             # If run exists, check if the run url is attached to the report
-            if len(run_resp) > 0:
-                assert len(run_resp) == 1
-                run_url = '/'.join([api_url, 'runs', str(run_resp[0]['id']), ''])
+            if run_resp['count'] > 0:
+                assert run_resp['count'] == 1
+                run_url = '/'.join([api_url, 'runs', str(run_resp['results'][0]['id']), ''])
             # Otherwise, create the run and attach to report from this end
             else:
                 run_data = {'name': run, 'resort': '/'.join([api_url, resort_url])}
@@ -210,9 +210,9 @@ def get_resorts_to_notify(get_api_wrapper, api_url) -> List[str]:
     :return: list of bm_report urls to notify for
     """
     contact_list = []
-    resorts = get_api_wrapper('resorts/')
+    resorts = get_api_wrapper('resorts/')['results']
     for resort in resorts:
-        reports = get_api_wrapper('reports/?resort={}'.format(resort['name'].replace(' ', '%20')))
+        reports = get_api_wrapper('reports/?resort={}'.format(resort['name'].replace(' ', '%20')))['results']
         # Only include reports with run objects attached
         reports = [report for report in reports if len(report['runs']) > 0]
         # Only include reports with bm reports with runs on them
@@ -236,9 +236,9 @@ def get_resorts_to_notify(get_api_wrapper, api_url) -> List[str]:
             yesterday.strftime('%Y-%m-%d'),
             resort['name']
         ))
-        if len(yesterday_report) > 0:
-            assert len(yesterday_report) == 1
-            yesterday_runs = get_api_wrapper(yesterday_report[0]['bm_report'].replace(
+        if yesterday_report['count'] > 0:
+            assert yesterday_report['count'] == 1
+            yesterday_runs = get_api_wrapper(yesterday_report['results'][0]['bm_report'].replace(
                 '{}/'.format(api_url), ''
             ))['runs']
         else:
@@ -249,7 +249,7 @@ def get_resorts_to_notify(get_api_wrapper, api_url) -> List[str]:
             bm_report_data['id']
         ))
 
-        if len(notification_response) == 0 and Counter(bm_report_data['runs']) != Counter(yesterday_runs):
+        if notification_response['count'] == 0 and Counter(bm_report_data['runs']) != Counter(yesterday_runs):
             # No notification posted for this report
             contact_list.append(most_recent_report_url)
         elif Counter(bm_report_data['runs']) == Counter(yesterday_runs):

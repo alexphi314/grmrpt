@@ -2,9 +2,9 @@
 
 {% block content %}
   <h2 class="text-vivid">{{ title }}</h2>
-    {% if alert == 'True' %}
+    {% if alert != '' and alert is not None %}
         <div class="alert alert-success" role="alert">
-            New user created successfully.
+            {{ alert }}.
             <button type="button" class="close" data-dismiss="alert" aria-label="Close">
                 <span aria-hidden="true">&times;</span>
             </button>

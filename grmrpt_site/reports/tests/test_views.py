@@ -45,7 +45,7 @@ class ResortViewTestCase(TestCase):
         # Check logged in user can GET and behavior is as expected
         response = client.get('/resorts/', format='json')
         self.assertEqual(response.status_code, 200)
-        response = response.json()
+        response = response.json()['results']
         self.assertEqual(len(response), 1)
 
         # Add id to resort data
@@ -190,7 +190,7 @@ class RunViewTestCase(TestCase):
         client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
         response = client.get('/runs/')
         self.assertEqual(response.status_code, 200)
-        response = response.json()
+        response = response.json()['results']
         self.assertEqual(len(response), 1)
         response = response[0]
 
@@ -397,7 +397,7 @@ class ReportViewTestCase(TestCase):
         # Check BMreport objects created correctly
         bmreport_response = client.get('/bmreports/', format='json')
         self.assertEqual(bmreport_response.status_code, 200)
-        bmreport_response = bmreport_response.json()
+        bmreport_response = bmreport_response.json()['results']
         self.assertEqual(len(bmreport_response), 2)
 
         bmreport_response = client.get(report_response['bm_report']).json()
@@ -477,7 +477,7 @@ class ReportViewTestCase(TestCase):
         client.delete(report_url6)
         client.delete(report_url7)
         client.delete(report_url8)
-        self.assertEqual(len(client.get('/reports/').json()), 1)
+        self.assertEqual(int(client.get('/reports/').json()['count']), 1)
 
     def test_report_bmreport_put(self) -> None:
         """
@@ -528,7 +528,7 @@ class ReportViewTestCase(TestCase):
         client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
         response = client.get('/reports/')
         self.assertEqual(response.status_code, 200)
-        response = response.json()
+        response = response.json()['results']
         self.assertEqual(len(response), 1)
         response = response[0]
 
@@ -699,7 +699,7 @@ class BMReportViewTestCase(TestCase):
 
         response = client.get('/bmreports/')
         self.assertEqual(response.status_code, 200)
-        response = response.json()
+        response = response.json()['results']
         self.assertEqual(len(response), 1)
         response = response[0]
 
@@ -767,14 +767,14 @@ class BMReportViewTestCase(TestCase):
         self.assertEqual(report_response.status_code, 405)
 
         # Test that deleting report object deletes BMReport object
-        self.assertEqual(len(client.get('/bmreports/').json()), 1)
+        self.assertEqual(len(client.get('/bmreports/').json()['results']), 1)
         report_response = client.delete(self.report_url)
         self.assertEqual(report_response.status_code, 204)
 
         bmreport_response = client.get('/bmreports/')
         self.assertEqual(bmreport_response.status_code, 200)
 
-        bmreport_response = bmreport_response.json()
+        bmreport_response = bmreport_response.json()['results']
         self.assertEqual(len(bmreport_response), 0)
 
     @classmethod
@@ -810,7 +810,7 @@ class UserViewTestCase(TestCase):
         client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
         response = client.get('/users/')
         self.assertEqual(response.status_code, 200)
-        response = response.json()
+        response = response.json()['results']
 
         self.assertEqual(len(response), 2)
 
@@ -836,7 +836,7 @@ class UserViewTestCase(TestCase):
 
         # Check BMGUser objects created
         client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
-        self.assertEqual(len(client.get('/bmgusers/').json()), 2)
+        self.assertEqual(len(client.get('/bmgusers/').json()['results']), 2)
 
         # Check POST works for staff user
 
@@ -859,7 +859,7 @@ class UserViewTestCase(TestCase):
 
         # Check BMGUser object created
         self.assertEqual(client.get('/bmgusers/{}/'.format(user_id)).status_code, 200)
-        self.assertEqual(len(client.get('/bmgusers/').json()), 3)
+        self.assertEqual(int(client.get('/bmgusers/').json()['count']), 3)
 
         # Delete the posted user
         client.delete(user_url)
@@ -976,7 +976,7 @@ class BMGUserViewTestCase(TestCase):
         client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
         response = client.get('/bmgusers/')
         self.assertEqual(response.status_code, 200)
-        response = response.json()
+        response = response.json()['results']
 
         self.assertEqual(response[0]['id'], 1)
         self.assertEqual(response[0]['phone'], None)
@@ -1070,7 +1070,7 @@ class BMGUserViewTestCase(TestCase):
         resp = client.delete('/users/3/')
         self.assertEqual(resp.status_code, 204)
         self.assertEqual(client.get('/bmgusers/3/').status_code, 404)
-        self.assertEqual(len(client.get('/bmgusers/').json()), 2)
+        self.assertEqual(len(client.get('/bmgusers/').json()['results']), 2)
 
     @classmethod
     def tearDownClass(cls):
@@ -1267,7 +1267,7 @@ class NotificationViewTestCase(TestCase):
         client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
         response = client.get('/notifications/')
         self.assertEqual(response.status_code, 200)
-        response = response.json()[0]
+        response = response.json()['results'][0]
 
         self.assertEqual(response['id'], 1)
         self.assertEqual(response['bm_report'], 'http://testserver/bmreports/1/')
@@ -1284,21 +1284,21 @@ class NotificationViewTestCase(TestCase):
         # Create notification, test query params work for resort
         Notification.objects.create(bm_report=self.report3.bm_report)
         query_response = client.get('/notifications/?resort=Vail%20TEST').json()
-        self.assertEqual(len(query_response), 1)
-        self.assertEqual(query_response[0]['bm_report'], 'http://testserver/bmreports/3/')
+        self.assertEqual(int(query_response['count']), 1)
+        self.assertEqual(query_response['results'][0]['bm_report'], 'http://testserver/bmreports/3/')
 
         # Create notification, test query params work for report
         Notification.objects.create(bm_report=self.report2.bm_report)
         query_response = client.get('/notifications/?report_date=2020-01-02').json()
-        self.assertEqual(len(query_response), 1)
-        self.assertEqual(query_response[0]['bm_report'], 'http://testserver/bmreports/2/')
+        self.assertEqual(int(query_response['count']), 1)
+        self.assertEqual(query_response['results'][0]['bm_report'], 'http://testserver/bmreports/2/')
         query_response = client.get('/notifications/?bm_pk=2').json()
-        self.assertEqual(len(query_response), 1)
-        self.assertEqual(query_response[0]['bm_report'], 'http://testserver/bmreports/2/')
+        self.assertEqual(int(query_response['count']), 1)
+        self.assertEqual(query_response['results'][0]['bm_report'], 'http://testserver/bmreports/2/')
 
         # Check combined query works - no results
         query_response = client.get('/notifications/?report_date=2020-01-02&resort=BC').json()
-        self.assertEqual(len(query_response), 0)
+        self.assertEqual(int(query_response['count']), 0)
 
     def test_post(self) -> None:
         """
@@ -1335,7 +1335,7 @@ class NotificationViewTestCase(TestCase):
         """
         client = APIClient()
         client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
-        notification = client.get('/notifications/').json()[0]
+        notification = client.get('/notifications/').json()['results'][0]
 
         # Update data
         notification['bm_report'] = 'http://testserver/bmreports/2/'
@@ -1375,7 +1375,7 @@ class NotificationViewTestCase(TestCase):
         response = client.delete('/notifications/2/')
         self.assertEqual(response.status_code, 204)
         self.assertEqual(client.get('/notifications/2/').status_code, 404)
-        self.assertEqual(len(client.get('/notifications/').json()), 1)
+        self.assertEqual(len(client.get('/notifications/').json()['results']), 1)
 
     @classmethod
     def tearDownClass(cls):
@@ -1463,17 +1463,20 @@ class SignupTestCase(TestCase):
         self.assertEqual(usr.bmg_user.contact_method, 'EM')
         self.assertListEqual(json.loads(usr.bmg_user.contact_days.replace('\'', '\"')), ['Mon'])
 
-        user_data['phone'] = '+13038776576'
+        user_data['phone'] = '+13038776577'
         user_data['username'] = 'alexphi2'
+        user_data['email'] = 'AP_TEST_foo2@gmail.com'
         self.assertEqual(self.client.post(reverse('signup'), data=user_data).status_code, 302)
 
         user_data['phone'] = '4'
         user_data['username'] = 'alexphi3'
-        self.assertEqual(self.client.post(reverse('signup'), data=user_data).status_code, 400)
+        user_data['email'] = 'AP_TEST_foo3@gmail.com'
+        self.assertEqual(self.client.post(reverse('signup'), data=user_data).status_code, 200)
 
         user_data['phone'] = '3038776576'
         user_data['username'] = 'alexphi3'
-        self.assertEqual(self.client.post(reverse('signup'), data=user_data).status_code, 400)
+        user_data['email'] = 'AP_TEST_foo4@gmail.com'
+        self.assertEqual(self.client.post(reverse('signup'), data=user_data).status_code, 200)
 
         self.client.force_login(user=usr)
         self.client.get(reverse('profile'))

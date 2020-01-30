@@ -1,17 +1,35 @@
 import json
 from json.decoder import JSONDecodeError
+from typing import Union
 
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
+from django.core.exceptions import ValidationError
+from django.utils.translation import gettext_lazy as _
 
 from reports.models import BMGUser, Resort, phone_regex
+
+
+def email_validator(value: str) -> None:
+    """
+    Check the input email is unique, or raise a Validation Error
+
+    :param value: input email
+    :return: None if no error; ValidationError if there is a similar email in the DB
+    """
+    existing_emails = [user.email for user in User.objects.all()]
+    if value in existing_emails:
+        raise ValidationError(
+            '{} is already connected to another user.'.format(value)
+        )
 
 
 class SignupForm(UserCreationForm):
     first_name = forms.CharField(max_length=30, required=False, help_text='Optional.', label='First Name')
     last_name = forms.CharField(max_length=30, required=False, help_text='Optional.', label='Last Name')
-    email = forms.EmailField(max_length=254, help_text='Required. Inform a valid email address.')
+    email = forms.EmailField(max_length=254, help_text='Required. Inform a valid email address.',
+                             validators=[email_validator])
 
     class Meta:
         model = User

@@ -201,7 +201,7 @@ class BMGUser(models.Model):
     """
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='bmg_user')
     favorite_runs = models.ManyToManyField(Run, related_name='users_favorited')
-    phone = models.CharField("User Phone number", blank=True, null=True, max_length=17,
+    phone = models.CharField("Phone Number", blank=True, null=True, max_length=17, unique=True,
                              validators=[phone_regex])
     resorts = models.ManyToManyField(Resort, related_name='bmg_users')
     sub_arn = models.CharField("AWS SNS Subscription arns", max_length=1000, blank=True, null=True)
@@ -266,17 +266,12 @@ def subscribe_user_to_topic(instance: BMGUser, client: boto3.client) -> List[str
     if endpt != '' and 'AP_TEST' not in endpt:
         for resort in instance.resorts.all():
             # Include attributes here to create filter policy
-            response = client.subscribe(
-                TopicArn=resort.sns_arn,
-                Protocol=protl,
-                ReturnSubscriptionArn=True,
-                Endpoint=endpt,
-                Attributes={
-                    'FilterPolicy': json.dumps({
-                        'day_of_week': dow_arry
-                    })
-                }
-            )
+            params = {'TopicArn': resort.sns_arn, 'Protocol': protl, 'ReturnSubscriptionArn': True,
+                      'Endpoint': endpt}
+            if len(dow_arry) > 0:
+                params['Attributes'] = {'FilterPolicy': json.dumps({'day_of_week': dow_arry})}
+
+            response = client.subscribe(**params)
             sub_arns.append(response['SubscriptionArn'])
 
     return sub_arns
@@ -368,10 +363,13 @@ def update_subscription_attrs(instance: BMGUser, created: bool, **kwargs) -> Non
 
         for sub_arn in sub_arns:
             response = sns.get_subscription_attributes(SubscriptionArn=sub_arn)
-            filter_policy = response['Attributes']['FilterPolicy']
+            try:
+                filter_policy = json.loads(response['Attributes']['FilterPolicy'])
+            except KeyError:
+                filter_policy = {'day_of_week': []}
 
-            # If the filter policy doesn't match, update it
-            if filter_policy['day_of_week'] != contact_days:
+            # If the filter policy doesn't match, update it (as long as the new val for contact_days is > 0)
+            if filter_policy['day_of_week'] != contact_days and len(contact_days) > 0:
                 filter_policy['day_of_week'] = contact_days
                 sns.set_subscription_attributes(
                     SubscriptionArn=sub_arn,

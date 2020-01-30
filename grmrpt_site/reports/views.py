@@ -259,9 +259,11 @@ def create_update_user(request, UserForm, user=None):
     if user is None:
         user_form = UserForm(request.POST)
         bmg_user_form = BMGUserCreationUpdateForm(request.POST)
+        alert_str = 'New user created successfully'.replace(' ', '_')
     else:
         user_form = UserForm(request.POST, instance=user)
         bmg_user_form = BMGUserCreationUpdateForm(request.POST, instance=user.bmg_user)
+        alert_str = 'Profile updated successfully'.replace(' ', '_')
 
     if user_form.is_valid() and bmg_user_form.is_valid():
         user = user_form.save()
@@ -273,7 +275,7 @@ def create_update_user(request, UserForm, user=None):
         # Log the user in
         login(request, user)
 
-        url = django_reverse('profile-alert', kwargs={'alert': True})
+        url = django_reverse('profile-alert', kwargs={'alert': alert_str})
         return HttpResponseRedirect(url)
     else:
 
@@ -305,7 +307,7 @@ def create_user(request):
 
 
 @transaction.atomic
-def profile_view(request, alert='False'):
+def profile_view(request, alert=''):
     if request.method == 'GET':
         if not request.user.is_authenticated:
             return HttpResponseRedirect(django_reverse('login'))
@@ -315,7 +317,7 @@ def profile_view(request, alert='False'):
         bmg_user_form = BMGUserCreationUpdateForm(instance=user.bmg_user)
 
         params = {}
-        params['alert'] = alert
+        params['alert'] = alert.replace('_', ' ')
         params['forms'] = [user_form, bmg_user_form]
         params['button_label'] = 'Update'
         params['title'] = 'User Profile'

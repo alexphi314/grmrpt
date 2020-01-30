@@ -298,9 +298,7 @@ class SNSTopicSubscriptionTestCase(TestCase):
         # Check filter policy is set on resort sub
         sub_arn = json.loads(self.user2.bmg_user.sub_arn)[0]
         response = sns.get_subscription_attributes(SubscriptionArn=sub_arn)
-        filter_policy = response['Attributes']['FilterPolicy']
-
-        self.assertListEqual(filter_policy['day_of_week'], [])
+        self.assertTrue('FilterPolicy' not in response['Attributes'].keys())
 
         # Add resort2
         self.user2.bmg_user.resorts.add(self.resort2)
@@ -315,7 +313,7 @@ class SNSTopicSubscriptionTestCase(TestCase):
         sub_arns = json.loads(self.user2.bmg_user.sub_arn)
         for sub_arn in sub_arns:
             response = sns.get_subscription_attributes(SubscriptionArn=sub_arn)
-            filter_policy = response['Attributes']['FilterPolicy']
+            filter_policy = json.loads(response['Attributes']['FilterPolicy'])
 
             self.assertListEqual(filter_policy['day_of_week'], ['Tue', 'Wed'])
 
@@ -327,9 +325,11 @@ class SNSTopicSubscriptionTestCase(TestCase):
         sub_arns = json.loads(self.user2.bmg_user.sub_arn)
         for sub_arn in sub_arns:
             response = sns.get_subscription_attributes(SubscriptionArn=sub_arn)
-            filter_policy = response['Attributes']['FilterPolicy']
+            filter_policy = json.loads(response['Attributes']['FilterPolicy'])
 
             self.assertListEqual(filter_policy['day_of_week'], ['Thu'])
+
+        self.user2.bmg_user.resorts.set([])
 
     @classmethod
     def tearDownClass(cls):
