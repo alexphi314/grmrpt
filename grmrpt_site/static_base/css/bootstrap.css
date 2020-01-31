@@ -2605,8 +2605,8 @@ fieldset:disabled a.btn {
 
 .btn-secondary {
   color: #fff;
-  background-color: #6c757d;
-  border-color: #6c757d;
+  background-color: var(--blackcoral);
+  border-color: var(--blackcoral);
 }
 
 .btn-secondary:hover {
@@ -10135,6 +10135,10 @@ a.text-dark:hover, a.text-dark:focus {
 
 .text-vivid {
   color: var(--vividcerulean);
+}
+
+.text-ucla {
+  color: var(--uclablue);
 }
 
 .text-black-50 {

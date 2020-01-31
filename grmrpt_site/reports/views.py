@@ -352,7 +352,7 @@ def contact_us(request):
     if request.method == 'GET':
         return render(request, 'contact_us.html', {})
     else:
-        return HttpResponseBadRequest
+        return HttpResponseBadRequest()
 
 
 def about(request):
@@ -360,4 +360,19 @@ def about(request):
         return render(request, 'about.html', {'resorts': [resort.name for resort in
                                                           Resort.objects.all()]})
     else:
-        return HttpResponseBadRequest
+        return HttpResponseBadRequest()
+
+
+def delete(request):
+    if request.method == 'GET':
+        if not request.user.is_authenticated:
+            return HttpResponseRedirect(django_reverse('signup'))
+
+        user = User.objects.get(username=request.user)
+        logout(request)
+        user.delete()
+
+        return render(request, 'deleted.html')
+
+    else:
+        return HttpResponseBadRequest()
