@@ -9,7 +9,7 @@ from rest_framework.test import APIClient
 from rest_framework.authtoken.models import Token
 
 sys.path.append('../grmrpt_fetch')
-from grmrpt_fetch.fetch_server import get_resorts_to_notify, create_report
+from grmrpt_fetch.fetch_server import get_resorts_to_notify, create_report, get_api
 from reports.models import *
 
 
@@ -1147,9 +1147,7 @@ class NotifyUsersTestCase(TestCase):
         client = APIClient()
         client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
         def get_wrapper(x: str):
-            return client.get('/{}'.format(x)).json()
-            # else:
-            #     return client.get(x).json()
+            return get_api(x, {}, 'http://testserver', client)
 
         resorts = get_resorts_to_notify(get_wrapper, 'http://testserver')
         self.assertListEqual(resorts, [self.resort2_report_url])
@@ -1407,8 +1405,9 @@ class FetchCreateReportTestCase(TestCase):
         date = dt.datetime(2020, 1, 1).date()
         client = APIClient()
         client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
-        get_api = lambda x, y, z: client.get('/{}'.format(x)).json()
-        create_report(date, ['Ripsaw', 'Centennial'], 1, 'http://testserver', self.token.key, client, get_api)
+        get_api_wrapper = lambda x, y, z: get_api(x, y, z, client)
+        create_report(date, ['Ripsaw', 'Centennial'], 1, 'http://testserver', self.token.key, get_api_wrapper,
+                      client)
 
         self.assertListEqual([self.run1, self.run2], list(self.report.runs.all()))
 
@@ -1416,8 +1415,9 @@ class FetchCreateReportTestCase(TestCase):
         date = dt.datetime(2020, 1, 1).date()
         client = APIClient()
         client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
-        get_api = lambda x, y, z: client.get('/{}'.format(x)).json()
-        create_report(date, ['Ripsaw', 'Larkspur'], 1, 'http://testserver', self.token.key, client, get_api)
+        get_api_wrapper = lambda x, y, z: get_api(x, y, z, client)
+        create_report(date, ['Ripsaw', 'Larkspur'], 1, 'http://testserver', self.token.key, get_api_wrapper,
+                      client)
 
         self.assertListEqual([self.run1, self.run3], list(self.report.runs.all()))
 

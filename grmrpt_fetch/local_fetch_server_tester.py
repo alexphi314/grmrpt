@@ -30,12 +30,7 @@ if __name__ == "__main__":
     logger.info('Getting list of resorts from api')
 
     # Get list of resorts from api
-    resorts_response = get_api('resorts/', headers={'Authorization': 'Token {}'.format(TOKEN)}, api_url=API_URL)
-    resorts = resorts_response['results']
-    while resorts_response['next'] is not None:
-        resorts_response = get_api(resorts_response['next'],
-                                   headers={'Authorization': 'Token {}'.format(TOKEN)}, api_url=API_URL)
-        resorts.append(resorts_response['results'])
+    resorts = get_api('resorts/', headers={'Authorization': 'Token {}'.format(TOKEN)}, api_url=API_URL)
 
     # Fetch grooming report for each resort
     # for resort_dict in resorts:
@@ -53,13 +48,10 @@ if __name__ == "__main__":
     #     else:
     #         date, groomed_runs = get_grooming_report(parse_mode, url=report_url)
     #
-    #     create_report(date, groomed_runs, resort_dict['id'], API_URL, TOKEN, requests, get_api)
+    #     create_report(date, groomed_runs, resort_dict['id'], API_URL, TOKEN, get_api)
 
     # Check for notif
     get_api_wrapper = lambda x: get_api(x, headers={'Authorization': 'Token {}'.format(TOKEN)},
                                         api_url=API_URL)
-    # resort_list = get_resorts_to_notify(get_api_wrapper, API_URL)
-    # post_messages(resort_list, headers={'Authorization': 'Token {}'.format(TOKEN)}, api_url=API_URL)
-    post_messages(['https://bluemoongroom.com/bmreports/54/'],
-                  headers={'Authorization': 'Token {}'.format(TOKEN)}, api_url=API_URL)
-    FOO = 1
+    resort_list = get_resorts_to_notify(get_api_wrapper, API_URL)
+    post_messages(resort_list, headers={'Authorization': 'Token {}'.format(TOKEN)}, api_url=API_URL)
