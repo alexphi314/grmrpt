@@ -357,8 +357,8 @@ def post_messages(contact_list: List[str], headers: Dict[str, str], api_url: str
 
 
 def application(environ, start_response):
-    API_URL = os.getenv('DEV_URL')
-    TOKEN = os.getenv('DEV_TOKEN')
+    API_URL = os.getenv('API_URL')
+    TOKEN = os.getenv('TOKEN')
     get_api_wrapper = lambda x: get_api(x, headers={'Authorization': 'Token {}'.format(TOKEN)},
                                         api_url=API_URL)
 
