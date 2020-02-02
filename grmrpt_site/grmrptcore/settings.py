@@ -48,7 +48,8 @@ INSTALLED_APPS = [
     'health_check',
     'health_check.db',
     'health_check.cache',
-    'health_check.storage'
+    'health_check.storage',
+    'site_pages.apps.SitePagesConfig'
 ]
 
 REST_FRAMEWORK = {
@@ -79,7 +80,7 @@ ROOT_URLCONF = 'grmrptcore.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [os.path.join(BASE_DIR, 'reports/templates')],
+        'DIRS': [os.path.join(BASE_DIR, 'site_pages/templates')],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
