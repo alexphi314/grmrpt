@@ -6,7 +6,7 @@ import sys
 
 import requests
 
-from fetch_report import get_grooming_report
+from fetch_server import get_grooming_report
 
 if sys.version_info.major < 3:
     from urllib import url2pathname
