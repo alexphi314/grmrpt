@@ -6,9 +6,11 @@ class ResortSerializer(serializers.ModelSerializer):
     """
     Serializer for resort model
     """
+    sns_arn = serializers.CharField(read_only=True)
+
     class Meta:
         model = Resort
-        fields = ['name', 'location', 'report_url', 'id']
+        fields = ['name', 'location', 'report_url', 'id', 'sns_arn', 'parse_mode', 'display_url']
 
 
 class RunSerializer(serializers.ModelSerializer):
@@ -51,10 +53,12 @@ class BMReportSerializer(serializers.ModelSerializer):
                                                queryset=Run.objects.all())
     full_report = serializers.HyperlinkedRelatedField(many=False, view_name='report-detail',
                                                       queryset=Report.objects.all())
+    notification = serializers.HyperlinkedRelatedField(many=False, view_name='notification-detail',
+                                                       read_only=True)
 
     class Meta:
         model = BMReport
-        fields = ['date', 'resort', 'runs', 'id', 'full_report']
+        fields = ['date', 'resort', 'runs', 'id', 'full_report', 'notification']
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -77,21 +81,21 @@ class BMGUserSerializer(serializers.ModelSerializer):
                                                         queryset=Run.objects.all())
     resorts = serializers.HyperlinkedRelatedField(many=True, view_name='resort-detail',
                                                   queryset=Resort.objects.all())
+    sub_arn = serializers.CharField(read_only=True)
 
     class Meta:
         model = BMGUser
-        fields = ['id', 'phone', 'user', 'favorite_runs', 'resorts', 'contact_method']
+        fields = ['id', 'phone', 'user', 'favorite_runs', 'resorts', 'contact_method', 'sub_arn',
+                  'contact_days']
 
 
 class NotificationSerializer(serializers.ModelSerializer):
     """
     Serializer for notification model
     """
-    bm_user = serializers.HyperlinkedRelatedField(many=False, view_name='bmguser-detail',
-                                                  queryset=BMGUser.objects.all())
     bm_report = serializers.HyperlinkedRelatedField(many=False, view_name='bmreport-detail',
                                                     queryset=BMReport.objects.all())
 
     class Meta:
         model = Notification
-        fields = ['id', 'bm_user', 'bm_report', 'sent']
+        fields = ['id', 'bm_report', 'sent']

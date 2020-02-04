@@ -1,0 +1,69 @@
+{% extends 'base.html' %}
+
+{% block content %}
+  <h2 class="text-vivid">{{ title }}</h2>
+    {% if alert != '' and alert is not None %}
+        <div class="alert alert-success" role="alert">
+            {{ alert }}.
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+            </button>
+        </div>
+    {% elif  error is not None %}
+        <div class="alert alert-danger" role="alert">
+            Please correct the errors shown below.
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+            </button>
+        </div>
+    {% endif %}
+
+  <form method="post">
+  <div class="form-group">
+    {% csrf_token %}
+    {% for form in forms %}
+        {% for field in form %}
+          <p>
+            {{ field.label_tag }}<br>
+            {{ field }}
+            {% if field.help_text %}
+              <small style="color: grey">{{ field.help_text }}</small>
+            {% endif %}
+            {% for error in field.errors %}
+              <p style="color: red">{{ error }}</p>
+            {% endfor %}
+          </p>
+        {% endfor %}
+    {% endfor %}
+    <button type="submit" class="btn btn-primary btn-custom active">{{ button_label }}</button>
+    {% if button_label == 'Update' %}
+        <button type="button" class="btn btn-danger active" data-toggle="modal"
+        data-target="#modal1">
+            Delete Account
+        </button>
+    {% endif %}
+    <!-- Modal -->
+    <div class="modal fade" id="modal1" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
+      <div class="modal-dialog" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="exampleModalLabel">Confirm Account Deletion</h5>
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+              <span aria-hidden="true">&times;</span>
+            </button>
+          </div>
+          <div class="modal-body">
+            Confirm you would like to delete your account
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary active" data-dismiss="modal">Cancel</button>
+              <a href="/deleteme">
+                  <button type="button" class="btn btn-danger active">Delete</button>
+              </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  </form>
+{% endblock %}

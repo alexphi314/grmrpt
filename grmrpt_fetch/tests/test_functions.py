@@ -1,7 +1,71 @@
 import datetime as dt
+import pytz
 import unittest
+import os
+import sys
+
+import requests
 
 from fetch_report import get_grooming_report
+
+if sys.version_info.major < 3:
+    from urllib import url2pathname
+else:
+    from urllib.request import url2pathname
+
+# https://stackoverflow.com/questions/10123929/fetch-a-file-from-a-local-url-with-python-requests
+class LocalFileAdapter(requests.adapters.BaseAdapter):
+    """Protocol Adapter to allow Requests to GET file:// URLs
+
+    @todo: Properly handle non-empty hostname portions.
+    """
+
+    @staticmethod
+    def _chkpath(method, path):
+        """Return an HTTP status for the given filesystem path."""
+        if method.lower() in ('put', 'delete'):
+            return 501, "Not Implemented"  # TODO
+        elif method.lower() not in ('get', 'head'):
+            return 405, "Method Not Allowed"
+        elif os.path.isdir(path):
+            return 400, "Path Not A File"
+        elif not os.path.isfile(path):
+            return 404, "File Not Found"
+        elif not os.access(path, os.R_OK):
+            return 403, "Access Denied"
+        else:
+            return 200, "OK"
+
+    def send(self, req, **kwargs):  # pylint: disable=unused-argument
+        """Return the file specified by the given request
+
+        @type req: C{PreparedRequest}
+        @todo: Should I bother filling `response.headers` and processing
+               If-Modified-Since and friends using `os.stat`?
+        """
+        path = os.path.normcase(os.path.normpath(url2pathname(req.path_url)))
+        response = requests.Response()
+
+        response.status_code, response.reason = self._chkpath(req.method, path)
+        if response.status_code == 200 and req.method.lower() != 'head':
+            try:
+                response.raw = open(path, 'rb')
+            except (OSError, IOError) as err:
+                response.status_code = 500
+                response.reason = str(err)
+
+        if isinstance(req.url, bytes):
+            response.url = req.url.decode('utf-8')
+        else:
+            response.url = req.url
+
+        response.request = req
+        response.connection = self
+
+        return response
+
+    def close(self):
+        pass
 
 
 class ReportFuncTestCase(unittest.TestCase):
@@ -107,18 +171,124 @@ class ReportFuncTestCase(unittest.TestCase):
         ]
         self.report_url3 = 'test_files/bc_jan7.pdf'
 
+        self.exp_groomed_runs4 = [
+            'Arc',
+            'Bashor',
+            'B.C. Ski Way',
+            'Beeline',
+            'Between',
+            'Betwixt',
+            'Blizzard',
+            'Boulevard',
+            'Broadway',
+            'Buckshot',
+            'Buddy\'s Run',
+            'Calf Roper',
+            'Chisholm Trail',
+            'Chuckwagon',
+            'Concentration Lower',
+            'Cyclone',
+            'Daybreak',
+            'Drop Out',
+            'Dusk',
+            'Duster',
+            'Eagles Nest',
+            'Ego',
+            'Flatout',
+            'Flintlock',
+            'Flying Z',
+            'Flying Z Gulch',
+            'Giggle Gulch',
+            'Half Hitch',
+            'Headwall North',
+            'Heavenly Daze',
+            'Highline',
+            'High Noon',
+            'Huffman\'s',
+            'Jess\' Cut-Off',
+            'Kit',
+            'Last Chance',
+            'Lightning',
+            'Lil\' Rodeo Park',
+            'Longhorn',
+            'Main Drag',
+            'Maverick\'s Half Pipe',
+            'Meadow Lane',
+            'Moonlight',
+            'NASTAR Race Area',
+            'One O\'Clock',
+            'Over Easy',
+            'Park Lane',
+            'Preview',
+            'Pup',
+            'Quickdraw',
+            'Rabbit Ears Terrain Park',
+            'Rainbow',
+            'Ramrod',
+            'Rendezvous Way',
+            'Right-O-Way',
+            'Rough Rider Basin',
+            'Round About',
+            'Rowel',
+            'Rudi\'s Run',
+            'See Me',
+            'Short Cut',
+            'Sitz',
+            'Sitzback',
+            'Skyline',
+            'South Peak Flats',
+            'So What',
+            'Spike',
+            'Spur Run',
+            'Stampede',
+            'Storm Peak Catwalk',
+            'Storm Peak South',
+            'Sundial',
+            'Sunset',
+            'Sunshine Lift Line',
+            'Swinger',
+            'Ted\'s Ridge',
+            'Tomahawk',
+            'Tomahawk Face',
+            'Tornado Lane',
+            'Tower',
+            'Traverse',
+            'Two O\'Clock',
+            'Vagabond',
+            'Valley View',
+            'Valley View Lower',
+            'Velvet',
+            'Vogue',
+            'West Side',
+            'Why Not',
+            'Yoo Hoo',
+            'Corridor',
+            'Cowboy Coffee',
+            'Rooster',
+            'Snooze Bar'
+        ]
+        self.report_url4 = 'test_files/sb_jan16.json'
+        #self.report_url4 = 'https://www.steamboat.com/the-mountain/mountain-report#/'
+
     def test_get_grooming_report(self) -> None:
         """
         Test function properly strips the run names from the file
         """
-        date, groomed_runs = get_grooming_report(self.report_url)
+        date, groomed_runs = get_grooming_report('tika', self.report_url)
         self.assertEqual(date, dt.datetime.strptime('12-23-2019', '%m-%d-%Y').date())
         self.assertListEqual(groomed_runs, self.exp_groomed_runs)
 
-        date, groomed_runs = get_grooming_report(self.report_url2)
+        date, groomed_runs = get_grooming_report('tika', self.report_url2)
         self.assertEqual(date, dt.datetime(2020, 1, 2).date())
         self.assertListEqual(groomed_runs, self.exp_groomed_runs2)
 
-        date, groomed_runs = get_grooming_report(self.report_url3)
+        date, groomed_runs = get_grooming_report('tika', self.report_url3)
         self.assertEqual(date, dt.datetime(2020, 1, 7).date())
         self.assertListEqual(groomed_runs, self.exp_groomed_runs3)
+
+        requests_session = requests.session()
+        requests_session.mount('file://', LocalFileAdapter())
+        response = requests_session.get('file://{}/{}'.format(os.getcwd(), self.report_url4))
+        date, groomed_runs = get_grooming_report('json', response=response)
+        self.assertEqual(date, dt.datetime(2020, 1, 16, tzinfo=pytz.timezone('US/Mountain')).date())
+        self.assertListEqual(groomed_runs, self.exp_groomed_runs4)

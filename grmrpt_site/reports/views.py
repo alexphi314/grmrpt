@@ -30,7 +30,7 @@ class ResortList(generics.ListCreateAPIView):
     """
     Generic view showing all resorts
     """
-    queryset = Resort.objects.all()
+    queryset = Resort.objects.all().order_by('id')
     serializer_class = ResortSerializer
     permission_classes = [IsAdminOrReadOnly]
 
@@ -39,7 +39,7 @@ class ResortDetail(generics.RetrieveUpdateDestroyAPIView):
     """
     Detailed view for specific resort
     """
-    queryset = Resort.objects.all()
+    queryset = Resort.objects.all().order_by('id')
     serializer_class = ResortSerializer
     permission_classes = [IsAdminOrReadOnly]
 
@@ -57,7 +57,7 @@ class RunList(generics.ListCreateAPIView):
 
         :return: list of runs that match parameters (if given)
         """
-        queryset = Run.objects.all()
+        queryset = Run.objects.all().order_by('id')
 
         # If given, filter by resort name
         resort = self.request.query_params.get('resort', None)
@@ -76,7 +76,7 @@ class RunDetail(generics.RetrieveUpdateDestroyAPIView):
     """
     Detailed view listing specific run
     """
-    queryset = Run.objects.all()
+    queryset = Run.objects.all().order_by('id')
     serializer_class = RunSerializer
     permission_classes = [IsAdminOrReadOnly]
 
@@ -94,7 +94,7 @@ class ReportList(generics.ListCreateAPIView):
 
         :return: list of report objects
         """
-        queryset = Report.objects.all()
+        queryset = Report.objects.all().order_by('id')
 
         # If given, filter by resort name
         resort = self.request.query_params.get('resort', None)
@@ -113,7 +113,7 @@ class ReportDetail(generics.RetrieveUpdateDestroyAPIView):
     """
     Detailed view listing specific report
     """
-    queryset = Report.objects.all()
+    queryset = Report.objects.all().order_by('id')
     serializer_class = ReportSerializer
     permission_classes = [IsAdminOrReadOnly]
 
@@ -122,7 +122,7 @@ class BMReportList(generics.ListCreateAPIView):
     """
     Generic view listing all bmreports
     """
-    queryset = BMReport.objects.all()
+    queryset = BMReport.objects.all().order_by('id')
     serializer_class = BMReportSerializer
     permission_classes = [IsAdminOrReadOnly]
 
@@ -138,7 +138,7 @@ class BMReportDetail(generics.RetrieveUpdateDestroyAPIView):
     """
     Detailed view listing specific bmreport
     """
-    queryset = BMReport.objects.all()
+    queryset = BMReport.objects.all().order_by('id')
     serializer_class = BMReportSerializer
     permission_classes = [IsAdminOrReadOnly]
 
@@ -153,7 +153,7 @@ class UserList(generics.ListCreateAPIView):
     """
     Generic view listing all users
     """
-    queryset = User.objects.all()
+    queryset = User.objects.all().order_by('id')
     serializer_class = UserSerializer
     permission_classes = [IsAdminUser]
 
@@ -162,7 +162,7 @@ class UserDetail(generics.RetrieveUpdateDestroyAPIView):
     """
     Detailed view for a specific user
     """
-    queryset = User.objects.all()
+    queryset = User.objects.all().order_by('id')
     serializer_class = UserSerializer
     permission_classes = [IsAdminUser]
 
@@ -171,7 +171,7 @@ class BMGUserList(generics.ListCreateAPIView):
     """
     Generic view listing all BMGUsers
     """
-    queryset = BMGUser.objects.all()
+    queryset = BMGUser.objects.all().order_by('id')
     serializer_class = BMGUserSerializer
     permission_classes = [IsAdminUser]
 
@@ -186,7 +186,7 @@ class BMGUserDetail(generics.RetrieveUpdateDestroyAPIView):
     """
     Detailed view for a specific BMGUser
     """
-    queryset = BMGUser.objects.all()
+    queryset = BMGUser.objects.all().order_by('id')
     serializer_class = BMGUserSerializer
     permission_classes = [IsAdminUser]
 
@@ -210,7 +210,7 @@ class NotificationList(generics.ListCreateAPIView):
 
         :return: list of report objects
         """
-        queryset = Notification.objects.all()
+        queryset = Notification.objects.all().order_by('id')
 
         # If given, filter by resort name
         resort = self.request.query_params.get('resort', None)
@@ -222,10 +222,10 @@ class NotificationList(generics.ListCreateAPIView):
         if date is not None:
             queryset = queryset.filter(bm_report__date=dt.datetime.strptime(date, '%Y-%m-%d').date())
 
-        # If given, filter by username
-        user = self.request.query_params.get('user', None)
-        if user is not None:
-            queryset = queryset.filter(bm_user__user__username=user)
+        # If given, filter by bm_report pk
+        bm_pk = self.request.query_params.get('bm_pk', None)
+        if bm_pk is not None:
+            queryset = queryset.filter(bm_report__pk=bm_pk)
 
         return queryset
 
@@ -234,6 +234,6 @@ class NotificationDetail(generics.RetrieveUpdateDestroyAPIView):
     """
     Detailed view for a specific notification
     """
-    queryset = Notification.objects.all()
+    queryset = Notification.objects.all().order_by('id')
     serializer_class = NotificationSerializer
     permission_classes = [IsAdminUser]

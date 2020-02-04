@@ -1,12 +1,17 @@
 import datetime as dt
-from typing import List, Union
+from typing import List, Union, Set
 import logging
+import os
+import json
+from json.decoder import JSONDecodeError
 
 from django.db import models
 from django.contrib.auth.models import User
-from django.db.models.signals import post_save, m2m_changed
+from django.db.models.signals import post_save, m2m_changed, post_delete, pre_delete
 from django.dispatch import receiver
+from django.core.validators import RegexValidator
 from rest_framework.authtoken.models import Token
+import boto3
 
 
 class Resort(models.Model):
@@ -16,9 +21,62 @@ class Resort(models.Model):
     name = models.CharField("Name of the resort", max_length=1000)
     location = models.CharField("Location of the resort", max_length=1000, blank=True, null=True)
     report_url = models.CharField("URL to grooming report", max_length=2000, blank=True, null=True)
+    sns_arn = models.CharField("AWS SNS Topic identifier", max_length=1000, blank=True, null=True)
+    parse_mode = models.CharField("Type of parsing to apply to grooming report url", max_length=100,
+                                  default='tika')
+    display_url = models.CharField("URL users can click on to view grooming report", max_length=2000,
+                                   blank=True, null=True)
 
     def __str__(self) -> str:
         return self.name
+
+
+@receiver(post_save, sender=Resort)
+def create_sns_topic(instance: Resort, created: bool, **kwargs) -> None:
+    """
+    Create a SNS topic corresponding to this resort when the resort is first created.
+
+    :param instance: Resort object being created
+    :param created: True if the object is first created
+    """
+    if created and 'test' not in instance.name.lower():
+        client = boto3.client('sns', region_name='us-west-2', aws_access_key_id=os.getenv('ACCESS_ID'),
+                              aws_secret_access_key=os.getenv('SECRET_ACCESS_KEY'))
+        response = client.create_topic(
+            Name='{}_{}_bmgrm'.format(os.getenv('ENVIRON_TYPE', ''),
+                                          instance.name.lower().replace(' ', '_')
+                                          ),
+            Attributes={
+                'DisplayName': '{} Blue Moon Grooming Report:'.format(instance.name)
+            },
+            Tags=[
+                {
+                    'Key': 'resort',
+                    'Value': '{}'.format(instance.name)
+                },
+            ]
+        )
+        instance.sns_arn = response['TopicArn']
+        instance.save()
+
+
+@receiver(post_delete, sender=Resort)
+def remove_sns_topic(instance: Resort, **kwargs) -> None:
+    """
+    Upon resort object deletion, delete the sns topic
+
+    :param instance: Resort object being deleted
+    """
+    if instance.sns_arn is not None:
+        client = boto3.client('sns', region_name='us-west-2', aws_access_key_id=os.getenv('ACCESS_ID'),
+                              aws_secret_access_key=os.getenv('SECRET_ACCESS_KEY'))
+
+        # Delete the subscriptions
+        for user in instance.bmg_users.all():
+            unsubscribe_user_to_topic(user, client, instance)
+
+        # Delete the topic
+        client.delete_topic(TopicArn=instance.sns_arn)
 
 
 class Report(models.Model):
@@ -83,8 +141,8 @@ def get_bm_runs(report: Report) -> List[Run]:
             num_shared_reports = len(list(set(run.reports.all()).intersection(past_reports)))
             ratio = float(num_shared_reports) / float(len(past_reports))
 
-            logger.info('Run {} groomed {:.2%} over the last week'.format(run.name, ratio))
-            if ratio < 0.3:
+            logger.debug('Run {} groomed {:.2%} over the last week'.format(run.name, ratio))
+            if ratio < 0.2:
                 bmreport_runs.append(run)
 
     return bmreport_runs
@@ -134,14 +192,20 @@ def update_bmreport(instance: Union[Report, Run], action: str, reverse: bool, **
             report.bm_report.runs.set(bmreport_runs)
 
 
+phone_regex = RegexValidator(regex=r'^\+1\d{9,15}$',
+                             message="Phone number must be entered in the format: '+999999999'. "
+                                     "Up to 15 digits allowed.")
 class BMGUser(models.Model):
     """
     Extend the User model to include a few more fields
     """
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='bmg_user')
     favorite_runs = models.ManyToManyField(Run, related_name='users_favorited')
-    phone = models.CharField("User Phone number", blank=True, null=True, max_length=15)
+    phone = models.CharField("Phone Number", blank=True, null=True, max_length=17, unique=True,
+                             validators=[phone_regex])
     resorts = models.ManyToManyField(Resort, related_name='bmg_users')
+    sub_arn = models.CharField("AWS SNS Subscription arns", max_length=1000, blank=True, null=True)
+    contact_days = models.CharField("string array of allowed contact days", max_length=1000, blank=True, null=True)
 
     PHONE = 'PH'
     EMAIL = 'EM'
@@ -181,13 +245,197 @@ def create_user_token(instance: User, created: bool, **kwargs) -> None:
         Token.objects.create(user=instance)
 
 
+def subscribe_user_to_topic(instance: BMGUser, client: boto3.client) -> List[str]:
+    """
+    Subscribe a BMGUser to a topic
+
+    :param instance: BMGUser instance
+    :param client: boto3 sns client
+    :return: list of subscription arns
+    """
+    if instance.contact_method == 'PH':
+        protl = 'sms'
+        endpt = instance.phone
+    else:
+        protl = 'email'
+        endpt = instance.user.email
+
+    dow_arry = unpack_json_field(instance.contact_days)
+
+    sub_arns = []
+    if endpt != '' and 'AP_TEST' not in endpt:
+        for resort in instance.resorts.all():
+            # Include attributes here to create filter policy
+            params = {'TopicArn': resort.sns_arn, 'Protocol': protl, 'ReturnSubscriptionArn': True,
+                      'Endpoint': endpt}
+            if len(dow_arry) > 0:
+                params['Attributes'] = {'FilterPolicy': json.dumps({'day_of_week': dow_arry})}
+
+            response = client.subscribe(**params)
+            sub_arns.append(response['SubscriptionArn'])
+
+    return sub_arns
+
+
+def unsubscribe_arn(client: boto3.client, sub_arn: str) -> None:
+    """
+    Unsubscribe the specific arn
+
+    :param client: boto3 sns client instance
+    :param sub_arn: arn string
+    """
+    logger = logging.getLogger(__name__)
+    try:
+        resp = client.unsubscribe(SubscriptionArn=sub_arn)
+        logger.info('Successfully unsubscribed, with status code {}'.format(resp['ResponseMetadata']
+                                                                            ['HTTPStatusCode']))
+    except Exception as e:
+        logger.warning('Unable to unsubscribe user:\n {}'.format(e))
+
+
+def unpack_json_field(json_str: str) -> List[str]:
+    """
+    Unpack a JSON string representation into an array
+
+    :param json_str: raw string representation
+    :return: Python array representation of string
+    """
+    try:
+        list_obj = json.loads(json_str)
+    except (TypeError, JSONDecodeError):
+        list_obj = []
+
+    return list_obj
+
+
+def unsubscribe_user_to_topic(instance: BMGUser, client: boto3.client, resort: Resort) -> List[str]:
+    """
+    Unsubscribe a BMGUser to a topic
+
+    :param instance: BMGUser instance
+    :param client: boto3 sns client
+    :param resort: resort instance that is being unsubscribed from
+    :return: list of subscription arns with arn for removed resort removed
+    """
+    # Loop through subscription arns for user and delete the one that corresponds to this resort
+    sub_arns = unpack_json_field(instance.sub_arn)
+
+    for sub_arn in sub_arns:
+        response = client.get_subscription_attributes(SubscriptionArn=sub_arn)
+        if response['Attributes']['TopicArn'] == resort.sns_arn:
+            sub_arns.remove(sub_arn)
+            unsubscribe_arn(client, sub_arn)
+
+    return sub_arns
+
+
+@receiver(pre_delete, sender=BMGUser)
+def unsubscribe_all(instance: BMGUser, **kwargs) -> None:
+    """
+    After deleting, remove all subscriptions associated with this user
+
+    :param instance: User or BMGUser being deleted
+    """
+    client = boto3.client('sns', region_name='us-west-2', aws_access_key_id=os.getenv('ACCESS_ID'),
+                          aws_secret_access_key=os.getenv('SECRET_ACCESS_KEY'))
+
+    sub_arns = unpack_json_field(instance.sub_arn)
+
+    for sub_arn in sub_arns:
+        unsubscribe_arn(client, sub_arn)
+
+
+@receiver(post_save, sender=BMGUser)
+def update_subscription_attrs(instance: BMGUser, created: bool, **kwargs) -> None:
+    """
+    For model updates -- Check if contact_days was updated; if so,
+    update the subscription attributes on SNS
+
+    :param instance: BMGUser instance being saved
+    :param created: True if a new record was created
+    """
+    if not created:
+        sub_arns = unpack_json_field(instance.sub_arn)
+        contact_days = unpack_json_field(instance.contact_days)
+
+        sns = boto3.client('sns', region_name='us-west-2', aws_access_key_id=os.getenv('ACCESS_ID'),
+                           aws_secret_access_key=os.getenv('SECRET_ACCESS_KEY'))
+
+        for sub_arn in sub_arns:
+            response = sns.get_subscription_attributes(SubscriptionArn=sub_arn)
+            try:
+                filter_policy = json.loads(response['Attributes']['FilterPolicy'])
+            except KeyError:
+                filter_policy = {'day_of_week': []}
+
+            # If the filter policy doesn't match, update it (as long as the new val for contact_days is > 0)
+            if filter_policy['day_of_week'] != contact_days and len(contact_days) > 0:
+                filter_policy['day_of_week'] = contact_days
+                sns.set_subscription_attributes(
+                    SubscriptionArn=sub_arn,
+                    AttributeName='FilterPolicy',
+                    AttributeValue=json.dumps(filter_policy)
+                )
+
+
+@receiver(m2m_changed, sender=BMGUser.resorts.through)
+def subscribe_sns_topic(instance: Union[BMGUser, Resort], action: str, reverse: bool, pk_set: Set[int],
+                        **kwargs) -> None:
+    """
+    Subscribe or unsubscribe the user to the relevant resort SNS topic, if resort added to their obj
+
+    :param instance: BMGUser or Resort object being updated
+    :param action: type of update on relation
+    :param reverse: True if BMGUser is being modified directly; false if Resort object is being modified
+    :param pk_set: set of primary keys being added or removed to the m2m field
+    """
+    # Instance -> BMGUser
+    client = boto3.client('sns', region_name='us-west-2', aws_access_key_id=os.getenv('ACCESS_ID'),
+                          aws_secret_access_key=os.getenv('SECRET_ACCESS_KEY'))
+    logger = logging.getLogger(__name__)
+    if action == 'post_add' and not reverse:
+        sub_arns = subscribe_user_to_topic(instance, client)
+        logger.debug('Updated sub_arn field for user {} with {}'.format(instance, json.dumps(sub_arns)))
+        instance.sub_arn = json.dumps(sub_arns)
+        instance.save()
+
+    # Instance -> BMGUser
+    elif action == 'pre_remove' and not reverse:
+        for id in pk_set:
+            resort = Resort.objects.get(pk=id)
+            sub_arns = unsubscribe_user_to_topic(instance, client, resort)
+
+            logger.debug('Updated sub_arn field for user {} with {}'.format(instance, json.dumps(sub_arns)))
+            instance.sub_arn = json.dumps(sub_arns)
+            instance.save()
+
+    # Instance -> Resort
+    elif action == 'post_add' and reverse:
+
+        for indx, user in enumerate(instance.bmg_users.all()):
+            if user.pk in pk_set:
+                sub_arns = subscribe_user_to_topic(user, client)
+                logger.debug('Updated sub_arn field for user {} with {}'.format(instance, json.dumps(sub_arns)))
+                user.sub_arn = json.dumps(sub_arns)
+                user.save()
+
+    # Instance -> Resort
+    elif action == 'pre_remove' and reverse:
+        users = BMGUser.objects.filter(pk__in=pk_set)
+
+        for user in users:
+            sub_arns = unsubscribe_user_to_topic(user, client, instance)
+            logger.debug('Updated sub_arn field for user {} with {}'.format(instance, json.dumps(sub_arns)))
+            user.sub_arn = json.dumps(sub_arns)
+            user.save()
+
+
 class Notification(models.Model):
     """
-    Model a notification sent to a user
+    Model a notification sent about a report
     """
-    bm_user = models.ForeignKey(BMGUser, related_name='notifications', on_delete=models.CASCADE)
-    bm_report = models.ForeignKey(BMReport, related_name='notifications', on_delete=models.CASCADE)
+    bm_report = models.OneToOneField(BMReport, related_name='notification', on_delete=models.CASCADE)
     sent = models.DateTimeField("Time when the notification was sent", auto_now_add=True)
 
     def __str__(self) -> str:
-        return '{}: {}'.format(self.bm_user, self.bm_report.date.strftime('%Y-%m-%d'))
+        return '{}'.format(self.bm_report.date.strftime('%Y-%m-%d'))

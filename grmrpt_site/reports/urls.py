@@ -14,7 +14,7 @@ urlpatterns = [
     path('resorts/<int:pk>/', views.ResortDetail.as_view(), name='resort-detail'),
     path('bmreports/', views.BMReportList.as_view(), name='bmreport-list'),
     path('bmreports/<int:pk>/', views.BMReportDetail.as_view(), name='bmreport-detail'),
-    path('', views.api_root),
+    path('', views.api_root, name='api-index'),
     path('api-auth/', include('rest_framework.urls')),
     path('api-token-auth/', obtain_auth_token, name='api_token_auth'),
     path('users/', views.UserList.as_view(), name='user-list'),
@@ -22,7 +22,7 @@ urlpatterns = [
     path('bmgusers/', views.BMGUserList.as_view(), name='bmguser-list'),
     path('bmgusers/<int:pk>/', views.BMGUserDetail.as_view(), name='bmguser-detail'),
     path('notifications/', views.NotificationList.as_view(), name='notification-list'),
-    path('notifications/<int:pk>/', views.NotificationDetail.as_view(), name='notification-detail')
+    path('notifications/<int:pk>/', views.NotificationDetail.as_view(), name='notification-detail'),
 ]
 
 urlpatterns = format_suffix_patterns(urlpatterns)

@@ -26,8 +26,10 @@ SECRET_KEY = 's(qpl*tbapgq_b0p3!9(ax!!go=lhcs4*4=f66d!5-b$+e)33c'
 DEBUG = True
 
 ALLOWED_HOSTS = [
-    'dev-env.exm5cdp7tw.us-west-2.elasticbeanstalk.com',
-    '127.0.0.1'
+    '.elasticbeanstalk.com',
+    '127.0.0.1',
+    '.bluemoongroom.com',
+    'localhost'
 ]
 
 
@@ -43,17 +45,24 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework.authtoken',
     'reports.apps.ReportsConfig',
+    'health_check',
+    'health_check.db',
+    'health_check.cache',
+    'health_check.storage',
+    'site_pages.apps.SitePagesConfig'
 ]
 
 REST_FRAMEWORK = {
-'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework.authentication.BasicAuthentication',
-        'rest_framework.authentication.SessionAuthentication',
-        'rest_framework.authentication.TokenAuthentication',
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+            'rest_framework.authentication.BasicAuthentication',
+            'rest_framework.authentication.SessionAuthentication',
+            'rest_framework.authentication.TokenAuthentication',
     ],
-'DEFAULT PERMISSION CLASSES': [
-    'reports.permissions.IsAdminOrReadOnly',
-]
+    'DEFAULT PERMISSION CLASSES': [
+        'reports.permissions.IsAdminOrReadOnly',
+    ],
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 20,
 }
 
 MIDDLEWARE = [
@@ -71,7 +80,7 @@ ROOT_URLCONF = 'grmrptcore.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [os.path.join(BASE_DIR, 'site_pages/templates')],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -147,7 +156,10 @@ USE_TZ = False
 # https://docs.djangoproject.com/en/3.0/howto/static-files/
 
 STATIC_URL = '/static/'
-STATIC_ROOT = 'static'
+STATIC_ROOT = os.path.join(BASE_DIR, 'static')
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'static_base')
+]
 
 LOGGING = {
     'version': 1,
@@ -174,16 +186,24 @@ LOGGING = {
             'class': 'logging.StreamHandler',
             'formatter': 'simple'
         },
+        'file': {
+            'level': 'INFO',
+            'class': 'logging.FileHandler',
+            'formatter': 'simple',
+            'filename': '/opt/python/log/reports.log'
+        }
     },
     'loggers': {
         'django': {
-            'handlers': ['console'],
+            'handlers': ['console', 'file'],
             'propagate': True,
         },
-        'django.request': {
-            'handlers': ['console'],
-            'level': 'ERROR',
+        'reports.models': {
+            'handlers': ['console', 'file'],
+            'level': 'INFO',
             'propagate': False,
         },
     }
 }
+
+LOGIN_REDIRECT_URL = '/'
