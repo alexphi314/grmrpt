@@ -29,7 +29,8 @@ ALLOWED_HOSTS = [
     '.elasticbeanstalk.com',
     '127.0.0.1',
     '.bluemoongroom.com',
-    'localhost'
+    'localhost',
+    '172.31.58.66'
 ]
 
 
