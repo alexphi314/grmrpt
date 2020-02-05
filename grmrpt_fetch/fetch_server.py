@@ -527,13 +527,13 @@ def application(environ, start_response):
                 post_messages(resort_list, headers={'Authorization': 'Token {}'.format(TOKEN)},
                               api_url=API_URL)
 
-                response = 'Successfully checked for notification events'
-
                 # Check for no bmrun notifications
                 time = dt.datetime.now(tz=pytz.timezone('US/Mountain'))
                 no_bmruns_list = get_resorts_no_bmruns(time, get_api_wrapper)
                 post_no_bmrun_message(no_bmruns_list, headers={'Authorization': 'Token {}'.format(TOKEN)},
                                       api_url=API_URL)
+
+                response = 'Successfully checked for notification events'
 
         except (TypeError, ValueError):
             logger.warning('Error retrieving request body for async work.')

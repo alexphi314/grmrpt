@@ -2,11 +2,13 @@ import logging
 import os
 import sys
 import argparse
+import datetime as dt
+import pytz
 
 import boto3
 import requests
 
-from fetch_server import get_resorts_to_notify, get_api, get_grooming_report, create_report, post_messages
+from fetch_server import get_resorts_to_notify, get_api, get_grooming_report, create_report, post_messages, get_resorts_no_bmruns, post_no_bmrun_message
 
 if __name__ == "__main__":
     logger = logging.getLogger(__name__)
@@ -53,5 +55,11 @@ if __name__ == "__main__":
     # Check for notif
     get_api_wrapper = lambda x: get_api(x, headers={'Authorization': 'Token {}'.format(TOKEN)},
                                         api_url=API_URL)
-    resort_list = get_resorts_to_notify(get_api_wrapper, API_URL)
+    resort_list = get_resorts_to_notify(get_api_wrapper)
     post_messages(resort_list, headers={'Authorization': 'Token {}'.format(TOKEN)}, api_url=API_URL)
+
+    # Check for no bmrun notifications
+    time = dt.datetime.now(tz=pytz.timezone('US/Mountain'))
+    no_bmruns_list = get_resorts_no_bmruns(time, get_api_wrapper)
+    post_no_bmrun_message(no_bmruns_list, headers={'Authorization': 'Token {}'.format(TOKEN)},
+                          api_url=API_URL)
