@@ -55,7 +55,7 @@ if __name__ == "__main__":
     # Check for notif
     get_api_wrapper = lambda x: get_api(x, headers={'Authorization': 'Token {}'.format(TOKEN)},
                                         api_url=API_URL)
-    resort_list = get_resorts_to_notify(get_api_wrapper)
+    resort_list = get_resorts_to_notify(get_api_wrapper, API_URL, requests, {'Authorization': 'Token {}'.format(TOKEN)})
     post_messages(resort_list, headers={'Authorization': 'Token {}'.format(TOKEN)}, api_url=API_URL)
 
     # Check for no bmrun notifications
@@ -63,3 +63,5 @@ if __name__ == "__main__":
     no_bmruns_list = get_resorts_no_bmruns(time, get_api_wrapper)
     post_no_bmrun_message(no_bmruns_list, headers={'Authorization': 'Token {}'.format(TOKEN)},
                           api_url=API_URL)
+    post_messages(['http://dev-env.exm5cdp7tw.us-west-2.elasticbeanstalk.com/api/bmreports/90/'],
+                  headers={'Authorization': 'Token {}'.format(TOKEN)}, api_url=API_URL)

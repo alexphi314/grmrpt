@@ -436,6 +436,7 @@ class Notification(models.Model):
     """
     bm_report = models.OneToOneField(BMReport, related_name='notification', on_delete=models.CASCADE)
     sent = models.DateTimeField("Time when the notification was sent", auto_now_add=True)
+    type = models.CharField("Type of notification", max_length=100, blank=True, null=True)
 
     def __str__(self) -> str:
         return '{}'.format(self.bm_report.date.strftime('%Y-%m-%d'))

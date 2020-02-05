@@ -1148,14 +1148,14 @@ class NotifyUsersTestCase(TestCase):
             return get_api(x, {}, 'http://testserver/api', client)
 
         # Without BMrun linked to report, no notification sent
-        resorts = get_resorts_to_notify(get_wrapper)
+        resorts = get_resorts_to_notify(get_wrapper, 'http://testserver/api', client, {})
         self.assertListEqual(resorts, [])
 
         # Link run to bmr
         bmr = BMReport.objects.get(pk=2)
         bmr.runs.add(Run.objects.get(pk=1))
         # Since first report has a notification, only second resort should have a notification
-        resorts = get_resorts_to_notify(get_wrapper)
+        resorts = get_resorts_to_notify(get_wrapper, 'http://testserver/api', client, {})
         self.assertListEqual(resorts, [self.resort2_report_url])
 
         # Add report on 1-2
@@ -1165,13 +1165,13 @@ class NotifyUsersTestCase(TestCase):
         report_response = client.post('/api/reports/', report_data, format='json')
         assert report_response.status_code == 201
         report_url = 'http://testserver/api/bmreports/{}/'.format(report_response.json()['id'])
-        resorts = get_resorts_to_notify(get_wrapper)
+        resorts = get_resorts_to_notify(get_wrapper, 'http://testserver/api', client, {})
         self.assertListEqual(resorts, [self.resort2_report_url])
 
         # Add run to BMR and check resort is now on notification list
         bmr = BMReport.objects.get(pk=client.get(report_response.json()['bm_report']).json()['id'])
         bmr.runs.add(Run.objects.get(pk=1))
-        resorts = get_resorts_to_notify(get_wrapper)
+        resorts = get_resorts_to_notify(get_wrapper, 'http://testserver/api', client, {})
         self.assertListEqual(resorts, [report_url, self.resort2_report_url])
 
         # Add report on 1-6
@@ -1183,14 +1183,14 @@ class NotifyUsersTestCase(TestCase):
         report_url = 'http://testserver/api/bmreports/{}/'.format(report_response.json()['id'])
         resort1_id = report_response.json()['id']
         # Without BMruns on BMReport, no notification
-        resorts = get_resorts_to_notify(get_wrapper)
+        resorts = get_resorts_to_notify(get_wrapper, 'http://testserver/api', client, {})
         self.assertListEqual(resorts, [self.resort2_report_url])
 
         bmr = BMReport.objects.get(pk=client.get(report_response.json()['bm_report']).json()['id'])
         bmr.runs.add(Run.objects.get(pk=1))
 
         # With new report, notify resort2 and updated report
-        resorts = get_resorts_to_notify(get_wrapper)
+        resorts = get_resorts_to_notify(get_wrapper, 'http://testserver/api', client, {})
         self.assertListEqual(resorts, [report_url, self.resort2_report_url])
 
         # Notify both
@@ -1198,7 +1198,7 @@ class NotifyUsersTestCase(TestCase):
         Notification.objects.create(bm_report_id=self.resort2_id)
 
         # Confirm no notifications to go out
-        resorts = get_resorts_to_notify(get_wrapper)
+        resorts = get_resorts_to_notify(get_wrapper, 'http://testserver/api', client, {})
         self.assertListEqual(resorts, [])
 
         # Create a bogus report with no runs attached
@@ -1208,7 +1208,7 @@ class NotifyUsersTestCase(TestCase):
         report_response = client.post('/api/reports/', report_data, format='json')
         assert report_response.status_code == 201
         # Confirm no notifications to go out
-        resorts = get_resorts_to_notify(get_wrapper)
+        resorts = get_resorts_to_notify(get_wrapper, 'http://testserver/api', client, {})
         self.assertListEqual(resorts, [])
 
         # Create identical bm report and check no notification is readied
@@ -1224,19 +1224,19 @@ class NotifyUsersTestCase(TestCase):
         bm2.runs.set([run1])
 
         # Confirm no notifications to go out
-        resorts = get_resorts_to_notify(get_wrapper)
+        resorts = get_resorts_to_notify(get_wrapper, 'http://testserver/api', client, {})
         self.assertListEqual(resorts, [])
 
         bm2.runs.add(run2)
         # Confirm notification ready to go out
-        resorts = get_resorts_to_notify(get_wrapper)
+        resorts = get_resorts_to_notify(get_wrapper, 'http://testserver/api', client, {})
         self.assertListEqual(resorts, ['http://testserver/api/bmreports/{}/'.format(bm2.pk)])
 
         # Send notification
         Notification.objects.create(bm_report_id=bm2.pk)
 
         # Confirm no notifications to go out
-        resorts = get_resorts_to_notify(get_wrapper)
+        resorts = get_resorts_to_notify(get_wrapper, 'http://testserver/api', client, {})
         self.assertListEqual(resorts, [])
 
         # Create 2 reports next to each other
@@ -1248,12 +1248,17 @@ class NotifyUsersTestCase(TestCase):
         rpt2.runs.set([Run.objects.get(id=1)])
 
         # Confirm no notification goes out because BMreport has no runs
-        resorts = get_resorts_to_notify(get_wrapper)
+        resorts = get_resorts_to_notify(get_wrapper, 'http://testserver/api', client, {})
         self.assertListEqual(resorts, [])
 
         # Add run to BMreport
         rpt2.bm_report.runs.set([Run.objects.get(id=2)])
-        resorts = get_resorts_to_notify(get_wrapper)
+        resorts = get_resorts_to_notify(get_wrapper, 'http://testserver/api', client, {})
+        self.assertListEqual(resorts, ['http://testserver/api/bmreports/{}/'.format(rpt2.bm_report.id)])
+
+        # Post notification for 'no run' and confirm resort still queued for notification
+        Notification.objects.create(bm_report_id=rpt2.bm_report.id, type='no_runs')
+        resorts = get_resorts_to_notify(get_wrapper, 'http://testserver/api', client, {})
         self.assertListEqual(resorts, ['http://testserver/api/bmreports/{}/'.format(rpt2.bm_report.id)])
 
     @classmethod
@@ -1304,6 +1309,7 @@ class NotificationViewTestCase(TestCase):
         self.assertEqual(response['id'], 1)
         self.assertEqual(response['bm_report'], 'http://testserver/api/bmreports/1/')
         self.assertTrue('sent' in response.keys())
+        self.assertTrue('type' in response.keys())
 
         # Check notification linked on bm_report request
         response = client.get('/api/bmreports/1/').json()
@@ -1355,6 +1361,7 @@ class NotificationViewTestCase(TestCase):
         response_url = 'http://testserver/api/notifications/{}/'.format(response['id'])
         response.pop('id')
         response.pop('sent')
+        response.pop('type')
 
         self.assertDictEqual(response, post_data)
 

@@ -269,11 +269,14 @@ def get_most_recent_reports(resort: Dict[str, str], get_api_wrapper) -> \
     return bm_report_data, most_recent_report_url, yesterday_runs
 
 
-def get_resorts_to_notify(get_api_wrapper) -> List[str]:
+def get_resorts_to_notify(get_api_wrapper, api_url, request_client, headers) -> List[str]:
     """
     Query the API to find the list of resorts that need to be notified about a new BM report.
 
     :param get_api_wrapper: lambda function that takes relative url for GET request and returns request in JSON
+    :param api_url: url to api
+    :param request_client: client used to make HTTP requests
+    :param headers: authentication headers to use in requests
     :return: list of bm_report urls to notify for
     """
     contact_list = []
@@ -294,10 +297,21 @@ def get_resorts_to_notify(get_api_wrapper) -> List[str]:
         notification_response = get_api_wrapper('notifications/?bm_pk={}'.format(
             bm_report_data['id']
         ))
+        assert len(notification_response) <= 1
 
-        if len(notification_response) == 0 and Counter(bm_report_data['runs']) != Counter(yesterday_runs):
+        if (len(notification_response) == 0 or
+                (len(notification_response) == 1 and notification_response[0]['type'] == 'no_runs')) \
+                and Counter(bm_report_data['runs']) != Counter(yesterday_runs):
             # No notification posted for this report
             contact_list.append(most_recent_report_url)
+
+            # Delete the no_run notif if it exists
+            if len(notification_response) == 1:
+                resp = request_client.delete('{}/notifications/{}/'.format(api_url, notification_response[0]['id']),
+                                             headers=headers)
+                if resp.status_code != 204:
+                    raise APIError('Unable to delete notification: {}'.format(resp.text))
+
         elif Counter(bm_report_data['runs']) == Counter(yesterday_runs):
             logger.info('BM report run list identical to yesterday -- not sending notification')
 
@@ -332,6 +346,20 @@ def get_resorts_no_bmruns(time: dt.datetime, api_wrapper) -> List[str]:
                 contact_list.append(most_recent_report_url)
 
     return contact_list
+
+
+def post_message_to_sns(sns, **kwargs) -> Dict[str, str]:
+    """
+    Post a message to a SNS topic
+
+    :param sns: sns client used to make publish call
+    :param kwargs: various input arguments to publish call
+    :return: response from SNS
+    """
+    response = sns.publish(**kwargs)
+    logger.info('Posted message with id {} to {}'.format(response['MessageId'], kwargs['TopicArn']))
+
+    return response
 
 
 def post_messages(contact_list: List[str], headers: Dict[str, str], api_url: str) -> None:
@@ -377,23 +405,11 @@ def post_messages(contact_list: List[str], headers: Dict[str, str], api_url: str
                         report_link
                     )
 
-        response = sns.publish(
-            TopicArn=resort_data['sns_arn'],
-            MessageStructure='json',
-            Message=json.dumps({
-                'email': email_msg,
-                'sms': phone_msg,
-                'default': email_msg
-            }),
-            Subject=email_subj,
-            MessageAttributes={
-                'day_of_week': {
-                    'DataType': 'String',
-                    'StringValue': report_date.strftime('%a')
-                }
-            }
-        )
-        logger.info('Posted message with id {} to {}'.format(response['MessageId'], resort_data['sns_arn']))
+        response = post_message_to_sns(sns, TopicArn=resort_data['sns_arn'], MessageStructure='json',
+                                       Message=json.dumps({'email': email_msg, 'sms': phone_msg,
+                                                           'default': email_msg}), Subject=email_subj,
+                                       MessageAttributes={'day_of_week': {'DataType': 'String',
+                                                                          'StringValue': report_date.strftime('%a')}})
 
         if response['MessageId']:
             # Post notification record
@@ -445,29 +461,15 @@ def post_no_bmrun_message(contact_list: List[str], headers: Dict[str, str], api_
                         report_link
                     )
 
-        response = sns.publish(
-            TopicArn=resort_data['sns_arn'],
-            MessageStructure='json',
-            Message=json.dumps({
-                'email': email_msg,
-                'sms': phone_msg,
-                'default': email_msg
-            }),
-            Subject=email_subj,
-            MessageAttributes={
-                'day_of_week': {
-                    'DataType': 'String',
-                    'StringValue': report_date.strftime('%a')
-                }
-            }
-        )
-        logger.info('Posted no bmrun message with id {} to {}'.format(
-            response['MessageId'], resort_data['sns_arn'])
-        )
+        response = post_message_to_sns(sns, TopicArn=resort_data['sns_arn'], MessageStructure='json',
+                                       Message=json.dumps({'email': email_msg, 'sms': phone_msg,
+                                                           'default': email_msg}), Subject=email_subj,
+                                       MessageAttributes={'day_of_week': {'DataType': 'String',
+                                                                          'StringValue': report_date.strftime('%a')}})
 
         if response['MessageId']:
             # Post notification record
-            notification_data = {'bm_report': report}
+            notification_data = {'bm_report': report, 'type': 'no_runs'}
             response = requests.post('{}/notifications/'.format(api_url), data=notification_data,
                                      headers=headers)
             if response.status_code != 201:
@@ -523,7 +525,8 @@ def application(environ, start_response):
                 logger.info("Received task %s scheduled at %s", environ['HTTP_X_AWS_SQSD_TASKNAME'],
                             environ['HTTP_X_AWS_SQSD_SCHEDULED_AT'])
 
-                resort_list = get_resorts_to_notify(get_api_wrapper)
+                resort_list = get_resorts_to_notify(get_api_wrapper, API_URL,
+                                                    requests, {'Authorization': 'Token {}'.format(TOKEN)})
                 post_messages(resort_list, headers={'Authorization': 'Token {}'.format(TOKEN)},
                               api_url=API_URL)
 
