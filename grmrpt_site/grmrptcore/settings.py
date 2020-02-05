@@ -30,7 +30,6 @@ ALLOWED_HOSTS = [
     '127.0.0.1',
     '.bluemoongroom.com',
     'localhost',
-    '172.31.58.66'
 ]
 
 
