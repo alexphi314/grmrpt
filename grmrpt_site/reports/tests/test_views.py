@@ -1257,9 +1257,10 @@ class NotifyUsersTestCase(TestCase):
         self.assertListEqual(resorts, ['http://testserver/api/bmreports/{}/'.format(rpt2.bm_report.id)])
 
         # Post notification for 'no run' and confirm resort still queued for notification
-        Notification.objects.create(bm_report_id=rpt2.bm_report.id, type='no_runs')
+        notif = Notification.objects.create(bm_report_id=rpt2.bm_report.id, type='no_runs')
         resorts = get_resorts_to_notify(get_wrapper, 'http://testserver/api', client, {})
         self.assertListEqual(resorts, ['http://testserver/api/bmreports/{}/'.format(rpt2.bm_report.id)])
+        self.assertRaises(Notification.DoesNotExist, Notification.objects.get, id=notif.id)
 
     @classmethod
     def tearDownClass(cls):
