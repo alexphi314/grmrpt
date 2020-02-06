@@ -681,7 +681,8 @@ class BMReportViewTestCase(TestCase):
             'resort': cls.resort_url,
             'runs': [],
             'full_report': cls.report_url,
-            'notification': None
+            'notification': None,
+            'alert': None
         }
 
     def test_get(self) -> None:
@@ -1471,3 +1472,154 @@ class FetchCreateReportTestCase(TestCase):
         # Delete the created resort objects to clean up created SNS topics
         Resort.objects.all().delete()
         super().tearDownClass()
+
+
+class AlertViewTestCase(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        # Create users
+        cls.user = User.objects.create_user(username='test', password='foo', email='AP_TEST')
+        cls.user.is_staff = True
+        cls.user.save()
+        cls.token = Token.objects.get(user__username='test')
+
+        cls.rando = User.objects.create_user(username='user1', password='bar')
+        cls.rando_token = Token.objects.get(user__username='user1')
+
+        # Create report, resort, etc
+        cls.resort = Resort.objects.create(name='BC TEST', location='CO', report_url='foo')
+        cls.report = Report.objects.create(date=dt.datetime(2020, 1, 1).date(), resort=cls.resort)
+        cls.resort2 = Resort.objects.create(name='Vail TEST', location='CO', report_url='foo')
+        cls.report2 = Report.objects.create(date=dt.datetime(2020, 1, 2).date(), resort=cls.resort2)
+        cls.report3 = Report.objects.create(date=dt.datetime(2020, 1, 3).date(), resort=cls.resort2)
+
+        # Create alert
+        cls.alert = Alert.objects.create(bm_report=cls.report.bm_report)
+
+    def test_get(self) -> None:
+        """
+        verify get method works as expected
+        """
+        # Check get fails for anon or rando user
+        client = APIClient()
+        self.assertEqual(client.get('/api/alerts/').status_code, 401)
+        client.credentials(HTTP_AUTHORIZATION='Token ' + self.rando_token.key)
+        self.assertEqual(client.get('/api/alerts/').status_code, 403)
+
+        # Check GET works for staff user
+        client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
+        response = client.get('/api/alerts/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['count'], 1)
+        response = response.json()['results'][0]
+
+        self.assertEqual(response['id'], 1)
+        self.assertEqual(response['bm_report'], 'http://testserver/api/bmreports/1/')
+        self.assertTrue('sent' in response.keys())
+
+        # Check alert linked on bm_report request
+        response = client.get('/api/bmreports/1/').json()
+        self.assertEqual(response['alert'], 'http://testserver/api/alerts/1/')
+
+        # Create alert
+        rpt = Report.objects.create(date=dt.datetime(2020, 1, 5).date(), resort=self.resort)
+        Alert.objects.create(bm_report=rpt.bm_report)
+
+        # Create alert, test query params work for resort
+        Alert.objects.create(bm_report=self.report3.bm_report)
+        query_response = client.get('/api/alerts/?resort=Vail%20TEST').json()
+        self.assertEqual(query_response['count'], 1)
+        self.assertEqual(query_response['results'][0]['bm_report'], 'http://testserver/api/bmreports/3/')
+
+        # Create Alert, test query params work for report
+        Alert.objects.create(bm_report=self.report2.bm_report)
+        query_response = client.get('/api/alerts/?report_date=2020-01-02').json()
+        self.assertEqual(query_response['count'], 1)
+        self.assertEqual(query_response['results'][0]['bm_report'], 'http://testserver/api/bmreports/2/')
+        query_response = client.get('/api/alerts/?bm_pk=2').json()
+        self.assertEqual(query_response['count'], 1)
+        self.assertEqual(query_response['results'][0]['bm_report'], 'http://testserver/api/bmreports/2/')
+
+        # Check combined query works - no results
+        query_response = client.get('/api/alerts/?report_date=2020-01-02&resort=BC').json()
+        self.assertEqual(query_response['count'], 0)
+
+    def test_post(self) -> None:
+        """
+        test post method
+        """
+        client = APIClient()
+
+        # Check POST fails for anon and rando users
+        self.assertEqual(client.post('/api/alerts/').status_code, 401)
+        client.credentials(HTTP_AUTHORIZATION='Token ' + self.rando_token.key)
+        self.assertEqual(client.post('/api/alerts/').status_code, 403)
+
+        # Check post works for staff
+        client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
+        rpt = Report.objects.create(date=dt.datetime(2020, 1, 6).date(), resort=self.resort2)
+        post_data = {
+            'bm_report': 'http://testserver/api/bmreports/{}/'.format(rpt.bm_report.id),
+        }
+        response = client.post('/api/alerts/', post_data, format='json')
+        self.assertEqual(response.status_code, 201)
+        response = response.json()
+        response_url = 'http://testserver/api/alerts/{}/'.format(response['id'])
+        response.pop('id')
+        response.pop('sent')
+
+        self.assertDictEqual(response, post_data)
+
+        # Delete posted alert
+        client.delete(response_url)
+
+    def test_put(self) -> None:
+        """
+        test put method
+        """
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
+        alert = client.get('/api/alerts/').json()['results'][0]
+
+        # Update data
+        alert['bm_report'] = 'http://testserver/api/bmreports/2/'
+
+        # Check PUT fails for rando and anon user
+        client.credentials()
+        response = client.put('/api/alerts/1/', data=json.dumps(alert),
+                              content_type='application/json')
+        self.assertEqual(response.status_code, 401)
+        client.credentials(HTTP_AUTHORIZATION='Token ' + self.rando_token.key)
+        response = client.put('/api/alerts/1/', data=json.dumps(alert),
+                              content_type='application/json')
+        self.assertEqual(response.status_code, 403)
+
+        # Check PUT works for staff
+        client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
+        response = client.put('/api/alerts/1/', data=json.dumps(alert),
+                              content_type='application/json')
+        self.assertEqual(response.status_code, 200)
+
+        self.assertDictEqual(response.json(), alert)
+
+    def test_delete(self) -> None:
+        """
+        test delete method
+        """
+        client = APIClient()
+
+        # Create notification
+        report4 = Report.objects.create(date=dt.datetime(2020, 1, 4).date(), resort=self.resort2)
+        Alert.objects.create(bm_report=report4.bm_report)
+
+        # Check delete fails for anon or rando
+        self.assertEqual(client.delete('/api/alerts/2/').status_code, 401)
+        client.credentials(HTTP_AUTHORIZATION='Token ' + self.rando_token.key)
+        self.assertEqual(client.delete('/api/alerts/2/').status_code, 403)
+
+        # Check delete works for staff
+        client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
+        response = client.delete('/api/alerts/2/')
+        self.assertEqual(response.status_code, 204)
+        self.assertEqual(client.get('/api/alerts/2/').status_code, 404)
+        self.assertEqual(client.get('/api/alerts/').json()['count'], 1)

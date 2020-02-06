@@ -63,5 +63,3 @@ if __name__ == "__main__":
     no_bmruns_list = get_resorts_no_bmruns(time, get_api_wrapper)
     post_no_bmrun_message(no_bmruns_list, headers={'Authorization': 'Token {}'.format(TOKEN)},
                           api_url=API_URL)
-    post_messages(['http://dev-env.exm5cdp7tw.us-west-2.elasticbeanstalk.com/api/bmreports/90/'],
-                  headers={'Authorization': 'Token {}'.format(TOKEN)}, api_url=API_URL)

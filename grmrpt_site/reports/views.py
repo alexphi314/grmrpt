@@ -7,9 +7,8 @@ from rest_framework.decorators import api_view
 from rest_framework.reverse import reverse
 from rest_framework.permissions import IsAdminUser
 
-from reports.models import Report, Run, Resort, BMReport, BMGUser, Notification
-from reports.serializers import ReportSerializer, RunSerializer, ResortSerializer, BMReportSerializer, \
-    UserSerializer, BMGUserSerializer, NotificationSerializer
+from reports.models import *
+from reports.serializers import *
 from reports.permissions import IsAdminOrReadOnly
 
 
@@ -236,4 +235,46 @@ class NotificationDetail(generics.RetrieveUpdateDestroyAPIView):
     """
     queryset = Notification.objects.all().order_by('id')
     serializer_class = NotificationSerializer
+    permission_classes = [IsAdminUser]
+
+
+class AlertList(generics.ListCreateAPIView):
+    """
+    List view for alerts
+    """
+    serializer_class = AlertSerializer
+    permission_classes = [IsAdminUser]
+
+    def get_queryset(self):
+        """
+        Return objects in this list, based on optional filtering fields
+
+        :return: list of report objects
+        """
+        queryset = Alert.objects.all().order_by('id')
+
+        # If given, filter by resort name
+        resort = self.request.query_params.get('resort', None)
+        if resort is not None:
+            queryset = queryset.filter(bm_report__resort__name=resort)
+
+        # If given, filter by report date
+        date = self.request.query_params.get('report_date', None)
+        if date is not None:
+            queryset = queryset.filter(bm_report__date=dt.datetime.strptime(date, '%Y-%m-%d').date())
+
+        # If given, filter by bm_report pk
+        bm_pk = self.request.query_params.get('bm_pk', None)
+        if bm_pk is not None:
+            queryset = queryset.filter(bm_report__pk=bm_pk)
+
+        return queryset
+
+
+class AlertDetail(generics.RetrieveUpdateDestroyAPIView):
+    """
+    Detailed view for one alert
+    """
+    queryset = Alert.objects.all().order_by('id')
+    serializer_class = AlertSerializer
     permission_classes = [IsAdminUser]

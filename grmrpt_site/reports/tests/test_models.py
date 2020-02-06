@@ -389,3 +389,20 @@ class NotifyNoRunTestCase(TestCase):
         self.report2.bm_report.runs.set([self.run2])
         reports_list = get_resorts_no_bmruns(time, get_api_wrapper)
         self.assertListEqual(reports_list, ['http://testserver/api/bmreports/1/'])
+
+
+class AlertTestCase(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.resort = Resort.objects.create(name='test1')
+
+        cls.report = Report.objects.create(date=dt.datetime(2020, 2, 1), resort=cls.resort)
+
+        cls.alert = Alert.objects.create(bm_report_id=1)
+
+    def test_str_method(self) -> None:
+        """
+        test string method works as intended on model
+        """
+        self.assertEqual(self.alert.sent.strftime('%Y-%m-%dT%H:%M:%S'), str(self.alert))
+

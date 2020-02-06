@@ -440,3 +440,14 @@ class Notification(models.Model):
 
     def __str__(self) -> str:
         return '{}'.format(self.bm_report.date.strftime('%Y-%m-%d'))
+
+
+class Alert(models.Model):
+    """
+    Model an alert sent to developers about application errors
+    """
+    bm_report = models.OneToOneField(BMReport, related_name='alert', on_delete=models.CASCADE)
+    sent = models.DateTimeField("Time when alert was sent", auto_now_add=True)
+
+    def __str__(self) -> str:
+        return '{}'.format(self.sent.strftime('%Y-%m-%dT%H:%M:%S'))

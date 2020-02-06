@@ -537,6 +537,14 @@ def application(environ, start_response):
                                       api_url=API_URL)
 
                 response = 'Successfully checked for notification events'
+            #
+            # elif path == '/alert_schedule':
+            #     logger.info("Received task %s scheduled at %s", environ['HTTP_X_AWS_SQSD_TASKNAME'],
+            #                 environ['HTTP_X_AWS_SQSD_SCHEDULED_AT'])
+            #     time = dt.datetime.now(tz=pytz.timezone('US/Mountain'))
+            #     alert_list = get_resort_alerts(time, get_api_wrapper)
+            #     post_alert_message(alert_list)
+
 
         except (TypeError, ValueError):
             logger.warning('Error retrieving request body for async work.')
