@@ -348,6 +348,41 @@ def get_resorts_no_bmruns(time: dt.datetime, api_wrapper) -> List[str]:
     return contact_list
 
 
+def get_resort_alerts(time: dt.datetime, api_wrapper) -> List[str]:
+    """
+    Fetch the list of BMreports that have not sent out a notification
+
+    :param time: current time in MTN timezone
+    :param api_wrapper: wrapper function used to make api GET requests
+    :return: list of BMReport urls that are missing a notification
+    """
+    alert_list = []
+    # Check after no run notifs should have gone out
+    notif_time = dt.time(int(os.getenv('NORUNS_NOTIF_HOUR')), int(os.getenv('ALERT_NOTIF_MIN')))
+    if time.time() >= notif_time:
+        resorts = api_wrapper('resorts/')
+
+        for resort in resorts:
+            try:
+                bm_report_data, most_recent_report_url, _ = get_most_recent_reports(resort, api_wrapper)
+            except TypeError:
+                continue
+
+            # If notification sent for most recent BMReport, it's good
+            if bm_report_data['notification'] is not None:
+                continue
+
+            # Check if alert sent for this report
+            alert_response = api_wrapper('alerts/?bm_pk={}'.format(
+                bm_report_data['id']
+            ))
+
+            if len(alert_response) == 0:
+                alert_list.append(most_recent_report_url)
+
+    return alert_list
+
+
 def post_message_to_sns(sns, **kwargs) -> Dict[str, str]:
     """
     Post a message to a SNS topic
@@ -478,6 +513,39 @@ def post_no_bmrun_message(contact_list: List[str], headers: Dict[str, str], api_
                 ))
 
 
+def post_alert_message(alert_list: List[str], headers: Dict[str, str], api_url: str) -> None:
+    """
+    Post a message to the dev topic for each alert in alert_list
+
+    :param alert_list: list of BMReports with no notifications sent out
+    :param headers: authentication headers to provide with GET requests
+    :param api_url: api url address
+    """
+    sns = boto3.client('sns', region_name='us-west-2', aws_access_key_id=os.getenv('ACCESS_ID'),
+                       aws_secret_access_key=os.getenv('SECRET_ACCESS_KEY'))
+
+    # Post to SNS topic
+    for report in alert_list:
+        report_data = requests.get(report, headers=headers).json()
+        resort_data = requests.get(report_data['resort'], headers=headers).json()
+
+        msg = 'No notification sent for BMReport on {} at {}'.format(
+            report_data['date'],
+            resort_data['name']
+        )
+        response = post_message_to_sns(sns, TopicArn=os.getenv('ALERT_ARN'), Message=msg,
+                                       Subject='BMGRM {} Alert'.format(resort_data['name']))
+
+        if response['MessageId']:
+            # Post alert record
+            alert_data = {'bm_report': report}
+            response = requests.post('{}/alerts/'.format(api_url), data=alert_data, headers=headers)
+            if response.status_code != 201:
+                raise APIError('Unable to create alert record in api: {}'.format(
+                    response.text
+                ))
+
+
 def application(environ, start_response):
     API_URL = os.getenv('API_URL')
     TOKEN = os.getenv('TOKEN')
@@ -537,14 +605,16 @@ def application(environ, start_response):
                                       api_url=API_URL)
 
                 response = 'Successfully checked for notification events'
-            #
-            # elif path == '/alert_schedule':
-            #     logger.info("Received task %s scheduled at %s", environ['HTTP_X_AWS_SQSD_TASKNAME'],
-            #                 environ['HTTP_X_AWS_SQSD_SCHEDULED_AT'])
-            #     time = dt.datetime.now(tz=pytz.timezone('US/Mountain'))
-            #     alert_list = get_resort_alerts(time, get_api_wrapper)
-            #     post_alert_message(alert_list)
 
+            elif path == '/alert_schedule':
+                logger.info("Received task %s scheduled at %s", environ['HTTP_X_AWS_SQSD_TASKNAME'],
+                            environ['HTTP_X_AWS_SQSD_SCHEDULED_AT'])
+                time = dt.datetime.now(tz=pytz.timezone('US/Mountain'))
+                alert_list = get_resort_alerts(time, get_api_wrapper)
+                post_alert_message(alert_list, headers={'Authorization': 'Token {}'.format(TOKEN)},
+                                      api_url=API_URL)
+
+                response = 'Successfully checked for alerts'
 
         except (TypeError, ValueError):
             logger.warning('Error retrieving request body for async work.')

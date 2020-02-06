@@ -9,7 +9,7 @@ from rest_framework.test import APIClient
 from rest_framework.authtoken.models import Token
 
 sys.path.append('../grmrpt_fetch')
-from grmrpt_fetch.fetch_server import get_resorts_to_notify, create_report, get_api
+from grmrpt_fetch.fetch_server import get_resorts_to_notify, create_report, get_api, get_resort_alerts
 from reports.models import *
 
 
@@ -1263,6 +1263,13 @@ class NotifyUsersTestCase(TestCase):
         self.assertListEqual(resorts, ['http://testserver/api/bmreports/{}/'.format(rpt2.bm_report.id)])
         self.assertRaises(Notification.DoesNotExist, Notification.objects.get, id=notif.id)
 
+        # add more recent report and confirm it is queued for notification
+        rpt = Report.objects.create(date=dt.datetime(2020, 2, 3), resort_id=1)
+        rpt.runs.add(Run.objects.get(id=1))
+        rpt.bm_report.runs.add(Run.objects.get(id=1))
+        resorts = get_resorts_to_notify(get_wrapper, 'http://testserver/api', client, {})
+        self.assertListEqual(resorts, ['http://testserver/api/bmreports/{}/'.format(rpt.bm_report.id)])
+
     @classmethod
     def tearDownClass(cls):
         # Delete the created resort objects to clean up created SNS topics
@@ -1623,3 +1630,58 @@ class AlertViewTestCase(TestCase):
         self.assertEqual(response.status_code, 204)
         self.assertEqual(client.get('/api/alerts/2/').status_code, 404)
         self.assertEqual(client.get('/api/alerts/').json()['count'], 1)
+
+
+class AlertListTestCase(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = User.objects.create_user(username='test', password='foo', email='AP_TEST')
+        cls.user.is_staff = True
+        cls.user.save()
+        cls.token = Token.objects.get(user__username='test')
+
+        cls.resort = Resort.objects.create(name='test1')
+        cls.resort2 = Resort.objects.create(name='test2')
+
+        cls.report = Report.objects.create(date=dt.datetime(2020, 2, 1), resort=cls.resort)
+        cls.report2 = Report.objects.create(date=dt.datetime(2020, 2, 2), resort=cls.resort2)
+
+        cls.run1 = Run.objects.create(name='foo', resort=cls.resort)
+        cls.run2 = Run.objects.create(name='foobar', resort=cls.resort2)
+
+        cls.report.runs.add(cls.run1)
+        cls.report2.runs.add(cls.run2)
+
+        # Create 1 notification
+        Notification.objects.create(bm_report_id=2)
+
+    def test_get_list(self) -> None:
+        """
+        test get_list behaves as expected
+        """
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
+
+        def get_wrapper(x: str):
+            return get_api(x, {}, 'http://testserver/api', client)
+
+        alert_list = get_resort_alerts(dt.datetime(2020, 2, 2, 7), get_wrapper)
+        self.assertListEqual(alert_list, [])
+
+        # check returns 1 resort after 815
+        alert_list = get_resort_alerts(dt.datetime(2020, 2, 2, 8, 15), get_wrapper)
+        self.assertListEqual(alert_list, ['http://testserver/api/bmreports/1/'])
+
+        # Add alert to report1
+        Alert.objects.create(bm_report_id=1)
+        alert_list = get_resort_alerts(dt.datetime(2020, 2, 2, 9), get_wrapper)
+        self.assertListEqual(alert_list, [])
+
+        Alert.objects.get(id=1).delete()
+
+        # Create more recent report, check it is returned
+        res = Report.objects.create(date=dt.datetime(2020, 2, 3), resort=self.resort)
+        res.runs.add(self.run1)
+
+        alert_list = get_resort_alerts(dt.datetime(2020, 2, 3, 9), get_wrapper)
+        self.assertListEqual(alert_list, ['http://testserver/api/bmreports/3/'])

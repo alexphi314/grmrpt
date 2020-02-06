@@ -6,3 +6,6 @@ cron:
   - name: "query_users"
     url: "/notif_schedule"
     schedule: "*/10 13-18 * * *"
+  - name: "query_alerts"
+    url: "/alert_schedule"
+    schedule: "5,15,25,35,45,55 13-18 * * *"
