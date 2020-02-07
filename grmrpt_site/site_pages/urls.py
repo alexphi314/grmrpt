@@ -13,7 +13,8 @@ urlpatterns = [
     path('about/', views.about, name='about'),
     path('contact/', views.contact_us, name='contact_us'),
     path('deleteme/', views.delete, name='delete'),
-    path('', views.index, name='index')
+    path('', views.index, name='index'),
+    path('bmreports/', views.reports, name='reports')
 ]
 
 urlpatterns = format_suffix_patterns(urlpatterns)
