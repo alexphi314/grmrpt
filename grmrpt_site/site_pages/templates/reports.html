@@ -12,9 +12,13 @@
                         <h3 class="text-ucla">{{ item.0 }}: {{ item.1 }}</h3>
                     </a>
                     <ul class="list-group">
-                    {% for run in item.3 %}
-                        <li class="list-group-item">{{ run }}</li>
-                    {%  endfor %}
+                    {% if item.3|length > 0 %}
+                        {% for run in item.3 %}
+                            <li class="list-group-item">{{ run }}</li>
+                        {%  endfor %}
+                    {% else %}
+                        <li class="list-group-item">There are no Blue Moon runs today</li>
+                    {% endif %}
                     </ul>
                 </div>
             {% endfor %}
