@@ -415,7 +415,7 @@ def post_messages(contact_list: List[str], headers: Dict[str, str], api_url: str
         resort_data = requests.get(report_data['resort'], headers=headers).json()
 
         run_names = [requests.get(run, headers=headers).json()['name'] for run in report_data['runs']]
-        if resort_data['display_url'] is not None:
+        if resort_data['display_url'] is not None and resort_data['display_url'] != '':
             report_link = resort_data['display_url']
         else:
             report_link = resort_data['report_url']

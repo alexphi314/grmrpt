@@ -209,7 +209,7 @@ def reports(request):
         # Create a master list with resort name, report date, report url, and run list
         reports_runs = []
         for indx, report_run in enumerate(report_runs):
-            if resorts[indx].display_url is None:
+            if resorts[indx].display_url is None and resorts[indx].display_url != '':
                 url = resorts[indx].report_url
             else:
                 url = resorts[indx].display_url
