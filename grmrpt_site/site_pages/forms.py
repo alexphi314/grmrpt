@@ -28,7 +28,7 @@ def email_validator(value: str) -> None:
 class SignupForm(UserCreationForm):
     first_name = forms.CharField(max_length=30, required=False, help_text='Optional.', label='First Name')
     last_name = forms.CharField(max_length=30, required=False, help_text='Optional.', label='Last Name')
-    email = forms.EmailField(max_length=254, help_text='Required. Inform a valid email address.',
+    email = forms.EmailField(max_length=254, help_text='Required. Submit a valid email address.',
                              validators=[email_validator])
 
     class Meta:
@@ -39,7 +39,7 @@ class SignupForm(UserCreationForm):
 class UpdateForm(forms.ModelForm):
     first_name = forms.CharField(max_length=30, required=False, help_text='Optional.', label='First Name')
     last_name = forms.CharField(max_length=30, required=False, help_text='Optional.', label='Last Name')
-    email = forms.EmailField(max_length=254, help_text='Required. Inform a valid email address.')
+    email = forms.EmailField(max_length=254, help_text='Required. Submit a valid email address.')
 
     class Meta:
         model = User
@@ -60,7 +60,7 @@ class BMGUserCreationUpdateForm(forms.ModelForm):
     phone = forms.CharField(help_text='Required. Phone number to receive text alerts. +1XXXXXXXXXX',
                             validators=[phone_regex], max_length=17,
                             label='Phone Number')
-    resorts = forms.ModelMultipleChoiceField(help_text='Optional. Resorts you want to follow',
+    resorts = forms.ModelMultipleChoiceField(help_text='Optional. Select the resorts you want to get reports for',
                                              required=False,
                                              queryset=Resort.objects.all(),
                                              to_field_name='name',
@@ -70,7 +70,7 @@ class BMGUserCreationUpdateForm(forms.ModelForm):
                                        required=True,
                                        choices=[('EM', 'Email'), ('PH', 'SMS')],
                                        label='Contact Method')
-    contact_days = forms.MultipleChoiceField(help_text='Required. Days when you want to be notified',
+    contact_days = forms.MultipleChoiceField(help_text='Required. Days when you want to receive reports',
                                              choices=[("Sun", 'Sunday'),
                                                       ("Mon", 'Monday'),
                                                       ("Tue", 'Tuesday'),

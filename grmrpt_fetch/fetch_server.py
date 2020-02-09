@@ -1,6 +1,7 @@
 from typing import List, Tuple, Union, Dict
 import re
 import datetime as dt
+import pytz
 import logging
 import logging.handlers
 import os
@@ -230,63 +231,175 @@ def create_report(date: dt.datetime, groomed_runs: List[str], resort_id: int,
             raise APIError('Failed to update report object:\n{}'.format(update_report_response.text))
 
 
-def get_resorts_to_notify(get_api_wrapper, api_url) -> List[str]:
+def get_most_recent_reports(resort: Dict[str, str], get_api_wrapper) -> \
+        Union[None, Tuple[Dict[str, str], str, List[Dict[str, str]]]]:
+    """
+    Fetch the most recent report for the input resort, as well as yesterday's report
+
+    :param resort: data representation of resort
+    :param get_api_wrapper: wrapper function used to make GET requests of api
+    :return: data dict of most recent BMReport, url to most recent BMReport, and list of runs groomed yesterday
+    """
+    reports = get_api_wrapper('reports/?resort={}'.format(resort['name'].replace(' ', '%20')))
+    # Only include reports with run objects attached
+    reports = [report for report in reports if len(report['runs']) > 0]
+    report_dates_list = [dt.datetime.strptime(report['date'], '%Y-%m-%d').date() for report in
+                         reports]
+
+    if len(report_dates_list) == 0:
+        return
+
+    # Store the url to the most recent bmreport for each resort
+    most_recent_report = reports[report_dates_list.index(max(report_dates_list))]
+    most_recent_report_url = most_recent_report['bm_report']
+    bm_report_data = get_api_wrapper(most_recent_report_url)
+
+    # Get the bm report for yesterday, if it exists, and get the run list
+    yesterday = max(report_dates_list) - dt.timedelta(days=1)
+    yesterday_report = get_api_wrapper('reports/?date={}&resort={}'.format(
+        yesterday.strftime('%Y-%m-%d'),
+        resort['name']
+    ))
+    if len(yesterday_report) > 0:
+        assert len(yesterday_report) == 1
+        yesterday_runs = get_api_wrapper(yesterday_report[0]['bm_report'])['runs']
+    else:
+        yesterday_runs = []
+
+    return bm_report_data, most_recent_report_url, yesterday_runs
+
+
+def get_resorts_to_notify(get_api_wrapper, api_url, request_client, headers) -> List[str]:
     """
     Query the API to find the list of resorts that need to be notified about a new BM report.
 
     :param get_api_wrapper: lambda function that takes relative url for GET request and returns request in JSON
-    :param api_url: api url location
+    :param api_url: url to api
+    :param request_client: client used to make HTTP requests
+    :param headers: authentication headers to use in requests
     :return: list of bm_report urls to notify for
     """
     contact_list = []
     resorts = get_api_wrapper('resorts/')
 
     for resort in resorts:
-        reports = get_api_wrapper('reports/?resort={}'.format(resort['name'].replace(' ', '%20')))
-        # Only include reports with run objects attached
-        reports = [report for report in reports if len(report['runs']) > 0]
-        # Only include reports with bm reports with runs on them
-        reports = [report for report in reports if len(get_api_wrapper(report['bm_report'])['runs']) > 0]
-        report_dates_list = [dt.datetime.strptime(report['date'], '%Y-%m-%d').date() for report in
-                             reports]
-
-        if len(report_dates_list) == 0:
+        try:
+            bm_report_data, most_recent_report_url, yesterday_runs = get_most_recent_reports(resort,
+                                                                                             get_api_wrapper)
+        except TypeError:
             continue
 
-        # Store the url to the most recent bmreport for each resort
-        most_recent_report = reports[report_dates_list.index(max(report_dates_list))]
-        most_recent_report_url = most_recent_report['bm_report']
-        bm_report_data = get_api_wrapper(most_recent_report_url)
-
-        # Get the bm report for yesterday, if it exists, and get the run list
-        yesterday = max(report_dates_list) - dt.timedelta(days=1)
-        yesterday_report = get_api_wrapper('reports/?date={}&resort={}'.format(
-            yesterday.strftime('%Y-%m-%d'),
-            resort['name']
-        ))
-        if len(yesterday_report) > 0:
-            assert len(yesterday_report) == 1
-            yesterday_runs = get_api_wrapper(yesterday_report[0]['bm_report'])['runs']
-        else:
-            yesterday_runs = []
+        # Only include reports with bm reports with runs on them
+        if len(bm_report_data['runs']) == 0:
+            continue
 
         # Check if notification sent for this report
         notification_response = get_api_wrapper('notifications/?bm_pk={}'.format(
             bm_report_data['id']
         ))
+        assert len(notification_response) <= 1
 
-        if len(notification_response) == 0 and Counter(bm_report_data['runs']) != Counter(yesterday_runs):
+        if (len(notification_response) == 0 or
+                (len(notification_response) == 1 and notification_response[0]['type'] == 'no_runs')) \
+                and Counter(bm_report_data['runs']) != Counter(yesterday_runs):
             # No notification posted for this report
             contact_list.append(most_recent_report_url)
+
+            # Delete the no_run notif if it exists
+            if len(notification_response) == 1:
+                resp = request_client.delete('{}/notifications/{}/'.format(api_url, notification_response[0]['id']),
+                                             headers=headers)
+                if resp.status_code != 204:
+                    raise APIError('Unable to delete notification: {}'.format(resp.text))
+
         elif Counter(bm_report_data['runs']) == Counter(yesterday_runs):
             logger.info('BM report run list identical to yesterday -- not sending notification')
 
     return contact_list
 
 
+def get_resorts_no_bmruns(time: dt.datetime, api_wrapper) -> List[str]:
+    """
+    Get the list of resorts with no bmruns on today's BMReport
+
+    :param time: current time in mtn timezone
+    :param api_wrapper: wrapper function used to make GET requests to api
+    :return: list of report urls with no bmruns on today's report
+    """
+    contact_list = []
+    if time.hour >= int(os.getenv('NORUNS_NOTIF_HOUR')):
+        resorts = api_wrapper('resorts/')
+
+        for resort in resorts:
+            try:
+                bm_report_data, most_recent_report_url, _ = get_most_recent_reports(resort, api_wrapper)
+            except TypeError:
+                continue
+
+            # Check if notification sent for this report
+            notification_response = api_wrapper('notifications/?bm_pk={}'.format(
+                bm_report_data['id']
+            ))
+
+            # Append if no notification sent already and no runs on the report
+            if len(notification_response) == 0 and len(bm_report_data['runs']) == 0:
+                contact_list.append(most_recent_report_url)
+
+    return contact_list
+
+
+def get_resort_alerts(time: dt.datetime, api_wrapper) -> List[str]:
+    """
+    Fetch the list of BMreports that have not sent out a notification
+
+    :param time: current time in MTN timezone
+    :param api_wrapper: wrapper function used to make api GET requests
+    :return: list of BMReport urls that are missing a notification
+    """
+    alert_list = []
+    # Check after no run notifs should have gone out
+    notif_time = dt.time(int(os.getenv('NORUNS_NOTIF_HOUR')), int(os.getenv('ALERT_NOTIF_MIN')))
+    if time.time() >= notif_time:
+        resorts = api_wrapper('resorts/')
+
+        for resort in resorts:
+            try:
+                bm_report_data, most_recent_report_url, _ = get_most_recent_reports(resort, api_wrapper)
+            except TypeError:
+                continue
+
+            # If notification sent for most recent BMReport, it's good
+            if bm_report_data['notification'] is not None:
+                continue
+
+            # Check if alert sent for this report
+            alert_response = api_wrapper('alerts/?bm_pk={}'.format(
+                bm_report_data['id']
+            ))
+
+            if len(alert_response) == 0:
+                alert_list.append(most_recent_report_url)
+
+    return alert_list
+
+
+def post_message_to_sns(sns, **kwargs) -> Dict[str, str]:
+    """
+    Post a message to a SNS topic
+
+    :param sns: sns client used to make publish call
+    :param kwargs: various input arguments to publish call
+    :return: response from SNS
+    """
+    response = sns.publish(**kwargs)
+    logger.info('Posted message with id {} to {}'.format(response['MessageId'], kwargs['TopicArn']))
+
+    return response
+
+
 def post_messages(contact_list: List[str], headers: Dict[str, str], api_url: str) -> None:
     """
-    Post the input messages to the SQS queue
+    Post the input messages to the SNS queue
 
     :param contact_list: list of bm_report urls to notify
     :param headers: http request headers for authentication
@@ -302,7 +415,7 @@ def post_messages(contact_list: List[str], headers: Dict[str, str], api_url: str
         resort_data = requests.get(report_data['resort'], headers=headers).json()
 
         run_names = [requests.get(run, headers=headers).json()['name'] for run in report_data['runs']]
-        if resort_data['display_url'] is not None:
+        if resort_data['display_url'] is not None and resort_data['display_url'] != '':
             report_link = resort_data['display_url']
         else:
             report_link = resort_data['report_url']
@@ -327,23 +440,11 @@ def post_messages(contact_list: List[str], headers: Dict[str, str], api_url: str
                         report_link
                     )
 
-        response = sns.publish(
-            TopicArn=resort_data['sns_arn'],
-            MessageStructure='json',
-            Message=json.dumps({
-                'email': email_msg,
-                'sms': phone_msg,
-                'default': email_msg
-            }),
-            Subject=email_subj,
-            MessageAttributes={
-                'day_of_week': {
-                    'DataType': 'String',
-                    'StringValue': report_date.strftime('%a')
-                }
-            }
-        )
-        logger.info('Posted message with id {} to {}'.format(response['MessageId'], resort_data['sns_arn']))
+        response = post_message_to_sns(sns, TopicArn=resort_data['sns_arn'], MessageStructure='json',
+                                       Message=json.dumps({'email': email_msg, 'sms': phone_msg,
+                                                           'default': email_msg}), Subject=email_subj,
+                                       MessageAttributes={'day_of_week': {'DataType': 'String',
+                                                                          'StringValue': report_date.strftime('%a')}})
 
         if response['MessageId']:
             # Post notification record
@@ -352,6 +453,95 @@ def post_messages(contact_list: List[str], headers: Dict[str, str], api_url: str
                                      headers=headers)
             if response.status_code != 201:
                 raise APIError('Unable to create notification record in api: {}'.format(
+                    response.text
+                ))
+
+
+def post_no_bmrun_message(contact_list: List[str], headers: Dict[str, str], api_url: str) -> None:
+    """
+    Post the input messages to the SQS queue
+
+    :param contact_list: list of resorts with no bmruns on today's report
+    :param headers: http request headers for authentication
+    :param api_url: api url link
+    """
+    sns = boto3.client('sns', region_name='us-west-2', aws_access_key_id=os.getenv('ACCESS_ID'),
+                       aws_secret_access_key=os.getenv('SECRET_ACCESS_KEY'))
+
+    # Post to SNS topic
+    for report in contact_list:
+        report_data = requests.get(report, headers=headers).json()
+        report_date = dt.datetime.strptime(report_data['date'], '%Y-%m-%d')
+        resort_data = requests.get(report_data['resort'], headers=headers).json()
+
+        if resort_data['display_url'] is not None:
+            report_link = resort_data['display_url']
+        else:
+            report_link = resort_data['report_url']
+
+        email_subj = '{} {} Blue Moon Grooming Report'.format(
+            report_data['date'],
+            resort_data['name'],
+        )
+        phone_msg = '{}\n' \
+                    '\nThere are no blue moon runs today.\n\n' \
+                    'Full report: {}'.format(
+                        report_data['date'],
+                        report_link
+                    )
+        email_msg = 'Good morning!\n\n' \
+                    '{} has no blue moon runs on today\'s report.\n' \
+                    'Full report: {}'.format(
+                        resort_data['name'],
+                        report_link
+                    )
+
+        response = post_message_to_sns(sns, TopicArn=resort_data['sns_arn'], MessageStructure='json',
+                                       Message=json.dumps({'email': email_msg, 'sms': phone_msg,
+                                                           'default': email_msg}), Subject=email_subj,
+                                       MessageAttributes={'day_of_week': {'DataType': 'String',
+                                                                          'StringValue': report_date.strftime('%a')}})
+
+        if response['MessageId']:
+            # Post notification record
+            notification_data = {'bm_report': report, 'type': 'no_runs'}
+            response = requests.post('{}/notifications/'.format(api_url), data=notification_data,
+                                     headers=headers)
+            if response.status_code != 201:
+                raise APIError('Unable to create notification record in api: {}'.format(
+                    response.text
+                ))
+
+
+def post_alert_message(alert_list: List[str], headers: Dict[str, str], api_url: str) -> None:
+    """
+    Post a message to the dev topic for each alert in alert_list
+
+    :param alert_list: list of BMReports with no notifications sent out
+    :param headers: authentication headers to provide with GET requests
+    :param api_url: api url address
+    """
+    sns = boto3.client('sns', region_name='us-west-2', aws_access_key_id=os.getenv('ACCESS_ID'),
+                       aws_secret_access_key=os.getenv('SECRET_ACCESS_KEY'))
+
+    # Post to SNS topic
+    for report in alert_list:
+        report_data = requests.get(report, headers=headers).json()
+        resort_data = requests.get(report_data['resort'], headers=headers).json()
+
+        msg = 'No notification sent for BMReport on {} at {}'.format(
+            report_data['date'],
+            resort_data['name']
+        )
+        response = post_message_to_sns(sns, TopicArn=os.getenv('ALERT_ARN'), Message=msg,
+                                       Subject='BMGRM {} Alert'.format(resort_data['name']))
+
+        if response['MessageId']:
+            # Post alert record
+            alert_data = {'bm_report': report}
+            response = requests.post('{}/alerts/'.format(api_url), data=alert_data, headers=headers)
+            if response.status_code != 201:
+                raise APIError('Unable to create alert record in api: {}'.format(
                     response.text
                 ))
 
@@ -403,11 +593,28 @@ def application(environ, start_response):
                 logger.info("Received task %s scheduled at %s", environ['HTTP_X_AWS_SQSD_TASKNAME'],
                             environ['HTTP_X_AWS_SQSD_SCHEDULED_AT'])
 
-                resort_list = get_resorts_to_notify(get_api_wrapper, API_URL)
+                resort_list = get_resorts_to_notify(get_api_wrapper, API_URL,
+                                                    requests, {'Authorization': 'Token {}'.format(TOKEN)})
                 post_messages(resort_list, headers={'Authorization': 'Token {}'.format(TOKEN)},
                               api_url=API_URL)
 
+                # Check for no bmrun notifications
+                time = dt.datetime.now(tz=pytz.timezone('US/Mountain'))
+                no_bmruns_list = get_resorts_no_bmruns(time, get_api_wrapper)
+                post_no_bmrun_message(no_bmruns_list, headers={'Authorization': 'Token {}'.format(TOKEN)},
+                                      api_url=API_URL)
+
                 response = 'Successfully checked for notification events'
+
+            elif path == '/alert_schedule':
+                logger.info("Received task %s scheduled at %s", environ['HTTP_X_AWS_SQSD_TASKNAME'],
+                            environ['HTTP_X_AWS_SQSD_SCHEDULED_AT'])
+                time = dt.datetime.now(tz=pytz.timezone('US/Mountain'))
+                alert_list = get_resort_alerts(time, get_api_wrapper)
+                post_alert_message(alert_list, headers={'Authorization': 'Token {}'.format(TOKEN)},
+                                      api_url=API_URL)
+
+                response = 'Successfully checked for alerts'
 
         except (TypeError, ValueError):
             logger.warning('Error retrieving request body for async work.')

@@ -23,6 +23,8 @@ urlpatterns = [
     path('bmgusers/<int:pk>/', views.BMGUserDetail.as_view(), name='bmguser-detail'),
     path('notifications/', views.NotificationList.as_view(), name='notification-list'),
     path('notifications/<int:pk>/', views.NotificationDetail.as_view(), name='notification-detail'),
+    path('alerts/', views.AlertList.as_view(), name='alert-list'),
+    path('alerts/<int:pk>/', views.AlertDetail.as_view(), name='alert-detail')
 ]
 
 urlpatterns = format_suffix_patterns(urlpatterns)

@@ -53,6 +53,12 @@ def create_update_user(request, UserForm, user=None):
 
 @transaction.atomic
 def create_user(request):
+    """
+    Render the create user view (form)
+
+    :param request: http request
+    :return: rendered html template
+    """
     if request.method == 'POST':
         return create_update_user(request, SignupForm)
     else:
@@ -71,6 +77,13 @@ def create_user(request):
 
 @transaction.atomic
 def profile_view(request, alert=''):
+    """
+    Show a user's profile and update if requested
+
+    :param request: http request
+    :param alert: alert text to show in an alert box at top of page, if given
+    :return: rendered html template
+    """
     if request.method == 'GET':
         if not request.user.is_authenticated:
             return HttpResponseRedirect(django_reverse('login'))
@@ -94,6 +107,12 @@ def profile_view(request, alert=''):
 
 
 def logout_user(request):
+    """
+    logout the user
+
+    :param request: http request
+    :return: redirect to index
+    """
     if request.method == 'GET':
         logout(request)
 
@@ -101,6 +120,12 @@ def logout_user(request):
 
 
 def index(request):
+    """
+    Load the home page
+
+    :param request: http request
+    :return: rendered home page
+    """
     if request.method == 'GET':
         num_resorts = Resort.objects.count()
         return render(request, 'index.html', {'resorts_str': ', and '.join([
@@ -112,6 +137,12 @@ def index(request):
 
 
 def contact_us(request):
+    """
+    Load the contact us page
+
+    :param request: http request
+    :return: rendered page
+    """
     if request.method == 'GET':
         return render(request, 'contact_us.html', {})
     else:
@@ -119,6 +150,12 @@ def contact_us(request):
 
 
 def about(request):
+    """
+    Load the about/faq page
+
+    :param request: http request
+    :return: rendered page
+    """
     if request.method == 'GET':
         return render(request, 'about.html', {'resorts': [resort.name for resort in
                                                           Resort.objects.all().order_by('id')]})
@@ -127,15 +164,73 @@ def about(request):
 
 
 def delete(request):
+    """
+    Delete the logged-in user from the DB
+
+    :param request: http request
+    :return: rendered delete page
+    """
     if request.method == 'GET':
         if not request.user.is_authenticated:
-            return HttpResponseRedirect(django_reverse('signup'))
+            return HttpResponseRedirect(django_reverse('login'))
 
         user = User.objects.get(username=request.user)
         logout(request)
         user.delete()
 
         return render(request, 'deleted.html')
+
+    else:
+        return HttpResponseBadRequest()
+
+
+def reports(request):
+    """
+    Load the most recent BMReport for each resort
+
+    :param request: http request
+    :return: rendered reports page
+    """
+    if request.method == 'GET':
+        if not request.user.is_authenticated:
+            return HttpResponseRedirect(django_reverse('login'))
+
+        resorts = Resort.objects.all()
+        # Get the most recent BMReport for each resort
+        most_recent_reports = [resort.bm_reports.all()[resort.bm_reports.count()-1] for resort in resorts if
+                               resort.bm_reports.count() > 0]
+
+        # Make a list of run names for each report
+        report_runs = [
+            [run.name for run in report.runs.all()]
+            for report in most_recent_reports
+        ]
+
+        # Create a master list with resort name, report date, report url, and run list
+        reports_runs = []
+        for indx, report_run in enumerate(report_runs):
+            if resorts[indx].display_url is None and resorts[indx].display_url != '':
+                url = resorts[indx].report_url
+            else:
+                url = resorts[indx].display_url
+
+            reports_runs.append([resorts[indx].name, most_recent_reports[indx].date.strftime('%b %d, %Y'),
+                                 url, report_run])
+
+        # Group the reports and runs into groups of 2
+        # The two groups are put next to each other on the site
+        num_reports = 2
+        reports_runs_grouped = [
+            reports_runs[i:i+num_reports] for i in range(0, len(reports_runs), num_reports)
+        ]
+
+        return render(
+            request,
+            'reports.html',
+            {
+                'resorts_runs': reports_runs_grouped
+            }
+        )
 
     else:
         return HttpResponseBadRequest()

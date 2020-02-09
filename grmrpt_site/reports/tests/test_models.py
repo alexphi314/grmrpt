@@ -1,10 +1,14 @@
 import datetime as dt
 import time
+import sys
 
 from django.test import TestCase
 from botocore.client import ClientError
+from rest_framework.test import APIClient
 
+sys.path.append('../grmrpt_fetch')
 from reports.models import *
+from grmrpt_fetch.fetch_server import get_api, get_resorts_no_bmruns
 
 
 class ResortTestCase(TestCase):
@@ -167,12 +171,12 @@ class SNSTopicSubscriptionTestCase(TestCase):
         cls.user = User.objects.create(username='foo', email='foo@gmail.com')
         cls.user.bmg_user.contact_method = 'PH'
         cls.user.bmg_user.contact_days = json.dumps(['Tue'])
-        cls.user.bmg_user.phone = '13035799557'
+        cls.user.bmg_user.phone = '18006756833'
         cls.user.bmg_user.save()
 
         cls.user2 = User.objects.create(username='bar', email='foobar@gmail.com')
         cls.user2.bmg_user.contact_method = 'PH'
-        cls.user2.bmg_user.phone = '13039175364'
+        cls.user2.bmg_user.phone = '18001234567'
         cls.user2.save()
 
     def test_sns_topic_creation(self) -> None:
@@ -337,3 +341,68 @@ class SNSTopicSubscriptionTestCase(TestCase):
         Resort.objects.all().delete()
         User.objects.all().delete()
         super().tearDownClass()
+
+
+class NotifyNoRunTestCase(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        # Create 2 resorts
+        cls.resort = Resort.objects.create(name='test1')
+        cls.resort2 = Resort.objects.create(name='test2')
+
+        # Create 2 reports
+        cls.report = Report.objects.create(date=dt.datetime(2020, 1, 1), resort=cls.resort)
+        cls.report2 = Report.objects.create(date=dt.datetime(2020, 1, 2), resort=cls.resort2)
+
+        # Create run
+        cls.run1 = Run.objects.create(name='run1', resort=cls.resort)
+        cls.run2 = Run.objects.create(name='run2', resort=cls.resort2)
+        cls.report.runs.set([cls.run1])
+        cls.report2.runs.set([cls.run2])
+
+        cls.user = User.objects.create_user(username='test', password='foo', email='AP_TEST')
+        cls.user.is_staff = True
+        cls.user.save()
+        cls.token = Token.objects.get(user__username='test')
+
+    def test_norun_notif_list(self) -> None:
+        """
+        check reports flagged for no_run notification works correctly
+        """
+        time = dt.datetime(2020, 1, 3, 7)
+
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
+        get_api_wrapper = lambda x: get_api(x, {}, 'http://testserver/api', request_client=client)
+
+        # Check eval before 8 am returns no reports
+        reports_list = get_resorts_no_bmruns(time, get_api_wrapper)
+        self.assertListEqual(reports_list, [])
+
+        time = dt.datetime(2020, 1, 3, 9)
+        # Check eval after 8 am returns both reports
+        reports_list = get_resorts_no_bmruns(time, get_api_wrapper)
+        self.assertListEqual(reports_list, ['http://testserver/api/bmreports/1/',
+                                            'http://testserver/api/bmreports/2/'])
+
+        # Add run to BMrpt2 and check it is not returned
+        self.report2.bm_report.runs.set([self.run2])
+        reports_list = get_resorts_no_bmruns(time, get_api_wrapper)
+        self.assertListEqual(reports_list, ['http://testserver/api/bmreports/1/'])
+
+
+class AlertTestCase(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.resort = Resort.objects.create(name='test1')
+
+        cls.report = Report.objects.create(date=dt.datetime(2020, 2, 1), resort=cls.resort)
+
+        cls.alert = Alert.objects.create(bm_report_id=1)
+
+    def test_str_method(self) -> None:
+        """
+        test string method works as intended on model
+        """
+        self.assertEqual(self.alert.sent.strftime('%Y-%m-%dT%H:%M:%S'), str(self.alert))
+

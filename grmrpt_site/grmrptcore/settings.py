@@ -12,6 +12,19 @@ https://docs.djangoproject.com/en/3.0/ref/settings/
 
 import os
 
+import requests
+from django.core.exceptions import ImproperlyConfigured
+
+
+def get_ec2_hostname():
+    try:
+        ipconfig = 'http://169.254.169.254/latest/meta-data/local-ipv4'
+        return requests.get(ipconfig, timeout=10).text
+    except Exception:
+        error = 'You have to be running on AWS to use AWS settings'
+        raise ImproperlyConfigured(error)
+
+
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -23,15 +36,20 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SECRET_KEY = 's(qpl*tbapgq_b0p3!9(ax!!go=lhcs4*4=f66d!5-b$+e)33c'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True
 
 ALLOWED_HOSTS = [
     '.elasticbeanstalk.com',
     '127.0.0.1',
     '.bluemoongroom.com',
-    'localhost'
+    'localhost',
 ]
 
+# If running on AWS, add current hostname to allowed hosts
+try:
+    ALLOWED_HOSTS.append(get_ec2_hostname())
+except ImproperlyConfigured:
+    pass
 
 # Application definition
 

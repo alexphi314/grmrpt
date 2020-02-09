@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+    <div class="container-fluid" >
+        <h1 class="text-vivid p-1">Today's Blue Moon Grooming Reports</h1>
+        {% for master in resorts_runs %}
+            <div class="row p-1">
+            {% for item in master %}
+                <div class="col-md-6 p-1">
+                    <a href={{ item.2 }}>
+                        <h3 class="text-ucla">{{ item.0 }}: {{ item.1 }}</h3>
+                    </a>
+                    <ul class="list-group">
+                    {% if item.3|length > 0 %}
+                        {% for run in item.3 %}
+                            <li class="list-group-item">{{ run }}</li>
+                        {%  endfor %}
+                    {% else %}
+                        <li class="list-group-item">There are no Blue Moon runs today</li>
+                    {% endif %}
+                    </ul>
+                </div>
+            {% endfor %}
+            </div>
+        {% endfor %}
+    </div>
+
+{% endblock %}

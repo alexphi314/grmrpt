@@ -9,7 +9,7 @@ from rest_framework.test import APIClient
 from rest_framework.authtoken.models import Token
 
 sys.path.append('../grmrpt_fetch')
-from grmrpt_fetch.fetch_server import get_resorts_to_notify, create_report, get_api
+from grmrpt_fetch.fetch_server import get_resorts_to_notify, create_report, get_api, get_resort_alerts
 from reports.models import *
 
 
@@ -104,7 +104,8 @@ class ResortViewTestCase(TestCase):
 
         # Check staff user PUT works correctly
         client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
-        update_response = client.put('/api/resorts/1/', data=json.dumps(response), content_type='application/json')
+        update_response = client.put('/api/resorts/1/', data=json.dumps(response),
+                                     content_type='application/json')
         self.assertEqual(update_response.status_code, 200)
         self.assertDictEqual(update_response.json(), response)
 
@@ -680,7 +681,8 @@ class BMReportViewTestCase(TestCase):
             'resort': cls.resort_url,
             'runs': [],
             'full_report': cls.report_url,
-            'notification': None
+            'notification': None,
+            'alert': None
         }
 
     def test_get(self) -> None:
@@ -1133,9 +1135,6 @@ class NotifyUsersTestCase(TestCase):
         assert report_response.status_code == 201
         cls.resort2_report_url = 'http://testserver/api/bmreports/{}/'.format(report_response.json()['id'])
         cls.resort2_id = report_response.json()['id']
-        # Link run to bmr
-        bmr = BMReport.objects.get(pk=2)
-        bmr.runs.add(Run.objects.get(pk=1))
 
         # Create notification
         Notification.objects.create(bm_report=Report.objects.get(pk=1).bm_report)
@@ -1149,7 +1148,15 @@ class NotifyUsersTestCase(TestCase):
         def get_wrapper(x: str):
             return get_api(x, {}, 'http://testserver/api', client)
 
-        resorts = get_resorts_to_notify(get_wrapper, 'http://testserver/api')
+        # Without BMrun linked to report, no notification sent
+        resorts = get_resorts_to_notify(get_wrapper, 'http://testserver/api', client, {})
+        self.assertListEqual(resorts, [])
+
+        # Link run to bmr
+        bmr = BMReport.objects.get(pk=2)
+        bmr.runs.add(Run.objects.get(pk=1))
+        # Since first report has a notification, only second resort should have a notification
+        resorts = get_resorts_to_notify(get_wrapper, 'http://testserver/api', client, {})
         self.assertListEqual(resorts, [self.resort2_report_url])
 
         # Add report on 1-2
@@ -1159,13 +1166,13 @@ class NotifyUsersTestCase(TestCase):
         report_response = client.post('/api/reports/', report_data, format='json')
         assert report_response.status_code == 201
         report_url = 'http://testserver/api/bmreports/{}/'.format(report_response.json()['id'])
-        resorts = get_resorts_to_notify(get_wrapper, 'http://testserver/api')
+        resorts = get_resorts_to_notify(get_wrapper, 'http://testserver/api', client, {})
         self.assertListEqual(resorts, [self.resort2_report_url])
 
         # Add run to BMR and check resort is now on notification list
         bmr = BMReport.objects.get(pk=client.get(report_response.json()['bm_report']).json()['id'])
         bmr.runs.add(Run.objects.get(pk=1))
-        resorts = get_resorts_to_notify(get_wrapper, 'http://testserver/api')
+        resorts = get_resorts_to_notify(get_wrapper, 'http://testserver/api', client, {})
         self.assertListEqual(resorts, [report_url, self.resort2_report_url])
 
         # Add report on 1-6
@@ -1176,11 +1183,15 @@ class NotifyUsersTestCase(TestCase):
         assert report_response.status_code == 201
         report_url = 'http://testserver/api/bmreports/{}/'.format(report_response.json()['id'])
         resort1_id = report_response.json()['id']
+        # Without BMruns on BMReport, no notification
+        resorts = get_resorts_to_notify(get_wrapper, 'http://testserver/api', client, {})
+        self.assertListEqual(resorts, [self.resort2_report_url])
+
         bmr = BMReport.objects.get(pk=client.get(report_response.json()['bm_report']).json()['id'])
         bmr.runs.add(Run.objects.get(pk=1))
 
         # With new report, notify resort2 and updated report
-        resorts = get_resorts_to_notify(get_wrapper, 'http://testserver/api')
+        resorts = get_resorts_to_notify(get_wrapper, 'http://testserver/api', client, {})
         self.assertListEqual(resorts, [report_url, self.resort2_report_url])
 
         # Notify both
@@ -1188,7 +1199,7 @@ class NotifyUsersTestCase(TestCase):
         Notification.objects.create(bm_report_id=self.resort2_id)
 
         # Confirm no notifications to go out
-        resorts = get_resorts_to_notify(get_wrapper, 'http://testserver/api')
+        resorts = get_resorts_to_notify(get_wrapper, 'http://testserver/api', client, {})
         self.assertListEqual(resorts, [])
 
         # Create a bogus report with no runs attached
@@ -1198,7 +1209,7 @@ class NotifyUsersTestCase(TestCase):
         report_response = client.post('/api/reports/', report_data, format='json')
         assert report_response.status_code == 201
         # Confirm no notifications to go out
-        resorts = get_resorts_to_notify(get_wrapper, 'http://testserver/api')
+        resorts = get_resorts_to_notify(get_wrapper, 'http://testserver/api', client, {})
         self.assertListEqual(resorts, [])
 
         # Create identical bm report and check no notification is readied
@@ -1214,13 +1225,50 @@ class NotifyUsersTestCase(TestCase):
         bm2.runs.set([run1])
 
         # Confirm no notifications to go out
-        resorts = get_resorts_to_notify(get_wrapper, 'http://testserver/api')
+        resorts = get_resorts_to_notify(get_wrapper, 'http://testserver/api', client, {})
         self.assertListEqual(resorts, [])
 
         bm2.runs.add(run2)
         # Confirm notification ready to go out
-        resorts = get_resorts_to_notify(get_wrapper, 'http://testserver/api')
+        resorts = get_resorts_to_notify(get_wrapper, 'http://testserver/api', client, {})
         self.assertListEqual(resorts, ['http://testserver/api/bmreports/{}/'.format(bm2.pk)])
+
+        # Send notification
+        Notification.objects.create(bm_report_id=bm2.pk)
+
+        # Confirm no notifications to go out
+        resorts = get_resorts_to_notify(get_wrapper, 'http://testserver/api', client, {})
+        self.assertListEqual(resorts, [])
+
+        # Create 2 reports next to each other
+        rpt1 = Report.objects.create(date=dt.datetime(2020, 2, 1), resort_id=1)
+        rpt1.runs.set([Run.objects.get(id=1)])
+        rpt1.bm_report.runs.set([Run.objects.get(id=1)])
+
+        rpt2 = Report.objects.create(date=dt.datetime(2020, 2, 2), resort_id=1)
+        rpt2.runs.set([Run.objects.get(id=1)])
+
+        # Confirm no notification goes out because BMreport has no runs
+        resorts = get_resorts_to_notify(get_wrapper, 'http://testserver/api', client, {})
+        self.assertListEqual(resorts, [])
+
+        # Add run to BMreport
+        rpt2.bm_report.runs.set([Run.objects.get(id=2)])
+        resorts = get_resorts_to_notify(get_wrapper, 'http://testserver/api', client, {})
+        self.assertListEqual(resorts, ['http://testserver/api/bmreports/{}/'.format(rpt2.bm_report.id)])
+
+        # Post notification for 'no run' and confirm resort still queued for notification
+        notif = Notification.objects.create(bm_report_id=rpt2.bm_report.id, type='no_runs')
+        resorts = get_resorts_to_notify(get_wrapper, 'http://testserver/api', client, {})
+        self.assertListEqual(resorts, ['http://testserver/api/bmreports/{}/'.format(rpt2.bm_report.id)])
+        self.assertRaises(Notification.DoesNotExist, Notification.objects.get, id=notif.id)
+
+        # add more recent report and confirm it is queued for notification
+        rpt = Report.objects.create(date=dt.datetime(2020, 2, 3), resort_id=1)
+        rpt.runs.add(Run.objects.get(id=1))
+        rpt.bm_report.runs.add(Run.objects.get(id=1))
+        resorts = get_resorts_to_notify(get_wrapper, 'http://testserver/api', client, {})
+        self.assertListEqual(resorts, ['http://testserver/api/bmreports/{}/'.format(rpt.bm_report.id)])
 
     @classmethod
     def tearDownClass(cls):
@@ -1270,6 +1318,7 @@ class NotificationViewTestCase(TestCase):
         self.assertEqual(response['id'], 1)
         self.assertEqual(response['bm_report'], 'http://testserver/api/bmreports/1/')
         self.assertTrue('sent' in response.keys())
+        self.assertTrue('type' in response.keys())
 
         # Check notification linked on bm_report request
         response = client.get('/api/bmreports/1/').json()
@@ -1321,6 +1370,7 @@ class NotificationViewTestCase(TestCase):
         response_url = 'http://testserver/api/notifications/{}/'.format(response['id'])
         response.pop('id')
         response.pop('sent')
+        response.pop('type')
 
         self.assertDictEqual(response, post_data)
 
@@ -1340,15 +1390,18 @@ class NotificationViewTestCase(TestCase):
 
         # Check PUT fails for rando and anon user
         client.credentials()
-        response = client.put('/api/notifications/1/', data=json.dumps(notification), content_type='application/json')
+        response = client.put('/api/notifications/1/', data=json.dumps(notification),
+                              content_type='application/json')
         self.assertEqual(response.status_code, 401)
         client.credentials(HTTP_AUTHORIZATION='Token ' + self.rando_token.key)
-        response = client.put('/api/notifications/1/', data=json.dumps(notification), content_type='application/json')
+        response = client.put('/api/notifications/1/', data=json.dumps(notification),
+                              content_type='application/json')
         self.assertEqual(response.status_code, 403)
 
         # Check PUT works for staff
         client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
-        response = client.put('/api/notifications/1/', data=json.dumps(notification), content_type='application/json')
+        response = client.put('/api/notifications/1/', data=json.dumps(notification),
+                              content_type='application/json')
         self.assertEqual(response.status_code, 200)
 
         self.assertDictEqual(response.json(), notification)
@@ -1426,3 +1479,209 @@ class FetchCreateReportTestCase(TestCase):
         # Delete the created resort objects to clean up created SNS topics
         Resort.objects.all().delete()
         super().tearDownClass()
+
+
+class AlertViewTestCase(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        # Create users
+        cls.user = User.objects.create_user(username='test', password='foo', email='AP_TEST')
+        cls.user.is_staff = True
+        cls.user.save()
+        cls.token = Token.objects.get(user__username='test')
+
+        cls.rando = User.objects.create_user(username='user1', password='bar')
+        cls.rando_token = Token.objects.get(user__username='user1')
+
+        # Create report, resort, etc
+        cls.resort = Resort.objects.create(name='BC TEST', location='CO', report_url='foo')
+        cls.report = Report.objects.create(date=dt.datetime(2020, 1, 1).date(), resort=cls.resort)
+        cls.resort2 = Resort.objects.create(name='Vail TEST', location='CO', report_url='foo')
+        cls.report2 = Report.objects.create(date=dt.datetime(2020, 1, 2).date(), resort=cls.resort2)
+        cls.report3 = Report.objects.create(date=dt.datetime(2020, 1, 3).date(), resort=cls.resort2)
+
+        # Create alert
+        cls.alert = Alert.objects.create(bm_report=cls.report.bm_report)
+
+    def test_get(self) -> None:
+        """
+        verify get method works as expected
+        """
+        # Check get fails for anon or rando user
+        client = APIClient()
+        self.assertEqual(client.get('/api/alerts/').status_code, 401)
+        client.credentials(HTTP_AUTHORIZATION='Token ' + self.rando_token.key)
+        self.assertEqual(client.get('/api/alerts/').status_code, 403)
+
+        # Check GET works for staff user
+        client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
+        response = client.get('/api/alerts/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['count'], 1)
+        response = response.json()['results'][0]
+
+        self.assertEqual(response['id'], 1)
+        self.assertEqual(response['bm_report'], 'http://testserver/api/bmreports/1/')
+        self.assertTrue('sent' in response.keys())
+
+        # Check alert linked on bm_report request
+        response = client.get('/api/bmreports/1/').json()
+        self.assertEqual(response['alert'], 'http://testserver/api/alerts/1/')
+
+        # Create alert
+        rpt = Report.objects.create(date=dt.datetime(2020, 1, 5).date(), resort=self.resort)
+        Alert.objects.create(bm_report=rpt.bm_report)
+
+        # Create alert, test query params work for resort
+        Alert.objects.create(bm_report=self.report3.bm_report)
+        query_response = client.get('/api/alerts/?resort=Vail%20TEST').json()
+        self.assertEqual(query_response['count'], 1)
+        self.assertEqual(query_response['results'][0]['bm_report'], 'http://testserver/api/bmreports/3/')
+
+        # Create Alert, test query params work for report
+        Alert.objects.create(bm_report=self.report2.bm_report)
+        query_response = client.get('/api/alerts/?report_date=2020-01-02').json()
+        self.assertEqual(query_response['count'], 1)
+        self.assertEqual(query_response['results'][0]['bm_report'], 'http://testserver/api/bmreports/2/')
+        query_response = client.get('/api/alerts/?bm_pk=2').json()
+        self.assertEqual(query_response['count'], 1)
+        self.assertEqual(query_response['results'][0]['bm_report'], 'http://testserver/api/bmreports/2/')
+
+        # Check combined query works - no results
+        query_response = client.get('/api/alerts/?report_date=2020-01-02&resort=BC').json()
+        self.assertEqual(query_response['count'], 0)
+
+    def test_post(self) -> None:
+        """
+        test post method
+        """
+        client = APIClient()
+
+        # Check POST fails for anon and rando users
+        self.assertEqual(client.post('/api/alerts/').status_code, 401)
+        client.credentials(HTTP_AUTHORIZATION='Token ' + self.rando_token.key)
+        self.assertEqual(client.post('/api/alerts/').status_code, 403)
+
+        # Check post works for staff
+        client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
+        rpt = Report.objects.create(date=dt.datetime(2020, 1, 6).date(), resort=self.resort2)
+        post_data = {
+            'bm_report': 'http://testserver/api/bmreports/{}/'.format(rpt.bm_report.id),
+        }
+        response = client.post('/api/alerts/', post_data, format='json')
+        self.assertEqual(response.status_code, 201)
+        response = response.json()
+        response_url = 'http://testserver/api/alerts/{}/'.format(response['id'])
+        response.pop('id')
+        response.pop('sent')
+
+        self.assertDictEqual(response, post_data)
+
+        # Delete posted alert
+        client.delete(response_url)
+
+    def test_put(self) -> None:
+        """
+        test put method
+        """
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
+        alert = client.get('/api/alerts/').json()['results'][0]
+
+        # Update data
+        alert['bm_report'] = 'http://testserver/api/bmreports/2/'
+
+        # Check PUT fails for rando and anon user
+        client.credentials()
+        response = client.put('/api/alerts/1/', data=json.dumps(alert),
+                              content_type='application/json')
+        self.assertEqual(response.status_code, 401)
+        client.credentials(HTTP_AUTHORIZATION='Token ' + self.rando_token.key)
+        response = client.put('/api/alerts/1/', data=json.dumps(alert),
+                              content_type='application/json')
+        self.assertEqual(response.status_code, 403)
+
+        # Check PUT works for staff
+        client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
+        response = client.put('/api/alerts/1/', data=json.dumps(alert),
+                              content_type='application/json')
+        self.assertEqual(response.status_code, 200)
+
+        self.assertDictEqual(response.json(), alert)
+
+    def test_delete(self) -> None:
+        """
+        test delete method
+        """
+        client = APIClient()
+
+        # Create notification
+        report4 = Report.objects.create(date=dt.datetime(2020, 1, 4).date(), resort=self.resort2)
+        Alert.objects.create(bm_report=report4.bm_report)
+
+        # Check delete fails for anon or rando
+        self.assertEqual(client.delete('/api/alerts/2/').status_code, 401)
+        client.credentials(HTTP_AUTHORIZATION='Token ' + self.rando_token.key)
+        self.assertEqual(client.delete('/api/alerts/2/').status_code, 403)
+
+        # Check delete works for staff
+        client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
+        response = client.delete('/api/alerts/2/')
+        self.assertEqual(response.status_code, 204)
+        self.assertEqual(client.get('/api/alerts/2/').status_code, 404)
+        self.assertEqual(client.get('/api/alerts/').json()['count'], 1)
+
+
+class AlertListTestCase(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = User.objects.create_user(username='test', password='foo', email='AP_TEST')
+        cls.user.is_staff = True
+        cls.user.save()
+        cls.token = Token.objects.get(user__username='test')
+
+        cls.resort = Resort.objects.create(name='test1')
+        cls.resort2 = Resort.objects.create(name='test2')
+
+        cls.report = Report.objects.create(date=dt.datetime(2020, 2, 1), resort=cls.resort)
+        cls.report2 = Report.objects.create(date=dt.datetime(2020, 2, 2), resort=cls.resort2)
+
+        cls.run1 = Run.objects.create(name='foo', resort=cls.resort)
+        cls.run2 = Run.objects.create(name='foobar', resort=cls.resort2)
+
+        cls.report.runs.add(cls.run1)
+        cls.report2.runs.add(cls.run2)
+
+        # Create 1 notification
+        Notification.objects.create(bm_report_id=2)
+
+    def test_get_list(self) -> None:
+        """
+        test get_list behaves as expected
+        """
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
+
+        def get_wrapper(x: str):
+            return get_api(x, {}, 'http://testserver/api', client)
+
+        alert_list = get_resort_alerts(dt.datetime(2020, 2, 2, 7), get_wrapper)
+        self.assertListEqual(alert_list, [])
+
+        # check returns 1 resort after 815
+        alert_list = get_resort_alerts(dt.datetime(2020, 2, 2, 8, 15), get_wrapper)
+        self.assertListEqual(alert_list, ['http://testserver/api/bmreports/1/'])
+
+        # Add alert to report1
+        Alert.objects.create(bm_report_id=1)
+        alert_list = get_resort_alerts(dt.datetime(2020, 2, 2, 9), get_wrapper)
+        self.assertListEqual(alert_list, [])
+
+        Alert.objects.get(id=1).delete()
+
+        # Create more recent report, check it is returned
+        res = Report.objects.create(date=dt.datetime(2020, 2, 3), resort=self.resort)
+        res.runs.add(self.run1)
+
+        alert_list = get_resort_alerts(dt.datetime(2020, 2, 3, 9), get_wrapper)
+        self.assertListEqual(alert_list, ['http://testserver/api/bmreports/3/'])

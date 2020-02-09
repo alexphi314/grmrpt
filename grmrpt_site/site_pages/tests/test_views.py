@@ -1,10 +1,10 @@
 import json
 
-from django.test import TestCase
+from django.test import TestCase, Client
 from django.urls import reverse
 from django.contrib.auth.models import User
 
-from reports.models import Resort
+from reports.models import *
 
 
 class SignupTestCase(TestCase):
@@ -59,3 +59,57 @@ class SignupTestCase(TestCase):
 
         self.client.force_login(user=usr)
         self.client.get(reverse('profile'))
+
+
+class ReportsViewTestCase(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        # Create a user
+        cls.usr = User.objects.create_user(username='wildbill')
+
+        # Create 2 resorts
+        cls.resort = Resort.objects.create(name='test1')
+        cls.resort2 = Resort.objects.create(name='test2')
+
+        # Create 2 reports
+        cls.report = Report.objects.create(date=dt.datetime(2020, 2, 1), resort_id=1)
+        cls.report2 = Report.objects.create(date=dt.datetime(2020, 1, 31), resort_id=2)
+
+        # Create 2 runs
+        cls.run1 = Run.objects.create(name='foo', resort_id=1)
+        cls.run2 = Run.objects.create(name='bar', resort_id=2)
+
+        # Add runs to BMReport
+        cls.report.bm_report.runs.add(cls.run1)
+        cls.report2.bm_report.runs.add(cls.run2)
+
+    def test_view(self) -> None:
+        client = Client()
+        client.force_login(self.usr)
+
+        resp = client.get(reverse('reports'))
+        resorts_runs = resp.context['resorts_runs']
+        self.assertListEqual(resorts_runs, [[['test1', 'Feb 01, 2020', None, ['foo']],
+                                            ['test2', 'Jan 31, 2020', None, ['bar']]]])
+
+        # Create a new report for resort2
+        rpt = Report.objects.create(date=dt.datetime(2020, 2, 2), resort_id=2)
+        rpt.bm_report.runs.add(self.run2)
+
+        resp = client.get(reverse('reports'))
+        resorts_runs = resp.context['resorts_runs']
+        self.assertListEqual(resorts_runs, [[['test1', 'Feb 01, 2020', None, ['foo']],
+                                             ['test2', 'Feb 02, 2020', None, ['bar']]]])
+
+        # Add a third resort
+        Resort.objects.create(name='test3')
+        rpt = Report.objects.create(date=dt.datetime(2020, 2, 1), resort_id=3)
+        rpt.bm_report.runs.add(self.run1)
+
+        resp = client.get(reverse('reports'))
+        resorts_runs = resp.context['resorts_runs']
+        self.assertListEqual(resorts_runs, [[['test1', 'Feb 01, 2020', None, ['foo']],
+                                             ['test2', 'Feb 02, 2020', None, ['bar']]],
+                                            [['test3', 'Feb 01, 2020', None, ['foo']]]])
+
+
