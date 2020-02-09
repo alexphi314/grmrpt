@@ -9,6 +9,7 @@ from copy import deepcopy
 from wsgiref.simple_server import make_server
 from collections import Counter
 import json
+import traceback
 
 from tika import parser
 import requests
@@ -616,12 +617,14 @@ def application(environ, start_response):
 
                 response = 'Successfully checked for alerts'
 
-        except (TypeError, ValueError):
-            logger.warning('Error retrieving request body for async work.')
-            response = ''
-        except APIError as e:
+        except APIError:
             logger.warning('Error processing API request')
-            logger.warning(e)
+            logger.warning(traceback.print_exc())
+            response = ''
+
+        except Exception:
+            logger.warning('Got exception while processing task')
+            logger.warning(traceback.print_exc())
             response = ''
     else:
         logger.warning('Received unexpected method to server {}'.format(method))
