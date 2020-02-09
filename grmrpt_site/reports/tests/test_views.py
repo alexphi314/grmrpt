@@ -1458,8 +1458,8 @@ class FetchCreateReportTestCase(TestCase):
         date = dt.datetime(2020, 1, 1).date()
         client = APIClient()
         client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
-        get_api_wrapper = lambda x, y, z: get_api(x, y, z, client)
-        create_report(date, ['Ripsaw', 'Centennial'], 1, 'http://testserver/api', self.token.key, get_api_wrapper,
+        get_api_wrapper = lambda x: get_api(x, {}, 'http://testserver/api', client)
+        create_report(date, ['Ripsaw', 'Centennial'], 1, 'http://testserver/api', {}, get_api_wrapper,
                       client)
 
         self.assertListEqual([self.run1, self.run2], list(self.report.runs.all()))
@@ -1468,10 +1468,19 @@ class FetchCreateReportTestCase(TestCase):
         date = dt.datetime(2020, 1, 1).date()
         client = APIClient()
         client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
-        get_api_wrapper = lambda x, y, z: get_api(x, y, z, client)
-        create_report(date, ['Ripsaw', 'Larkspur'], 1, 'http://testserver/api', self.token.key, get_api_wrapper,
-                      client)
+        get_api_wrapper = lambda x: get_api(x, {}, 'http://testserver/api', client)
 
+        # Update report with run1 and run2
+        self.report.runs.set([self.run1, self.run2])
+
+        create_report(date, ['Ripsaw', 'Larkspur'], 1, 'http://testserver/api', {}, get_api_wrapper,
+                      client)
+        self.assertListEqual([self.run1, self.run3], list(self.report.runs.all()))
+
+        # Update report with no runs
+        self.report.runs.set([])
+        create_report(date, ['Ripsaw', 'Larkspur'], 1, 'http://testserver/api', {}, get_api_wrapper,
+                      client)
         self.assertListEqual([self.run1, self.run3], list(self.report.runs.all()))
 
     @classmethod
@@ -1643,7 +1652,7 @@ class AlertListTestCase(TestCase):
         cls.resort = Resort.objects.create(name='test1')
         cls.resort2 = Resort.objects.create(name='test2')
 
-        cls.report = Report.objects.create(date=dt.datetime(2020, 2, 1), resort=cls.resort)
+        cls.report = Report.objects.create(date=dt.datetime(2020, 2, 2), resort=cls.resort)
         cls.report2 = Report.objects.create(date=dt.datetime(2020, 2, 2), resort=cls.resort2)
 
         cls.run1 = Run.objects.create(name='foo', resort=cls.resort)
@@ -1665,23 +1674,37 @@ class AlertListTestCase(TestCase):
         def get_wrapper(x: str):
             return get_api(x, {}, 'http://testserver/api', client)
 
-        alert_list = get_resort_alerts(dt.datetime(2020, 2, 2, 7), get_wrapper)
+        alert_list = get_resort_alerts(dt.datetime(2020, 2, 2, 7), get_wrapper, 'http://testserver/api', {}, client)
         self.assertListEqual(alert_list, [])
 
         # check returns 1 resort after 815
-        alert_list = get_resort_alerts(dt.datetime(2020, 2, 2, 8, 15), get_wrapper)
+        alert_list = get_resort_alerts(dt.datetime(2020, 2, 2, 8, 15), get_wrapper, 'http://testserver/api', {}, client)
         self.assertListEqual(alert_list, ['http://testserver/api/bmreports/1/'])
 
         # Add alert to report1
         Alert.objects.create(bm_report_id=1)
-        alert_list = get_resort_alerts(dt.datetime(2020, 2, 2, 9), get_wrapper)
+        alert_list = get_resort_alerts(dt.datetime(2020, 2, 2, 9), get_wrapper, 'http://testserver/api', {}, client)
         self.assertListEqual(alert_list, [])
 
-        Alert.objects.get(id=1).delete()
-
-        # Create more recent report, check it is returned
+        # Create report on 2-3 for resort1 with no notification
         res = Report.objects.create(date=dt.datetime(2020, 2, 3), resort=self.resort)
         res.runs.add(self.run1)
 
-        alert_list = get_resort_alerts(dt.datetime(2020, 2, 3, 9), get_wrapper)
-        self.assertListEqual(alert_list, ['http://testserver/api/bmreports/3/'])
+        # Check a new report object is created for a time in the future and an alert is queued
+        alert_list = get_resort_alerts(dt.datetime(2020, 2, 3, 7), get_wrapper, 'http://testserver/api', {}, client)
+        self.assertListEqual(alert_list, [])
+        alert_list = get_resort_alerts(dt.datetime(2020, 2, 3, 9), get_wrapper, 'http://testserver/api', {}, client)
+        self.assertListEqual(alert_list, ['http://testserver/api/bmreports/3/',
+                                          'http://testserver/api/bmreports/4/'])
+
+        rpt = Report.objects.get(id=4)
+        self.assertListEqual(list(rpt.runs.all()), [])
+        self.assertEqual(rpt.resort, self.resort2)
+        self.assertEqual(rpt.date, dt.datetime(2020, 2, 3).date())
+        Alert.objects.create(bm_report_id=4)
+
+        # Check the most recent report is returned
+        Alert.objects.get(id=1).delete()
+        alert_list = get_resort_alerts(dt.datetime(2020, 2, 3, 9), get_wrapper, 'http://testserver/api', {}, client)
+        self.assertListEqual(alert_list, ['http://testserver/api/bmreports/{}/'.format(res.bm_report.id)])
+        self.assertEqual(Report.objects.count(), 4)
