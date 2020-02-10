@@ -4,6 +4,7 @@ from django.shortcuts import render
 from django.db import transaction
 from django.http import HttpResponseBadRequest, HttpResponseRedirect, HttpResponseNotFound
 from django.urls import reverse as django_reverse
+from django.contrib.auth.decorators import login_required
 
 from reports.models import Resort
 from site_pages.forms import BMGUserCreationUpdateForm, SignupForm, UpdateForm
@@ -76,6 +77,7 @@ def create_user(request):
 
 
 @transaction.atomic
+@login_required()
 def profile_view(request, alert=''):
     """
     Show a user's profile and update if requested
@@ -85,9 +87,6 @@ def profile_view(request, alert=''):
     :return: rendered html template
     """
     if request.method == 'GET':
-        if not request.user.is_authenticated:
-            return HttpResponseRedirect(django_reverse('login'))
-
         user = request.user
         user_form = UpdateForm(instance=user)
         bmg_user_form = BMGUserCreationUpdateForm(instance=user.bmg_user)
@@ -101,7 +100,7 @@ def profile_view(request, alert=''):
 
     if request.method == 'POST':
         if not request.user.is_authenticated:
-            return HttpResponseRedirect(django_reverse('login'))
+            return HttpResponseRedirect(django_reverse('login-next', kwargs={'next': django_reverse('profile')}))
 
         return create_update_user(request, UpdateForm, request.user)
 
@@ -183,7 +182,7 @@ def delete(request):
     else:
         return HttpResponseBadRequest()
 
-
+@login_required()
 def reports(request):
     """
     Load the most recent BMReport for each resort
@@ -192,9 +191,6 @@ def reports(request):
     :return: rendered reports page
     """
     if request.method == 'GET':
-        if not request.user.is_authenticated:
-            return HttpResponseRedirect(django_reverse('login'))
-
         resorts = Resort.objects.all()
         # Get the most recent BMReport for each resort
         most_recent_reports = [resort.bm_reports.all()[resort.bm_reports.count()-1] for resort in resorts if

@@ -17,10 +17,26 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from django.contrib.sitemaps import views
+
+from reports.sitemap import *
+from site_pages.sitemap import StaticSitemap
+
+sitemaps = {
+    'resorts': ResortSitemap,
+    'reports': ReportSitemap,
+    'runs': RunSitemap,
+    'bmreports': BMReportsitemap,
+    'api_static': ApiStaticSitemap,
+    'static': StaticSitemap
+}
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('reports.urls')),
     path('health/', include('health_check.urls')),
-    path('', include('site_pages.urls'))
+    path('', include('site_pages.urls')),
+    path('sitemap.xml', views.index, {'sitemaps': sitemaps}),
+    path('sitemap-<section>.xml', views.sitemap, {'sitemaps': sitemaps},
+         name='django.contrib.sitemaps.views.sitemap')
 ] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
