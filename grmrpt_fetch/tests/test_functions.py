@@ -6,7 +6,7 @@ import sys
 
 import requests
 
-from fetch_report import get_grooming_report
+from fetch_server import get_grooming_report
 
 if sys.version_info.major < 3:
     from urllib import url2pathname
@@ -270,6 +270,8 @@ class ReportFuncTestCase(unittest.TestCase):
         self.report_url4 = 'test_files/sb_jan16.json'
         #self.report_url4 = 'https://www.steamboat.com/the-mountain/mountain-report#/'
 
+        self.report_url5 = 'test_files/vail_feb7.pdf'
+
     def test_get_grooming_report(self) -> None:
         """
         Test function properly strips the run names from the file
@@ -292,3 +294,9 @@ class ReportFuncTestCase(unittest.TestCase):
         date, groomed_runs = get_grooming_report('json', response=response)
         self.assertEqual(date, dt.datetime(2020, 1, 16, tzinfo=pytz.timezone('US/Mountain')).date())
         self.assertListEqual(groomed_runs, self.exp_groomed_runs4)
+
+        date, groomed_runs = get_grooming_report('tika', self.report_url5)
+        self.assertEqual(date, dt.datetime(2020, 2, 7).date())
+        self.assertEqual(len(groomed_runs), 113)
+        self.assertFalse('Whiskey Jack GAME CREEK BOWL' in groomed_runs)
+        self.assertTrue('Whiskey Jack' in groomed_runs)
