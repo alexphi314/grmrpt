@@ -3,10 +3,12 @@ import pytz
 import unittest
 import os
 import sys
+import subprocess
+import time
 
 import requests
 
-from fetch_server import get_grooming_report
+from fetch_server import get_grooming_report, kill_tika_server
 
 if sys.version_info.major < 3:
     from urllib import url2pathname
@@ -300,3 +302,37 @@ class ReportFuncTestCase(unittest.TestCase):
         self.assertEqual(len(groomed_runs), 113)
         self.assertFalse('Whiskey Jack GAME CREEK BOWL' in groomed_runs)
         self.assertTrue('Whiskey Jack' in groomed_runs)
+
+
+class TestTikaRelaunch(unittest.TestCase):
+    def setUp(self) -> None:
+        self.report_url = 'test_files/bc_jan7.pdf'
+
+    def test_relaunch(self) -> None:
+        # Launch tika server
+        get_grooming_report('tika', self.report_url)
+
+        # Confirm tika is launched
+        with subprocess.Popen(['ps', 'aux'], stdout=subprocess.PIPE) as ps:
+            with subprocess.Popen(['grep', '[t]ika'], stdin=ps.stdout, stdout=subprocess.PIPE) as grep:
+                grep_out, _ = grep.communicate()
+                grep_out = str(grep_out)
+
+                ps.kill()
+                grep.kill()
+
+        self.assertEqual(len(grep_out.split('\n')), 1)
+
+        # Kill tika server
+        kill_tika_server()
+
+        # Confirm tika is not running
+        time.sleep(1)
+
+        with subprocess.Popen(['ps', 'aux'], stdout=subprocess.PIPE) as ps:
+            with subprocess.Popen(['grep', '[t]ika'], stdin=ps.stdout, stdout=subprocess.PIPE) as grep:
+                grep_out2, _ = grep.communicate()
+                self.assertEqual(b'', grep_out2)
+
+                ps.kill()
+                grep.kill()

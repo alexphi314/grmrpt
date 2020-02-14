@@ -10,6 +10,8 @@ from wsgiref.simple_server import make_server
 from collections import Counter
 import json
 import traceback
+import subprocess
+import time
 
 from tika import parser
 import requests
@@ -43,6 +45,10 @@ class APIError(Exception):
         """
         logger.warning(message)
         super().__init__(message)
+
+
+class CommandError(Exception):
+    pass
 
 
 def resolve_response(url: str, headers: Dict[str, str], api_url: str, request_client) -> Dict:
@@ -90,6 +96,37 @@ def get_api(relative_url: str, headers: Dict[str, str], api_url: str, request_cl
         return response
 
 
+def kill_tika_server() -> None:
+    """
+    End the process hosting the tika server
+    """
+    with subprocess.Popen(['ps', 'aux'], stdout=subprocess.PIPE) as ps:
+        with subprocess.Popen(['grep', '[t]ika'], stdin=ps.stdout, stdout=subprocess.PIPE, stderr=subprocess.PIPE) \
+         as grep:
+            grep_out, grep_err = grep.communicate()
+            grep_out = str(grep_out)
+
+            if grep_err != b'':
+                raise CommandError(grep_err)
+
+            # Get process id
+            assert len(grep_out.split('\n')) == 1
+            cols = grep_out.split()
+            pid = cols[1]
+
+            ps.kill()
+            grep.kill()
+
+    # Kill the process
+    with subprocess.Popen(['kill', pid], stdout=subprocess.PIPE, stderr=subprocess.PIPE) as kll:
+        _, err = kll.communicate()
+
+        if err != b'':
+            raise CommandError(err)
+
+        kll.kill()
+
+
 def get_grooming_report(parse_mode: str, url: str = None,
                         response: requests.Response = None) -> Tuple[Union[None, dt.datetime], List[str]]:
     """
@@ -101,10 +138,19 @@ def get_grooming_report(parse_mode: str, url: str = None,
     :return: date and list of groomed run names
     """
     if parse_mode == 'tika':
-        parsed = parser.from_file(url)
-        content = parsed['content'].strip()
-        trial_re = re.compile('^\d+\s(?P<name>(?!\d).*\w+.+(?<!")+$)')
-        date_re = re.compile('^\w*\s\d*,\s\d*')
+        try:
+            parsed = parser.from_file(url)
+            content = parsed['content'].strip()
+            trial_re = re.compile('^\d+\s(?P<name>(?!\d).*\w+.+(?<!")+$)')
+            date_re = re.compile('^\w*\s\d*,\s\d*')
+        except AttributeError:
+            # This occurs when tika server doesn't respond with anything
+            # Attempt to restart the server and re-run the function
+            logger.info('Attempting to restart tika server, got bad response')
+            kill_tika_server()
+            time.sleep(1)
+            logger.info('Killed tika server, re-running function call')
+            return get_grooming_report(parse_mode, url, response)
 
         runs = []
         date = None
@@ -581,6 +627,7 @@ def application(environ, start_response):
                 request_body_size = int(environ['CONTENT_LENGTH'])
                 request_body = environ['wsgi.input'].read(request_body_size).decode()
                 logger.info("Received message: %s" % request_body)
+                response = 'Got message'
             elif path == '/grmrpt_schedule':
                 logger.info("Received task %s scheduled at %s", environ['HTTP_X_AWS_SQSD_TASKNAME'],
                             environ['HTTP_X_AWS_SQSD_SCHEDULED_AT'])
