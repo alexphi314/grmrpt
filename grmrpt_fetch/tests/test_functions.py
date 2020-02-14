@@ -336,3 +336,7 @@ class TestTikaRelaunch(unittest.TestCase):
 
                 ps.kill()
                 grep.kill()
+
+
+if __name__ == '__main__':
+    unittest.main()
