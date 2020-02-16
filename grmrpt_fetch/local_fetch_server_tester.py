@@ -40,20 +40,20 @@ if __name__ == "__main__":
     resorts = get_api('resorts/', headers={'Authorization': 'Token {}'.format(TOKEN)}, api_url=API_URL)
 
     # Fetch grooming report for each resort
-    # for resort_dict in resorts:
-    #     resort = resort_dict['name']
-    #
-    #     report_url = resort_dict['report_url']
-    #     parse_mode = resort_dict['parse_mode']
-    #
-    #     if parse_mode == 'json':
-    #         response = requests.get(report_url)
-    #         if response.status_code != 200:
-    #             raise ValueError('Unable to fetch grooming report: {}'.format(response.text))
-    #
-    #         date, groomed_runs = get_grooming_report(parse_mode, response=response)
-    #     else:
-    #         date, groomed_runs = get_grooming_report(parse_mode, url=report_url)
+    for resort_dict in resorts:
+        resort = resort_dict['name']
+
+        report_url = resort_dict['report_url']
+        parse_mode = resort_dict['parse_mode']
+
+        if parse_mode == 'json':
+            response = requests.get(report_url)
+            if response.status_code != 200:
+                raise ValueError('Unable to fetch grooming report: {}'.format(response.text))
+
+            date, groomed_runs = get_grooming_report(parse_mode, response=response)
+        else:
+            date, groomed_runs = get_grooming_report(parse_mode, url=report_url)
     #
     #     create_report(date, groomed_runs, resort_dict['id'], API_URL, TOKEN, get_api)
     #
@@ -74,8 +74,3 @@ if __name__ == "__main__":
     # alert_list = get_resort_alerts(time, get_api_wrapper)
     # post_alert_message(alert_list, headers={'Authorization': 'Token {}'.format(TOKEN)},
     #                    api_url=API_URL)
-
-    post_messages(['https://bluemoongroom.com/api/bmreports/29/',
-                   'https://bluemoongroom.com/api/bmreports/28/',
-                   'https://bluemoongroom.com/api/bmreports/27/'],
-                  headers={'Authorization': 'Token {}'.format(TOKEN)}, api_url=API_URL)
