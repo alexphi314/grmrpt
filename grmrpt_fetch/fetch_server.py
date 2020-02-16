@@ -492,17 +492,22 @@ def post_messages(contact_list: List[str], headers: Dict[str, str], api_url: str
         )
         phone_msg = '{}\n' \
                     '  * {}\n\n' \
+                    'Other resort reports: {}\n' \
                     'Full report: {}'.format(
                         report_data['date'],
                         '\n  * '.join(run_names),
+                        os.getenv('REPORT_URL', ''),
                         report_link
                     )
         email_msg = 'Good morning!\n\n'\
                     'Today\'s Blue Moon Grooming Report for {} contains:\n'\
                     '  * {}\n\n'\
+                    'Reports for other resorts and continually updated report for {}: {}\n'\
                     'Full report: {}'.format(
                         resort_data['name'],
                         '\n  * '.join(run_names),
+                        resort_data['name'],
+                        os.getenv('REPORT_URL', ''),
                         report_link
                     )
 
@@ -551,14 +556,19 @@ def post_no_bmrun_message(contact_list: List[str], headers: Dict[str, str], api_
         )
         phone_msg = '{}\n' \
                     '\nThere are no blue moon runs today.\n\n' \
+                    'Other resort reports: {}\n' \
                     'Full report: {}'.format(
                         report_data['date'],
+                        os.getenv('REPORT_URL', ''),
                         report_link
                     )
         email_msg = 'Good morning!\n\n' \
                     '{} has no blue moon runs on today\'s report.\n' \
+                    'Reports for other resorts and continually updated report for {}: {}\n' \
                     'Full report: {}'.format(
                         resort_data['name'],
+                        resort_data['name'],
+                        os.getenv('REPORT_URL', ''),
                         report_link
                     )
 
