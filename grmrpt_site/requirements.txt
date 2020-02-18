@@ -1,6 +1,6 @@
 # Python package requirements for AWS server
 # Requirements for test use are in ../requirements.txt
-Django<2.2
+Django>=2.2.10
 djangorestframework
 requests<2.21,>=2.20.1
 urllib3<1.25,>=1.24.1
