@@ -47,11 +47,13 @@ class SignupTestCase(TestCase):
         user_data['email'] = 'AP_TEST_foo2@gmail.com'
         self.assertEqual(self.client.post(reverse('signup'), data=user_data).status_code, 302)
 
+        # Incorrect phone number causes an error and no redirection
         user_data['phone'] = '4'
         user_data['username'] = 'alexphi3'
         user_data['email'] = 'AP_TEST_foo3@gmail.com'
         self.assertEqual(self.client.post(reverse('signup'), data=user_data).status_code, 200)
 
+        # Incorrect phone number causes an error and no redirection
         user_data['phone'] = '3038776576'
         user_data['username'] = 'alexphi3'
         user_data['email'] = 'AP_TEST_foo4@gmail.com'
@@ -59,6 +61,47 @@ class SignupTestCase(TestCase):
 
         self.client.force_login(user=usr)
         self.client.get(reverse('profile'))
+
+    def test_signup_required_fields(self) -> None:
+        """
+        Test that the form fails when resorts is supplied but no contact_days or contact_method.
+        """
+        user_data = {
+            'username': 'alexphi57',
+            'first_name': 'alex',
+            'last_name': 'bill',
+            'email': 'AP_TEST_foo57@gmail.com',
+            'password1': 'barfoobas',
+            'password2': 'barfoobas',
+            'phone': '+18001234567',
+            'resorts': []
+        }
+        resp = self.client.post(reverse('signup'), data=user_data)
+        self.assertEqual(resp.status_code, 302)
+
+        # Include resorts causes error
+        user_data['resorts'] = ['test1']
+        resp = self.client.post(reverse('signup'), data=user_data)
+        self.assertEqual(resp.status_code, 200)
+
+        # Include contact_days only causes error
+        user_data['contact_days'] = ["Mon"]
+        resp = self.client.post(reverse('signup'), data=user_data)
+        self.assertEqual(resp.status_code, 200)
+
+        # Include contact_method only causes error
+        del user_data['contact_days']
+        user_data['contact_method'] = 'EM'
+        resp = self.client.post(reverse('signup'), data=user_data)
+        self.assertEqual(resp.status_code, 200)
+
+        # Include both contact_days and contact_method works
+        user_data['contact_days'] = ["Mon"]
+        user_data['username'] = 'alexphi18'
+        user_data['phone'] = '+18009876543'
+        user_data['email'] = 'AP_TEST18@gmail.com'
+        resp = self.client.post(reverse('signup'), data=user_data)
+        self.assertEqual(resp.status_code, 302)
 
 
 class ReportsViewTestCase(TestCase):
@@ -111,5 +154,3 @@ class ReportsViewTestCase(TestCase):
         self.assertListEqual(resorts_runs, [[['test1', 'Feb 01, 2020', None, ['foo']],
                                              ['test2', 'Feb 02, 2020', None, ['bar']]],
                                             [['test3', 'Feb 01, 2020', None, ['foo']]]])
-
-

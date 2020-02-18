@@ -11,13 +11,15 @@ from site_pages.forms import BMGUserCreationUpdateForm, SignupForm, UpdateForm
 from grmrptcore.settings import LOGIN_REDIRECT_URL
 
 
-def create_update_user(request, UserForm, user=None):
+def create_update_user(request, UserForm, user=None, title: str='Sign Up', button_label: str='Sign Up'):
     """
     Create or update a user instance in the db based on input forms
 
     :param request: input request
     :param UserForm: which user form to use
     :param user: optionally provided logged in user
+    :param title: page title
+    :param button_label: label for button at bottom
     :return: HttpResponse of some sort
     """
     if user is None:
@@ -46,8 +48,8 @@ def create_update_user(request, UserForm, user=None):
         # Load form showing errors
         return render(request, 'signup.html', {
             'forms': [user_form, bmg_user_form],
-            'button_label': 'Sign Up',
-            'title': 'Sign Up',
+            'button_label': button_label,
+            'title': title,
             'error': 'True'
         })
 
@@ -102,7 +104,7 @@ def profile_view(request, alert=''):
         if not request.user.is_authenticated:
             return HttpResponseRedirect(django_reverse('login-next', kwargs={'next': django_reverse('profile')}))
 
-        return create_update_user(request, UpdateForm, request.user)
+        return create_update_user(request, UpdateForm, request.user, title='User Profile', button_label='Update')
 
 
 def logout_user(request):
