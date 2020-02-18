@@ -32,30 +32,15 @@ class SESEmailBackend(BaseEmailBackend):
         with self._lock:
             for message in email_messages:
                 # Send email via SES
-                resp = self._ses.send_email(
+                resp = self._ses.send_raw_email(
                     Source=message.from_email,
-                    Destination={
-                        'ToAddresses': message.to,
-                        'CcAddresses': message.cc,
-                        'BccAddresses': message.bcc
-                    },
-                    Message={
-                        'Subject': {
-                            'Data': message.subject,
-                            'Charset': 'UTF-8'
-                        },
-                        'Body': {
-                            'Text': message.body,
-                            'Charset': 'UTF-8'
-                        }
-                    },
-                    ReplyToAddresses=message.reply_to,
-                    ReturnPath=message.reply_to,
+                    Destinations=message.recipients(),
+                    RawMessage={
+                        'Data': bytes(message.message())
+                    }
                 )
                 if resp['MessageId']:
                     logger.info('Sent email with id {}'.format(resp['MessageId']))
                     msg_count += 1
 
         return msg_count
-
-
