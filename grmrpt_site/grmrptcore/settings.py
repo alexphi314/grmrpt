@@ -15,6 +15,8 @@ import os
 import requests
 from django.core.exceptions import ImproperlyConfigured
 
+from site_pages.email import SESEmailBackend
+
 
 def get_ec2_hostname():
     try:
@@ -227,3 +229,5 @@ LOGGING = {
 
 LOGIN_REDIRECT_URL = '/'
 LOGIN_URL = '/login/'
+
+EMAIL_BACKEND = SESEmailBackend
