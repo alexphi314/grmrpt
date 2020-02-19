@@ -142,7 +142,7 @@ def get_grooming_report(parse_mode: str, url: str = None,
         try:
             parsed = parser.from_file(url)
             content = parsed['content'].strip()
-            trial_re = re.compile(r'^\d+\.?\s(?P<name>(?!\d).*\w+.+(?<!")+$)')
+            trail_re = re.compile(r'^\d+\.?\s(?P<name>(?!\d).*\w+.+(?<!")+$)')
             date_re = re.compile(r'\d\d?,\s\d\d\d\d')
         except AttributeError:
             # This occurs when tika server doesn't respond with anything
@@ -159,13 +159,18 @@ def get_grooming_report(parse_mode: str, url: str = None,
             if date_re.search(line.strip()):
                 date = parse(line.strip()).date()
 
-            if trial_re.search(line.strip()):
-                run_name = trial_re.search(line.strip()).group('name').strip()
+            if trail_re.search(line.strip()):
+                run_name = trail_re.search(line.strip()).group('name').strip()
                 # Remove bogus matches -> long sentences
                 # Don't append duplicate run names
                 if len(run_name) <= 50 and len(run_name.split(' ')) <= 5 and not \
                         any([run == run_name for run in runs]):
                     runs.append(run_name)
+
+            # Break out if the list of runs ends
+            if 'weather' in line.lower() or 'snowfall' in line.lower():
+                break
+
     else:
         response = response.json()
 

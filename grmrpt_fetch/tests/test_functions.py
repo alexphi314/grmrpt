@@ -6,6 +6,7 @@ import sys
 import subprocess
 import time
 from collections import Counter
+from copy import deepcopy
 
 import requests
 
@@ -312,6 +313,10 @@ class ReportFuncTestCase(unittest.TestCase):
             'Pika'
         ]
 
+        self.report_url7 = 'test_files/breck_feb19.pdf'
+        self.exp_groomed_runs7 = deepcopy(self.exp_groomed_runs6)
+        self.exp_groomed_runs7.remove('Swan City')
+
     def test_get_grooming_report(self) -> None:
         """
         Test function properly strips the run names from the file
@@ -345,6 +350,10 @@ class ReportFuncTestCase(unittest.TestCase):
         date, groomed_runs = get_grooming_report('tika', self.report_url6)
         self.assertEqual(date, dt.datetime(2020, 2, 18).date())
         self.assertEqual(Counter(groomed_runs), Counter(self.exp_groomed_runs6))
+
+        date, groomed_runs = get_grooming_report('tika', self.report_url7)
+        self.assertEqual(date, dt.datetime(2020, 2, 19).date())
+        self.assertEqual(Counter(groomed_runs), Counter(self.exp_groomed_runs7))
 
 
 class TestTikaRelaunch(unittest.TestCase):
