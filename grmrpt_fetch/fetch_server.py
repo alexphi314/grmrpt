@@ -1,6 +1,7 @@
 from typing import List, Tuple, Union, Dict
 import re
 import datetime as dt
+from dateutil.parser import parse
 import pytz
 import logging
 import logging.handlers
@@ -141,8 +142,8 @@ def get_grooming_report(parse_mode: str, url: str = None,
         try:
             parsed = parser.from_file(url)
             content = parsed['content'].strip()
-            trial_re = re.compile('^\d+\s(?P<name>(?!\d).*\w+.+(?<!")+$)')
-            date_re = re.compile('^\w*\s\d*,\s\d*')
+            trial_re = re.compile(r'^\d+\.?\s(?P<name>(?!\d).*\w+.+(?<!")+$)')
+            date_re = re.compile(r'\d\d?,\s\d\d\d\d')
         except AttributeError:
             # This occurs when tika server doesn't respond with anything
             # Attempt to restart the server and re-run the function
@@ -156,10 +157,15 @@ def get_grooming_report(parse_mode: str, url: str = None,
         date = None
         for line in content.split('\n'):
             if date_re.search(line.strip()):
-                date = dt.datetime.strptime(line.strip(), '%B %d, %Y').date()
+                date = parse(line.strip()).date()
 
             if trial_re.search(line.strip()):
-                runs.append(trial_re.search(line.strip()).group('name').strip())
+                run_name = trial_re.search(line.strip()).group('name').strip()
+                # Remove bogus matches -> long sentences
+                # Don't append duplicate run names
+                if len(run_name) <= 50 and len(run_name.split(' ')) <= 5 and not \
+                        any([run == run_name for run in runs]):
+                    runs.append(run_name)
     else:
         response = response.json()
 
