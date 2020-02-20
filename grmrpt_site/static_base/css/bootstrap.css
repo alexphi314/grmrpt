@@ -4317,10 +4317,6 @@ input[type="button"].btn-block {
   padding: 0.5rem 1rem;
 }
 
-.nav-link:hover, .nav-link:focus {
-  text-decoration: none;
-}
-
 .nav-link.disabled {
   color: #6c757d;
   pointer-events: none;
@@ -10335,5 +10331,11 @@ a.text-dark:hover, a.text-dark:focus {
 
 .hide-me[aria-expanded="true"] {
   display: none;
+}
+
+.navbar-nav .nav-item.active .nav-link,
+.navbar-nav .nav-item:hover .nav-link {
+    color: white;
+    text-decoration: none;
 }
 /*# sourceMappingURL=bootstrap.css.map */
