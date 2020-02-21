@@ -188,7 +188,8 @@ def get_grooming_report(parse_mode: str, url: str = None,
 
 
 def create_report(date: dt.datetime, groomed_runs: List[str], resort_id: int,
-                  api_url: str, head: Dict[str, str], get_api_wrapper, request_client=requests) -> None:
+                  api_url: str, head: Dict[str, str], get_api_wrapper, time: dt.datetime,
+                  request_client=requests) -> None:
     """
     Create the grooming report and push if not in api
 
@@ -198,6 +199,7 @@ def create_report(date: dt.datetime, groomed_runs: List[str], resort_id: int,
     :param api_url: url of api server
     :param head: headers to include with HTTP requests
     :param get_api_wrapper: function used to make HTTP GET requests
+    :param time: current time in MST
     :param request_client: class used to make HTTP requests
     """
     resort_url = '/'.join(['resorts', str(resort_id), ''])
@@ -243,11 +245,14 @@ def create_report(date: dt.datetime, groomed_runs: List[str], resort_id: int,
         prev_report_runs = []
 
     # Check if the groomed runs from this report match the groomed runs from the previous report
-    if Counter(groomed_runs) == Counter(prev_report_runs):
+    if Counter(groomed_runs) == Counter(prev_report_runs) and time.hour < int(os.getenv('NORUNS_NOTIF_HOUR')):
         logger.info('Found list of groomed runs identical to yesterday\'s report. '
                     'Not appending these runs to report'
                     ' object.')
         return
+    elif Counter(groomed_runs) == Counter(prev_report_runs):
+        logger.info('Today\'s groomed runs are equivalent to yesterday\'s report. Given the late hour, '
+                    'assuming it is accurate and appending to report.')
 
     # Connect the run objects to the report object, if they are not already linked
     if len(report_runs) < len(groomed_runs):
@@ -434,7 +439,7 @@ def get_resort_alerts(time: dt.datetime, api_wrapper: get_api, api_url: str,
             # Check the most recent BMreport is the same date as the current time
             if bm_report_data['date'] != time.date().strftime('%Y-%m-%d'):
                 # Create an empty report for today
-                create_report(time, [], resort['id'], api_url, headers, api_wrapper,
+                create_report(time, [], resort['id'], api_url, headers, api_wrapper, time=time,
                               request_client=client)
                 # Get the created report
                 reports = api_wrapper('reports/?resort={}&date={}'.format(
@@ -673,8 +678,8 @@ def application(environ, start_response):
                         date, groomed_runs = get_grooming_report(parse_mode, url=report_url)
 
                     logger.info('Got grooming report for {} on {}'.format(resort, date.strftime('%Y-%m-%d')))
-
-                    create_report(date, groomed_runs, resort_dict['id'], API_URL, headers, get_api_wrapper)
+                    time = dt.datetime.now(tz=pytz.timezone('US/Mountain'))
+                    create_report(date, groomed_runs, resort_dict['id'], API_URL, headers, get_api_wrapper, time)
 
                 response = 'Successfully processed grooming reports for all resorts'
 
