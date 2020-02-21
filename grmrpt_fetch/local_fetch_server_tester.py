@@ -39,6 +39,8 @@ if __name__ == "__main__":
     # Get list of resorts from api
     resorts = get_api('resorts/', headers={'Authorization': 'Token {}'.format(TOKEN)}, api_url=API_URL)
     time = dt.datetime.now(tz=pytz.timezone('US/Mountain'))
+    get_api_wrapper = lambda x: get_api(x, headers={'Authorization': 'Token {}'.format(TOKEN)},
+                                        api_url=API_URL)
 
     # Fetch grooming report for each resort
     # for resort_dict in resorts:
@@ -56,18 +58,17 @@ if __name__ == "__main__":
     #     else:
     #         date, groomed_runs = get_grooming_report(parse_mode, url=report_url)
     #
-    #     create_report(date, groomed_runs, resort_dict['id'], API_URL, TOKEN, get_api, time)
+    #     create_report(date, groomed_runs, resort_dict['id'], API_URL, {'Authorization': 'Token {}'.format(TOKEN)},
+    #                   get_api_wrapper, time)
     #
-    # # Check for notif
-    # get_api_wrapper = lambda x: get_api(x, headers={'Authorization': 'Token {}'.format(TOKEN)},
-    #                                     api_url=API_URL)
-    # resort_list = get_resorts_to_notify(get_api_wrapper, API_URL, requests, {'Authorization': 'Token {}'.format(TOKEN)})
-    # post_messages(['http://dev-env.exm5cdp7tw.us-west-2.elasticbeanstalk.com/api/bmreports/123/'], headers={'Authorization': 'Token {}'.format(TOKEN)}, api_url=API_URL)
-    #
-    # # Check for no bmrun notifications
-    # no_bmruns_list = get_resorts_no_bmruns(time, get_api_wrapper)
-    # post_no_bmrun_message(no_bmruns_list, headers={'Authorization': 'Token {}'.format(TOKEN)},
-    #                       api_url=API_URL)
+    # Check for notif
+    resort_list = get_resorts_to_notify(get_api_wrapper, API_URL, requests, {'Authorization': 'Token {}'.format(TOKEN)})
+    post_messages(resort_list, headers={'Authorization': 'Token {}'.format(TOKEN)}, api_url=API_URL)
+
+    # Check for no bmrun notifications
+    no_bmruns_list = get_resorts_no_bmruns(time, get_api_wrapper)
+    post_no_bmrun_message(no_bmruns_list, headers={'Authorization': 'Token {}'.format(TOKEN)},
+                          api_url=API_URL)
     #
     # # Check for alerts
     # time = dt.datetime.now(tz=pytz.timezone('US/Mountain'))
