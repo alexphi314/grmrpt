@@ -561,7 +561,7 @@ def post_no_bmrun_message(contact_list: List[str], headers: Dict[str, str], api_
         report_date = dt.datetime.strptime(report_data['date'], '%Y-%m-%d')
         resort_data = requests.get(report_data['resort'], headers=headers).json()
 
-        if resort_data['display_url'] is not None:
+        if resort_data['display_url'] is not None and resort_data['display_url'] != '':
             report_link = resort_data['display_url']
         else:
             report_link = resort_data['report_url']
