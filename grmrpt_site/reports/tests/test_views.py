@@ -1451,6 +1451,8 @@ class FetchCreateReportTestCase(TestCase):
         cls.run2 = Run.objects.create(name='Centennial', resort=cls.resort)
         cls.run3 = Run.objects.create(name='Larkspur', resort=cls.resort)
 
+        cls.time = dt.datetime(2020, 1, 1, 7)
+
     def test_create_report(self) -> None:
         """
         test report populated with groomed runs
@@ -1459,7 +1461,7 @@ class FetchCreateReportTestCase(TestCase):
         client = APIClient()
         client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
         get_api_wrapper = lambda x: get_api(x, {}, 'http://testserver/api', client)
-        create_report(date, ['Ripsaw', 'Centennial'], 1, 'http://testserver/api', {}, get_api_wrapper,
+        create_report(date, ['Ripsaw', 'Centennial'], 1, 'http://testserver/api', {}, get_api_wrapper, self.time,
                       client)
 
         self.assertListEqual([self.run1, self.run2], list(self.report.runs.all()))
@@ -1473,15 +1475,48 @@ class FetchCreateReportTestCase(TestCase):
         # Update report with run1 and run2
         self.report.runs.set([self.run1, self.run2])
 
-        create_report(date, ['Ripsaw', 'Larkspur'], 1, 'http://testserver/api', {}, get_api_wrapper,
+        create_report(date, ['Ripsaw', 'Larkspur'], 1, 'http://testserver/api', {}, get_api_wrapper, self.time,
                       client)
         self.assertListEqual([self.run1, self.run3], list(self.report.runs.all()))
 
         # Update report with no runs
         self.report.runs.set([])
-        create_report(date, ['Ripsaw', 'Larkspur'], 1, 'http://testserver/api', {}, get_api_wrapper,
+        create_report(date, ['Ripsaw', 'Larkspur'], 1, 'http://testserver/api', {}, get_api_wrapper, self.time,
                       client)
         self.assertListEqual([self.run1, self.run3], list(self.report.runs.all()))
+
+    def test_create_report_duplicate_runs(self) -> None:
+        """
+        Check behavior with duplicate runs groomed two days in a row. Do not create report before 8 am.
+        """
+        rpt = Report.objects.create(date=dt.datetime(2020, 1, 2).date(), resort=self.resort)
+        rpt.runs.set([self.run1, self.run2])
+
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
+        get_api_wrapper = lambda x: get_api(x, {}, 'http://testserver/api', client)
+
+        create_report(dt.datetime(2020, 1, 3).date(), [self.run1.name, self.run2.name], 1, 'http://testserver/api',
+                      {}, get_api_wrapper, dt.datetime(2020, 1, 3, 7), client)
+        rpt = Report.objects.get(date=dt.datetime(2020, 1, 3).date())
+        self.assertListEqual(list(rpt.runs.all()), [])
+
+        # Repeat call with time =8
+        create_report(dt.datetime(2020, 1, 3).date(), [self.run1.name, self.run2.name], 1, 'http://testserver/api',
+                      {}, get_api_wrapper, dt.datetime(2020, 1, 3, 8), client)
+        rpt = Report.objects.get(date=dt.datetime(2020, 1, 3).date())
+        self.assertListEqual(list(rpt.runs.all()), [self.run1, self.run2])
+
+        # Check report creates successfully if groomed runs list is different
+        create_report(dt.datetime(2020, 1, 4).date(), [self.run1.name, self.run3.name], 1, 'http://testserver/api',
+                      {}, get_api_wrapper, dt.datetime(2020, 1, 4, 7), client)
+        rpt = Report.objects.get(date=dt.datetime(2020, 1, 4).date())
+        self.assertListEqual(list(rpt.runs.all()), [self.run1, self.run3])
+
+        create_report(dt.datetime(2020, 1, 5).date(), [self.run1.name], 1, 'http://testserver/api',
+                      {}, get_api_wrapper, dt.datetime(2020, 1, 5, 8), client)
+        rpt = Report.objects.get(date=dt.datetime(2020, 1, 5).date())
+        self.assertListEqual(list(rpt.runs.all()), [self.run1])
 
     @classmethod
     def tearDownClass(cls):

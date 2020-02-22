@@ -15,7 +15,6 @@ import os
 import requests
 from django.core.exceptions import ImproperlyConfigured
 
-
 def get_ec2_hostname():
     try:
         ipconfig = 'http://169.254.169.254/latest/meta-data/local-ipv4'
@@ -227,3 +226,6 @@ LOGGING = {
 
 LOGIN_REDIRECT_URL = '/'
 LOGIN_URL = '/login/'
+
+EMAIL_BACKEND = 'site_pages.email.SESEmailBackend'
+DEFAULT_FROM_EMAIL = 'do_not_reply@bluemoongroom.com'

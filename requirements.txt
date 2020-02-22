@@ -1,4 +1,4 @@
-Django<2.2
+Django>=2.2.10
 djangorestframework
 requests<2.21,>=2.20.1
 awsebcli

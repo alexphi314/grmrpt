@@ -1,6 +1,6 @@
 import json
 from json.decoder import JSONDecodeError
-from typing import Union
+from typing import Union, List
 
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
@@ -66,11 +66,13 @@ class BMGUserCreationUpdateForm(forms.ModelForm):
                                              to_field_name='name',
                                              widget=forms.CheckboxSelectMultiple(),
                                              label='Resorts')
-    contact_method = forms.ChoiceField(help_text="Required. How you wish to receive notifications",
-                                       required=True,
+    contact_method = forms.ChoiceField(help_text="Required if resorts are selected. "
+                                                 "How you wish to receive notifications",
+                                       required=False,
                                        choices=[('EM', 'Email'), ('PH', 'SMS')],
                                        label='Contact Method')
-    contact_days = forms.MultipleChoiceField(help_text='Required. Days when you want to receive reports',
+    contact_days = forms.MultipleChoiceField(help_text='Required if resorts are selected. '
+                                                       'Days when you want to receive reports',
                                              choices=[("Sun", 'Sunday'),
                                                       ("Mon", 'Monday'),
                                                       ("Tue", 'Tuesday'),
@@ -78,7 +80,7 @@ class BMGUserCreationUpdateForm(forms.ModelForm):
                                                       ("Thu", 'Thursday'),
                                                       ("Fri", 'Friday'),
                                                       ("Sat", 'Saturday')],
-                                             required=True,
+                                             required=False,
                                              widget=JsonCheckboxSelectMultiple(),
                                              label='Contact Days')
 
@@ -89,13 +91,39 @@ class BMGUserCreationUpdateForm(forms.ModelForm):
         :param commit: True if the posted data is being saved to the db
         :return: the BMGUser instance
         """
-        self.instance.contact_days = self.instance.contact_days.replace('\'', '\"')
+        if isinstance(self.instance.contact_days, list):
+            self.instance.contact_days = "[]"
+        else:
+            self.instance.contact_days = self.instance.contact_days.replace('\'', '\"')
         self.instance.phone = self.instance.phone.replace('-', '')
 
         return super().save(commit)
 
+    def required_fields(self, fields: List[str], trigger_field: str) -> None:
+        """
+        For each field given, raise a ValidationError if the field is not provided
+
+        :param fields: list of field names that are required
+        :param trigger_field: the provided field in the form making the fields list required fields
+        """
+        for field in fields:
+            data = self.cleaned_data.get(field, None)
+            if data is None or (isinstance(data, list) and len(data) == 0):
+                msg = forms.ValidationError("This field is required as {} is selected.".format(trigger_field))
+                self.add_error(field, msg)
+
+    def clean(self):
+        """
+        Overload the default clean method. Perform form field validation -> enforce fields required if Resorts is not
+        empty
+        """
+        resorts = self.cleaned_data['resorts']
+
+        if resorts:
+            self.required_fields(['contact_method', 'contact_days'], 'resorts')
+
+        return super().clean()
+
     class Meta:
         model = BMGUser
         fields = ['phone', 'resorts', 'contact_method', 'contact_days']
-
-

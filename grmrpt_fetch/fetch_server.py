@@ -1,6 +1,7 @@
 from typing import List, Tuple, Union, Dict
 import re
 import datetime as dt
+from dateutil.parser import parse
 import pytz
 import logging
 import logging.handlers
@@ -10,6 +11,8 @@ from wsgiref.simple_server import make_server
 from collections import Counter
 import json
 import traceback
+import subprocess
+import time
 
 from tika import parser
 import requests
@@ -43,6 +46,10 @@ class APIError(Exception):
         """
         logger.warning(message)
         super().__init__(message)
+
+
+class CommandError(Exception):
+    pass
 
 
 def resolve_response(url: str, headers: Dict[str, str], api_url: str, request_client) -> Dict:
@@ -90,6 +97,37 @@ def get_api(relative_url: str, headers: Dict[str, str], api_url: str, request_cl
         return response
 
 
+def kill_tika_server() -> None:
+    """
+    End the process hosting the tika server
+    """
+    with subprocess.Popen(['ps', 'aux'], stdout=subprocess.PIPE) as ps:
+        with subprocess.Popen(['grep', '[t]ika'], stdin=ps.stdout, stdout=subprocess.PIPE, stderr=subprocess.PIPE) \
+         as grep:
+            grep_out, grep_err = grep.communicate()
+            grep_out = str(grep_out)
+
+            if grep_err != b'':
+                raise CommandError(grep_err)
+
+            # Get process id
+            assert len(grep_out.split('\n')) == 1
+            cols = grep_out.split()
+            pid = cols[1]
+
+            ps.kill()
+            grep.kill()
+
+    # Kill the process
+    with subprocess.Popen(['kill', pid], stdout=subprocess.PIPE, stderr=subprocess.PIPE) as kll:
+        _, err = kll.communicate()
+
+        if err != b'':
+            raise CommandError(err)
+
+        kll.kill()
+
+
 def get_grooming_report(parse_mode: str, url: str = None,
                         response: requests.Response = None) -> Tuple[Union[None, dt.datetime], List[str]]:
     """
@@ -101,19 +139,38 @@ def get_grooming_report(parse_mode: str, url: str = None,
     :return: date and list of groomed run names
     """
     if parse_mode == 'tika':
-        parsed = parser.from_file(url)
-        content = parsed['content'].strip()
-        trial_re = re.compile('^\d+\s(?P<name>(?!\d).*\w+.+(?<!")+$)')
-        date_re = re.compile('^\w*\s\d*,\s\d*')
+        try:
+            parsed = parser.from_file(url)
+            content = parsed['content'].strip()
+            trail_re = re.compile(r'^\d+\.?\s(?P<name>(?!\d).*\w+.+(?<!")+$)')
+            date_re = re.compile(r'\d\d?,\s\d\d\d\d')
+        except AttributeError:
+            # This occurs when tika server doesn't respond with anything
+            # Attempt to restart the server and re-run the function
+            logger.info('Attempting to restart tika server, got bad response')
+            kill_tika_server()
+            time.sleep(1)
+            logger.info('Killed tika server, re-running function call')
+            return get_grooming_report(parse_mode, url, response)
 
         runs = []
         date = None
         for line in content.split('\n'):
             if date_re.search(line.strip()):
-                date = dt.datetime.strptime(line.strip(), '%B %d, %Y').date()
+                date = parse(line.strip()).date()
 
-            if trial_re.search(line.strip()):
-                runs.append(trial_re.search(line.strip()).group('name').strip())
+            if trail_re.search(line.strip()):
+                run_name = trail_re.search(line.strip()).group('name').strip()
+                # Remove bogus matches -> long sentences
+                # Don't append duplicate run names
+                if len(run_name) <= 50 and len(run_name.split(' ')) <= 5 and not \
+                        any([run == run_name for run in runs]):
+                    runs.append(run_name)
+
+            # Break out if the list of runs ends
+            if 'weather' in line.lower() or 'snowfall' in line.lower():
+                break
+
     else:
         response = response.json()
 
@@ -131,7 +188,8 @@ def get_grooming_report(parse_mode: str, url: str = None,
 
 
 def create_report(date: dt.datetime, groomed_runs: List[str], resort_id: int,
-                  api_url: str, head: Dict[str, str], get_api_wrapper, request_client=requests) -> None:
+                  api_url: str, head: Dict[str, str], get_api_wrapper, time: dt.datetime,
+                  request_client=requests) -> None:
     """
     Create the grooming report and push if not in api
 
@@ -141,6 +199,7 @@ def create_report(date: dt.datetime, groomed_runs: List[str], resort_id: int,
     :param api_url: url of api server
     :param head: headers to include with HTTP requests
     :param get_api_wrapper: function used to make HTTP GET requests
+    :param time: current time in MST
     :param request_client: class used to make HTTP requests
     """
     resort_url = '/'.join(['resorts', str(resort_id), ''])
@@ -186,11 +245,14 @@ def create_report(date: dt.datetime, groomed_runs: List[str], resort_id: int,
         prev_report_runs = []
 
     # Check if the groomed runs from this report match the groomed runs from the previous report
-    if Counter(groomed_runs) == Counter(prev_report_runs):
+    if Counter(groomed_runs) == Counter(prev_report_runs) and time.hour < int(os.getenv('NORUNS_NOTIF_HOUR')):
         logger.info('Found list of groomed runs identical to yesterday\'s report. '
                     'Not appending these runs to report'
                     ' object.')
         return
+    elif Counter(groomed_runs) == Counter(prev_report_runs):
+        logger.info('Today\'s groomed runs are equivalent to yesterday\'s report. Given the late hour, '
+                    'assuming it is accurate and appending to report.')
 
     # Connect the run objects to the report object, if they are not already linked
     if len(report_runs) < len(groomed_runs):
@@ -377,7 +439,7 @@ def get_resort_alerts(time: dt.datetime, api_wrapper: get_api, api_url: str,
             # Check the most recent BMreport is the same date as the current time
             if bm_report_data['date'] != time.date().strftime('%Y-%m-%d'):
                 # Create an empty report for today
-                create_report(time, [], resort['id'], api_url, headers, api_wrapper,
+                create_report(time, [], resort['id'], api_url, headers, api_wrapper, time=time,
                               request_client=client)
                 # Get the created report
                 reports = api_wrapper('reports/?resort={}&date={}'.format(
@@ -446,17 +508,22 @@ def post_messages(contact_list: List[str], headers: Dict[str, str], api_url: str
         )
         phone_msg = '{}\n' \
                     '  * {}\n\n' \
+                    'Other resort reports: {}\n' \
                     'Full report: {}'.format(
                         report_data['date'],
                         '\n  * '.join(run_names),
+                        os.getenv('REPORT_URL', ''),
                         report_link
                     )
         email_msg = 'Good morning!\n\n'\
                     'Today\'s Blue Moon Grooming Report for {} contains:\n'\
                     '  * {}\n\n'\
+                    'Reports for other resorts and continually updated report for {}: {}\n'\
                     'Full report: {}'.format(
                         resort_data['name'],
                         '\n  * '.join(run_names),
+                        resort_data['name'],
+                        os.getenv('REPORT_URL', ''),
                         report_link
                     )
 
@@ -494,7 +561,7 @@ def post_no_bmrun_message(contact_list: List[str], headers: Dict[str, str], api_
         report_date = dt.datetime.strptime(report_data['date'], '%Y-%m-%d')
         resort_data = requests.get(report_data['resort'], headers=headers).json()
 
-        if resort_data['display_url'] is not None:
+        if resort_data['display_url'] is not None and resort_data['display_url'] != '':
             report_link = resort_data['display_url']
         else:
             report_link = resort_data['report_url']
@@ -505,14 +572,19 @@ def post_no_bmrun_message(contact_list: List[str], headers: Dict[str, str], api_
         )
         phone_msg = '{}\n' \
                     '\nThere are no blue moon runs today.\n\n' \
+                    'Other resort reports: {}\n' \
                     'Full report: {}'.format(
                         report_data['date'],
+                        os.getenv('REPORT_URL', ''),
                         report_link
                     )
         email_msg = 'Good morning!\n\n' \
                     '{} has no blue moon runs on today\'s report.\n' \
+                    'Reports for other resorts and continually updated report for {}: {}\n' \
                     'Full report: {}'.format(
                         resort_data['name'],
+                        resort_data['name'],
+                        os.getenv('REPORT_URL', ''),
                         report_link
                     )
 
@@ -581,6 +653,7 @@ def application(environ, start_response):
                 request_body_size = int(environ['CONTENT_LENGTH'])
                 request_body = environ['wsgi.input'].read(request_body_size).decode()
                 logger.info("Received message: %s" % request_body)
+                response = 'Got message'
             elif path == '/grmrpt_schedule':
                 logger.info("Received task %s scheduled at %s", environ['HTTP_X_AWS_SQSD_TASKNAME'],
                             environ['HTTP_X_AWS_SQSD_SCHEDULED_AT'])
@@ -605,8 +678,8 @@ def application(environ, start_response):
                         date, groomed_runs = get_grooming_report(parse_mode, url=report_url)
 
                     logger.info('Got grooming report for {} on {}'.format(resort, date.strftime('%Y-%m-%d')))
-
-                    create_report(date, groomed_runs, resort_dict['id'], API_URL, headers, get_api_wrapper)
+                    time = dt.datetime.now(tz=pytz.timezone('US/Mountain'))
+                    create_report(date, groomed_runs, resort_dict['id'], API_URL, headers, get_api_wrapper, time)
 
                 response = 'Successfully processed grooming reports for all resorts'
 
