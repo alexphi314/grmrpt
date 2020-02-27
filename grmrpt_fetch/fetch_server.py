@@ -179,7 +179,7 @@ def get_grooming_report(parse_mode: str, url: str = None,
         for area in response['MountainAreas']:
             date_options.append(dt.datetime.strptime(area['LastUpdate'], '%Y-%m-%dT%H:%M:%S%z'))
             for trial in area['Trails']:
-                if trial['Grooming'] == 'Yes':
+                if trial['Grooming'] == 'Yes' or trial['Grooming'] == 'Second Shift':
                     runs.append(trial['Name'].strip())
 
         date = min(date_options).date()
