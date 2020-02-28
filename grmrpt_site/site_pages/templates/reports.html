@@ -13,8 +13,10 @@
                     </a>
                     <ul class="list-group">
                     {% if item.3|length > 0 %}
-                        {% for run in item.3 %}
-                            <li class="list-group-item">{{ run }}</li>
+                        {% for run_run_id in item.3 %}
+                            <a href={{ run_run_id.1 }}>
+                                <li class="list-group-item">{{ run_run_id.0 }}</li>
+                            </a>
                         {%  endfor %}
                     {% else %}
                         <li class="list-group-item">There are no Blue Moon runs today</li>

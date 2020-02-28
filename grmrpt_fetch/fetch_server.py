@@ -219,7 +219,10 @@ def create_report(date: dt.datetime, groomed_runs: List[str], resort_id: int,
                                               headers=head)
 
         if report_response.status_code == 201:
-            logger.info('Successfully created report object in api')
+            logger.info('Successfully created report object in api for {} on {}'.format(
+                resort_name.replace('%20', ' '),
+                date.strftime('%Y-%m-%d')
+            ))
             report_id = report_response.json()['id']
         else:
             raise APIError('Failed to create report object:\n{}'.format(report_response.text))
