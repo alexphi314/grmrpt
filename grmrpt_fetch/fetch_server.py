@@ -174,7 +174,7 @@ def get_grooming_report(parse_mode: str, url: str = None,
     else:
         response = response.json()
 
-        date = dt.datetime.strptime(response['LastUpdate'], '%Y-%m-%dT%H:%M:%S%z')
+        date = dt.datetime.strptime(response['LastUpdate'], '%Y-%m-%dT%H:%M:%S%z').date()
         runs = []
         for area in response['MountainAreas']:
             for trial in area['Trails']:
