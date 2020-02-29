@@ -174,15 +174,12 @@ def get_grooming_report(parse_mode: str, url: str = None,
     else:
         response = response.json()
 
-        date_options = []
+        date = dt.datetime.strptime(response['LastUpdate'], '%Y-%m-%dT%H:%M:%S%z')
         runs = []
         for area in response['MountainAreas']:
-            date_options.append(dt.datetime.strptime(area['LastUpdate'], '%Y-%m-%dT%H:%M:%S%z'))
             for trial in area['Trails']:
                 if trial['Grooming'] == 'Yes' or trial['Grooming'] == 'Second Shift':
                     runs.append(trial['Name'].strip())
-
-        date = min(date_options).date()
 
     return date, runs
 
@@ -212,7 +209,10 @@ def create_report(date: dt.datetime, groomed_runs: List[str], resort_id: int,
     if len(reports) > 0:
         assert len(reports) == 1
         report_id = reports[0]['id']
-        logger.info('Report object already present in api')
+        logger.info('Report object already present in api for {} on {}'.format(
+            resort_name.replace('%20', ' '),
+            date.strftime('%Y-%m-%d')
+        ))
     else:
         report_dict = {'date': date.strftime('%Y-%m-%d'), 'resort': '/'.join([api_url, resort_url])}
         report_response = request_client.post('/'.join([api_url, 'reports/']), data=report_dict,
