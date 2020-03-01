@@ -24,7 +24,7 @@ logger.setLevel(logging.INFO)
 
 # Handler
 LOG_FILE = '/opt/python/log/fetch-app.log'
-handler = logging.handlers.RotatingFileHandler(LOG_FILE, maxBytes=1048576, backupCount=5)
+handler = logging.handlers.RotatingFileHandler(LOG_FILE, maxBytes=1048576, backupCount=5, encoding='utf-8')
 handler.setLevel(logging.INFO)
 
 # Formatter
@@ -177,9 +177,9 @@ def get_grooming_report(parse_mode: str, url: str = None,
         date = dt.datetime.strptime(response['LastUpdate'], '%Y-%m-%dT%H:%M:%S%z').date()
         runs = []
         for area in response['MountainAreas']:
-            for trial in area['Trails']:
-                if trial['Grooming'] == 'Yes' or trial['Grooming'] == 'Second Shift':
-                    runs.append(trial['Name'].strip())
+            for trail in area['Trails']:
+                if trail['Grooming'] == 'Yes' or trail['Grooming'] == 'Second Shift' or trail['Grooming'] == 'Top':
+                    runs.append(trail['Name'].strip())
 
     return date, runs
 
@@ -285,7 +285,7 @@ def create_report(date: dt.datetime, groomed_runs: List[str], resort_id: int,
 
     if report_runs != report_response.get('runs', []):
         # Log groomed runs
-        logger.info('Groomed runs: {}'.format(', '.join(groomed_runs)))
+        logger.info('Groomed runs: {}'.format(', '.join(report_runs)))
         report_response['runs'] = report_runs
         update_report_response = request_client.put('/'.join([api_url, report_url]), data=report_response,
                                                     headers=head)
