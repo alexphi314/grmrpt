@@ -29,7 +29,8 @@ urlpatterns = [
     path('deleteme/', views.delete, name='delete'),
     path('', views.index, name='index'),
     path('bmreports/', views.reports, name='reports'),
-    path('runs/<int:run_id>', views.run_stats, name='run-stats')
+    path('runs/<int:run_id>', views.run_stats, name='run-stats'),
+    path('images/runs/<int:run_id>', views.run_stats_img, name='run-stats-plot')
 ]
 
 urlpatterns = format_suffix_patterns(urlpatterns)

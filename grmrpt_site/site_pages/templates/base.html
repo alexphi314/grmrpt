@@ -9,6 +9,9 @@
     <!-- Latest compiled and minified CSS -->
     <link rel="stylesheet" href="{% static 'css/bootstrap.css' %}">
 
+    <!-- font awesome icon library -->
+    <link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet">
+
     <!-- jQuery library -->
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
 
@@ -17,8 +20,6 @@
 
     <!-- Latest compiled JavaScript -->
     <script src="{% static 'js/bootstrap.js' %}"></script>
-
-    <script src="{% static 'dropdown.js' %}"></script>
 
     <title>{% block title %}Blue Moon Groom{% endblock %}</title>
 
@@ -38,7 +39,7 @@
                             class="navbar-toggler navbar-toggler-white"
                             data-toggle="collapse" style="vertical-align: middle"
                           data-target=".navbar-collapse">
-                        <span class="navbar-toggler-icon-black"></span>
+                        <i class="fa fa-bars"></i>
                     </button>
                 </div>
                 <!-- Collect the nav links, forms, and other content for toggling -->

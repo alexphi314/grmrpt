@@ -1,13 +1,15 @@
 from collections import Counter
+import io
 
 from django.contrib.auth.models import User
 from django.contrib.auth import logout, login
 from django.shortcuts import render
 from django.db import transaction
-from django.http import HttpResponseBadRequest, HttpResponseRedirect, HttpResponseNotFound
+from django.http import HttpResponseBadRequest, HttpResponseRedirect, HttpResponseNotFound, HttpResponse
 from django.urls import reverse as django_reverse
 from django.contrib.auth.decorators import login_required
 import matplotlib.pyplot as plt
+from matplotlib.backends.backend_agg import FigureCanvasAgg
 
 from reports.models import Resort, Run
 from site_pages.forms import BMGUserCreationUpdateForm, SignupForm, UpdateForm
@@ -239,6 +241,43 @@ def reports(request):
 
 
 @login_required()
+def run_stats_img(request, run_id: int) -> HttpResponse:
+    """
+    Plot the stats of a specific run
+
+    :param request: http request
+    :param run_id: run record ID in db
+    :return: image as HttpResponse
+    """
+    run = Run.objects.get(id=run_id)
+    f = plt.figure()
+    FigureCanvasAgg(f)
+
+    # Calculate DoW distro
+    dow = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+    dow_array = [rpt.date.strftime('%a') for rpt in run.reports.all()]
+    dow_dict = Counter(dow_array)
+
+    # Create data array for plotting including all days of week
+    dow_data = [
+        dow_dict.get(day, 0) for day in dow
+    ]
+
+    plt.plot(dow, dow_data)
+    plt.ylabel('Number of Grooms')
+    plt.title('Grooming Frequency Per Day of Week')
+    plt.tight_layout()
+
+    # Generate canvas and return
+    buf = io.BytesIO()
+    plt.savefig(buf, format='png')
+    plt.close(f)
+    response = HttpResponse(buf.getvalue(), content_type='image/png')
+
+    return response
+
+
+@login_required()
 def run_stats(request, run_id: int):
     """
     Display season stats for a specific run
@@ -257,19 +296,6 @@ def run_stats(request, run_id: int):
     else:
         last_bm_report = None
 
-    # Calculate DoW distro
-    dow = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-    dow_array = [rpt.date.strftime('%a') for rpt in run.reports.all()]
-    dow_dict = Counter(dow_array)
-
-    # Create data array for plotting including all days of week
-    dow_data = [
-        dow_dict.get(day, 0) for day in dow
-    ]
-
-    plt.plot(dow, dow_data)
-    img = plt.show()
-
     params = {}
     params['num_reports'] = num_reports
     params['num_bm_reports'] = num_bm_reports
@@ -277,7 +303,8 @@ def run_stats(request, run_id: int):
         params['last_bm_report'] = last_bm_report
     else:
         params['last_bm_report'] = ''
-    params['plot'] = img
+    params['plot_image'] = django_reverse('run-stats-plot', kwargs={'run_id': run_id})
+    params['name'] = run.name
 
     return render(
         request,
