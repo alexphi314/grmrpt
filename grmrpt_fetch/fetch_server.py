@@ -285,7 +285,7 @@ def create_report(date: dt.datetime, groomed_runs: List[str], resort_id: int,
 
     if report_runs != report_response.get('runs', []):
         # Log groomed runs
-        logger.info('Groomed runs: {}'.format(', '.join(report_runs)))
+        logger.info('Groomed runs: {}'.format(', '.join(groomed_runs)))
         report_response['runs'] = report_runs
         update_report_response = request_client.put('/'.join([api_url, report_url]), data=report_response,
                                                     headers=head)
