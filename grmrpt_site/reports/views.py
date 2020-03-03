@@ -31,7 +31,7 @@ class ResortList(generics.ListCreateAPIView):
     """
     queryset = Resort.objects.all().order_by('id')
     serializer_class = ResortSerializer
-    permission_classes = [IsAdminOrReadOnly]
+    permission_classes = [IsAdminUser]
 
 
 class ResortDetail(generics.RetrieveUpdateDestroyAPIView):
@@ -40,7 +40,7 @@ class ResortDetail(generics.RetrieveUpdateDestroyAPIView):
     """
     queryset = Resort.objects.all().order_by('id')
     serializer_class = ResortSerializer
-    permission_classes = [IsAdminOrReadOnly]
+    permission_classes = [IsAdminUser]
 
 
 class RunList(generics.ListCreateAPIView):
@@ -48,7 +48,7 @@ class RunList(generics.ListCreateAPIView):
     Generic view listing all runs
     """
     serializer_class = RunSerializer
-    permission_classes = [IsAdminOrReadOnly]
+    permission_classes = [IsAdminUser]
 
     def get_queryset(self):
         """
@@ -77,7 +77,7 @@ class RunDetail(generics.RetrieveUpdateDestroyAPIView):
     """
     queryset = Run.objects.all().order_by('id')
     serializer_class = RunSerializer
-    permission_classes = [IsAdminOrReadOnly]
+    permission_classes = [IsAdminUser]
 
 
 class ReportList(generics.ListCreateAPIView):
@@ -85,7 +85,7 @@ class ReportList(generics.ListCreateAPIView):
     Generic view listing all reports
     """
     serializer_class = ReportSerializer
-    permission_classes = [IsAdminOrReadOnly]
+    permission_classes = [IsAdminUser]
 
     def get_queryset(self):
         """
@@ -114,7 +114,7 @@ class ReportDetail(generics.RetrieveUpdateDestroyAPIView):
     """
     queryset = Report.objects.all().order_by('id')
     serializer_class = ReportSerializer
-    permission_classes = [IsAdminOrReadOnly]
+    permission_classes = [IsAdminUser]
 
 
 class BMReportList(generics.ListCreateAPIView):
@@ -123,7 +123,7 @@ class BMReportList(generics.ListCreateAPIView):
     """
     queryset = BMReport.objects.all().order_by('id')
     serializer_class = BMReportSerializer
-    permission_classes = [IsAdminOrReadOnly]
+    permission_classes = [IsAdminUser]
 
     def post(self, request, *args, **kwargs):
         """
@@ -139,7 +139,7 @@ class BMReportDetail(generics.RetrieveUpdateDestroyAPIView):
     """
     queryset = BMReport.objects.all().order_by('id')
     serializer_class = BMReportSerializer
-    permission_classes = [IsAdminOrReadOnly]
+    permission_classes = [IsAdminUser]
 
     def delete(self, request, *args, **kwargs):
         """
