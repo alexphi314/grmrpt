@@ -7,10 +7,13 @@ class ResortSerializer(serializers.ModelSerializer):
     Serializer for resort model
     """
     sns_arn = serializers.CharField(read_only=True)
+    reports = serializers.HyperlinkedRelatedField(many=True, view_name='report-detail',
+                                                  queryset=Report.objects.all())
 
     class Meta:
         model = Resort
-        fields = ['name', 'location', 'report_url', 'id', 'sns_arn', 'parse_mode', 'display_url']
+        fields = ['name', 'location', 'report_url', 'id', 'sns_arn', 'parse_mode', 'display_url', 'reports',
+                  'site_id']
 
 
 class RunSerializer(serializers.ModelSerializer):

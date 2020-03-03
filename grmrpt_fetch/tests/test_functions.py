@@ -74,6 +74,7 @@ class LocalFileAdapter(requests.adapters.BaseAdapter):
 
 class ReportFuncTestCase(unittest.TestCase):
     def setUp(self) -> None:
+        self.maxDiff = None
         self.exp_groomed_runs = ['Cabin Fever', 'Grubstake', 'BC Expressway - Lower', 'BC Expressway - Upper',
                                 'Primrose to Strawberry Park', 'Cinch - Lower', 'Dally - Lower', 'Dally - Upper',
                                 'Haymeadow', 'Latigo', 'Bridle', 'Stone Creek Meadows', 'Intertwine - Lower',
@@ -317,6 +318,55 @@ class ReportFuncTestCase(unittest.TestCase):
         self.exp_groomed_runs7 = deepcopy(self.exp_groomed_runs6)
         self.exp_groomed_runs7.remove('Swan City')
 
+        self.report_url8 = 'test_files/bc_mar3.json'
+        self.exp_groomed_runs8 = [
+            'Booth Gardens',
+            'Bridle',
+            'Centennial-Upper',
+            'Cinch-Lower',
+            'Cinch-Upper',
+            'Cookie Crumble',
+            'Dally',
+            'Haymeadow',
+            'Piney',
+            'Powell',
+            'Red Buffalo',
+            'Sheephorn-Upper',
+            'Solitude',
+            '1876',
+            'Centennial-Lower',
+            'EpicMix Race',
+            'Gold Dust',
+            'Latigo-Lower',
+            'Latigo-Upper',
+            'Red Tail',
+            'Centennial-Spruce Face',
+            'Centennial-Willy\'s Face',
+            'Park 101',
+            'Zoom Room',
+            'Stone Creek Meadows',
+            'Larkspur Bowl',
+            'Larkspur-Lower',
+            'Beaver Creek Mountain Expressway',
+            'Primrose',
+            'Bitterroot',
+            'President Ford\'s-Lower',
+            'Stacker-Lower',
+            'President Ford\'s',
+            'Intertwine',
+            'Leav the Beav',
+            'Sawbuck',
+            'Cabin Fever',
+            'Grubstake',
+            'Gunders',
+            'Roughlock-Lower',
+            'Stirrup',
+            'Golden Bear',
+            'Little Brave',
+            'Roughlock-Upper'
+        ]
+        self.report_url8_pdf = 'test_files/bc_mar3.pdf'
+
     def test_get_grooming_report(self) -> None:
         """
         Test function properly strips the run names from the file
@@ -354,6 +404,11 @@ class ReportFuncTestCase(unittest.TestCase):
         date, groomed_runs = get_grooming_report('tika', self.report_url7)
         self.assertEqual(date, dt.datetime(2020, 2, 19).date())
         self.assertEqual(Counter(groomed_runs), Counter(self.exp_groomed_runs7))
+
+        response = requests_session.get('file://{}/{}'.format(os.getcwd(), self.report_url8))
+        date, groomed_runs = get_grooming_report('json-vail', response=response)
+        self.assertEqual(date, dt.datetime(2020, 3, 3).date())
+        self.assertEqual(Counter(groomed_runs), Counter(self.exp_groomed_runs8))
 
 
 class TestTikaRelaunch(unittest.TestCase):

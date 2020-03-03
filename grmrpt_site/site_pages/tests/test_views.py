@@ -132,8 +132,8 @@ class ReportsViewTestCase(TestCase):
 
         resp = client.get(reverse('reports'))
         resorts_runs = resp.context['resorts_runs']
-        self.assertListEqual(resorts_runs, [[['test1', 'Feb 01, 2020', None, ['foo']],
-                                            ['test2', 'Jan 31, 2020', None, ['bar']]]])
+        self.assertListEqual(resorts_runs, [[['test1', 'Feb 01, 2020', None, [['foo', '/runs/1']]],
+                                            ['test2', 'Jan 31, 2020', None, [['bar', '/runs/2']]]]])
 
         # Create a new report for resort2
         rpt = Report.objects.create(date=dt.datetime(2020, 2, 2), resort_id=2)
@@ -141,8 +141,8 @@ class ReportsViewTestCase(TestCase):
 
         resp = client.get(reverse('reports'))
         resorts_runs = resp.context['resorts_runs']
-        self.assertListEqual(resorts_runs, [[['test1', 'Feb 01, 2020', None, ['foo']],
-                                             ['test2', 'Feb 02, 2020', None, ['bar']]]])
+        self.assertListEqual(resorts_runs, [[['test1', 'Feb 01, 2020', None, [['foo', '/runs/1']]],
+                                             ['test2', 'Feb 02, 2020', None, [['bar', '/runs/2']]]]])
 
         # Add a third resort
         Resort.objects.create(name='test3')
@@ -151,6 +151,6 @@ class ReportsViewTestCase(TestCase):
 
         resp = client.get(reverse('reports'))
         resorts_runs = resp.context['resorts_runs']
-        self.assertListEqual(resorts_runs, [[['test1', 'Feb 01, 2020', None, ['foo']],
-                                             ['test2', 'Feb 02, 2020', None, ['bar']]],
-                                            [['test3', 'Feb 01, 2020', None, ['foo']]]])
+        self.assertListEqual(resorts_runs, [[['test1', 'Feb 01, 2020', None, [['foo', '/runs/1']]],
+                                             ['test2', 'Feb 02, 2020', None, [['bar', '/runs/2']]]],
+                                            [['test3', 'Feb 01, 2020', None, [['foo', '/runs/1']]]]])

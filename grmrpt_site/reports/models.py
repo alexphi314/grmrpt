@@ -9,7 +9,7 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save, m2m_changed, post_delete, pre_delete
 from django.dispatch import receiver
-from django.core.validators import RegexValidator
+from django.core.validators import RegexValidator, ValidationError
 from rest_framework.authtoken.models import Token
 import boto3
 
@@ -18,17 +18,37 @@ class Resort(models.Model):
     """
     Ski resort model
     """
+    TIKA = 'tika'
+    JSON = 'json'
+    JSON_VAIL = 'json-vail'
+    PARSE_METHOD_CHOICES = [
+        (TIKA, 'tika'),
+        (JSON, 'json'),
+        (JSON_VAIL, 'json-vail')
+    ]
+
     name = models.CharField("Name of the resort", max_length=1000)
     location = models.CharField("Location of the resort", max_length=1000, blank=True, null=True)
     report_url = models.CharField("URL to grooming report", max_length=2000, blank=True, null=True)
+    site_id = models.IntegerField("site id identifier for vail resort properties", blank=True, null=True)
     sns_arn = models.CharField("AWS SNS Topic identifier", max_length=1000, blank=True, null=True)
     parse_mode = models.CharField("Type of parsing to apply to grooming report url", max_length=100,
-                                  default='tika')
+                                  choices=PARSE_METHOD_CHOICES, default=TIKA)
     display_url = models.CharField("URL users can click on to view grooming report", max_length=2000,
                                    blank=True, null=True)
 
     def __str__(self) -> str:
         return self.name
+
+    def clean(self) -> None:
+        """
+        Raise a ValidationError if the parse_mode is json-vail and site_id is None
+        """
+        if self.parse_mode == self.JSON_VAIL and self.site_id is None:
+            raise ValidationError(
+                'If json-vail parse mode is selected, site_id is required',
+                code='missing_site_id'
+            )
 
 
 @receiver(post_save, sender=Resort)

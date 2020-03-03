@@ -171,7 +171,7 @@ def get_grooming_report(parse_mode: str, url: str = None,
             if 'weather' in line.lower() or 'snowfall' in line.lower():
                 break
 
-    else:
+    elif parse_mode == 'json':
         response = response.json()
 
         date = dt.datetime.strptime(response['LastUpdate'], '%Y-%m-%dT%H:%M:%S%z').date()
@@ -179,6 +179,16 @@ def get_grooming_report(parse_mode: str, url: str = None,
         for area in response['MountainAreas']:
             for trail in area['Trails']:
                 if trail['Grooming'] == 'Yes' or trail['Grooming'] == 'Second Shift' or trail['Grooming'] == 'Top':
+                    runs.append(trail['Name'].strip())
+
+    else:
+        response = response.json()
+
+        date = dt.datetime.strptime(response['Date'], '%Y-%m-%dT%H:%M:%S').date()
+        runs = []
+        for area in response['GroomingAreas']:
+            for trail in area['Runs']:
+                if trail['IsGroomed']:
                     runs.append(trail['Name'].strip())
 
     return date, runs
