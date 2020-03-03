@@ -8,7 +8,7 @@ from rest_framework.test import APIClient
 
 sys.path.append('../grmrpt_fetch')
 from reports.models import *
-from grmrpt_fetch.fetch_server import get_api, get_resorts_no_bmruns
+from grmrpt_fetch.fetch_server import get_api, get_resorts_no_bmruns, get_topic_subs
 
 
 class ResortTestCase(TestCase):
@@ -201,6 +201,11 @@ class SNSTopicSubscriptionTestCase(TestCase):
         self.user2.bmg_user.resorts.set([self.resort])
         self.user.bmg_user.save()
 
+        # Check topic arns show correct number of subs
+        time.sleep(60)
+        self.assertEqual(get_topic_subs(self.resort.sns_arn), 2)
+        self.assertEqual(get_topic_subs(self.resort2.sns_arn), 1)
+
         for indx, subscription in enumerate(json.loads(self.user.bmg_user.sub_arn)):
             response = sns.get_subscription_attributes(SubscriptionArn=subscription)
             if indx == 0:
@@ -214,11 +219,18 @@ class SNSTopicSubscriptionTestCase(TestCase):
         resort3 = Resort.objects.create(name='resort3', report_url='foo', location='Vail')
         self.user.bmg_user.resorts.add(resort3)
         self.assertEqual(len(json.loads(self.user.bmg_user.sub_arn)), 3)
+        time.sleep(60)
+        self.assertEqual(get_topic_subs(resort3.sns_arn), 1)
 
         # Remove link to resort2
         self.user.bmg_user.resorts.remove(self.resort2)
         self.user2.bmg_user.resorts.remove(self.resort)
         self.assertEqual(len(json.loads(self.user.bmg_user.sub_arn)), 2)
+
+        # Check sub numbers
+        time.sleep(60)
+        self.assertEqual(get_topic_subs(self.resort.sns_arn), 1)
+        self.assertEqual(get_topic_subs(self.resort2.sns_arn), 0)
 
         for indx, subscription in enumerate(json.loads(self.user.bmg_user.sub_arn)):
             response = sns.get_subscription_attributes(SubscriptionArn=subscription)

@@ -492,9 +492,26 @@ def post_message_to_sns(sns, **kwargs) -> Dict[str, str]:
     return response
 
 
+def get_topic_subs(topic_arn: str) -> int:
+    """
+    Get the number of confirmed subscribers to the input SNS topic arn
+
+    :param topic_arn: topic arn identifier
+    :return: number of confirmed subs
+    """
+    sns = boto3.client('sns', region_name='us-west-2', aws_access_key_id=os.getenv('ACCESS_ID'),
+                       aws_secret_access_key=os.getenv('SECRET_ACCESS_KEY'))
+
+    topic_attrs = sns.get_topic_attributes(
+        TopicArn=topic_arn
+    )
+
+    return int(topic_attrs['Attributes']['SubscriptionsConfirmed'])
+
+
 def post_messages(contact_list: List[str], headers: Dict[str, str], api_url: str) -> None:
     """
-    Post the input messages to the SNS queue
+    Post a BMReport to each SNS topic on the contact_list
 
     :param contact_list: list of bm_report urls to notify
     :param headers: http request headers for authentication
@@ -540,6 +557,10 @@ def post_messages(contact_list: List[str], headers: Dict[str, str], api_url: str
                         report_link
                     )
 
+        if get_topic_subs(resort_data['sns_arn']) == 0:
+            logging.info('The topic for {} has zero subs, not sending message'.format(resort_data['name']))
+            return
+
         response = post_message_to_sns(sns, TopicArn=resort_data['sns_arn'], MessageStructure='json',
                                        Message=json.dumps({'email': email_msg, 'sms': phone_msg,
                                                            'default': email_msg}), Subject=email_subj,
@@ -559,7 +580,7 @@ def post_messages(contact_list: List[str], headers: Dict[str, str], api_url: str
 
 def post_no_bmrun_message(contact_list: List[str], headers: Dict[str, str], api_url: str) -> None:
     """
-    Post the input messages to the SQS queue
+    Post a 'no bm runs' message to the SNS topics on the contact_list
 
     :param contact_list: list of resorts with no bmruns on today's report
     :param headers: http request headers for authentication
@@ -601,6 +622,10 @@ def post_no_bmrun_message(contact_list: List[str], headers: Dict[str, str], api_
                         report_link
                     )
 
+        if get_topic_subs(resort_data['sns_arn']) == 0:
+            logging.info('The topic for {} has zero subs, not sending message'.format(resort_data['name']))
+            return
+
         response = post_message_to_sns(sns, TopicArn=resort_data['sns_arn'], MessageStructure='json',
                                        Message=json.dumps({'email': email_msg, 'sms': phone_msg,
                                                            'default': email_msg}), Subject=email_subj,
@@ -620,7 +645,7 @@ def post_no_bmrun_message(contact_list: List[str], headers: Dict[str, str], api_
 
 def post_alert_message(alert_list: List[str], headers: Dict[str, str], api_url: str) -> None:
     """
-    Post a message to the dev topic for each alert in alert_list
+    Post an alert to the SNS topics on alert_list
 
     :param alert_list: list of BMReports with no notifications sent out
     :param headers: authentication headers to provide with GET requests
