@@ -133,6 +133,17 @@ class BMGUserTestCase(TestCase):
         self.assertEqual(bmg_user.user, self.user)
         self.assertEqual(bmg_user.favorite_runs.count(), 0)
 
+    def test_phone_regex(self) -> None:
+        bmg_user = self.user.bmg_user
+        bmg_user.phone = '+13036708900'
+        bmg_user.full_clean()
+
+        bmg_user.phone = '+48708790067'
+        bmg_user.full_clean()
+
+        bmg_user.phone = '8005764532'
+        self.assertRaises(ValidationError, bmg_user.full_clean)
+
     def test_str(self) -> None:
         self.assertEqual(str(BMGUser.objects.all()[0]), 'foo')
 

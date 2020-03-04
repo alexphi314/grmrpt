@@ -292,19 +292,34 @@ def run_stats(request, run_id: int):
     num_bm_reports = run.bm_reports.count()
 
     if num_bm_reports > 1:
-        last_bm_report = run.bm_reports.all()[num_bm_reports-2].date.strftime('%a %b %d')
+        last_bm_report = run.bm_reports.all()[num_bm_reports-1].date.strftime('%a %b %d')
     else:
-        last_bm_report = None
+        last_bm_report = ''
+
+    if num_reports > 0:
+        last_report = run.reports.all()[num_reports-1].date.strftime('%a %b %d')
+    else:
+        last_report = ''
+
+    # Get list of groom dates, tracking which were 'blue moon' days
+    rpt_list = []
+    bm_dates = [rpt.date for rpt in run.bm_reports.all()]
+    for rpt in run.reports.all():
+        if rpt.date in bm_dates:
+            color = 'bm'
+        else:
+            color = ''
+
+        rpt_list.append([rpt.date.strftime('%a %b %d'), color])
 
     params = {}
     params['num_reports'] = num_reports
     params['num_bm_reports'] = num_bm_reports
-    if last_bm_report is not None:
-        params['last_bm_report'] = last_bm_report
-    else:
-        params['last_bm_report'] = ''
+    params['last_bm_report'] = last_bm_report
+    params['last_report'] = last_report
     params['plot_image'] = django_reverse('run-stats-plot', kwargs={'run_id': run_id})
     params['name'] = run.name
+    params['rpt_list'] = rpt_list
 
     return render(
         request,

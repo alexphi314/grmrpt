@@ -55,9 +55,9 @@ class ResortViewTestCase(TestCase):
         response[0].pop('site_id')
         self.assertDictEqual(response[0], self.resort_data)
 
-        # Check random user has get access
+        # Check random user has no get access
         client.credentials(HTTP_AUTHORIZATION='Token ' + self.rando_token.key)
-        self.assertEqual(client.get('/api/resorts/').status_code, 200)
+        self.assertEqual(client.get('/api/resorts/').status_code, 403)
 
     def test_post(self) -> None:
         """
@@ -203,9 +203,9 @@ class RunViewTestCase(TestCase):
         response.pop('id')
         self.assertEqual(response, self.run_data)
 
-        # Check random user has get access
+        # Check random user has no get access
         client.credentials(HTTP_AUTHORIZATION='Token ' + self.rando_token.key)
-        self.assertEqual(client.get('/api/runs/').status_code, 200)
+        self.assertEqual(client.get('/api/runs/').status_code, 403)
 
     def test_post(self) -> None:
         """
@@ -543,9 +543,9 @@ class ReportViewTestCase(TestCase):
         response.pop('bm_report')
         self.assertEqual(response, self.report_data)
 
-        # Check rando user has GEt
+        # Check rando user has no GET
         client.credentials(HTTP_AUTHORIZATION='Token ' + self.rando_token.key)
-        self.assertEqual(client.get('/api/reports/').status_code, 200)
+        self.assertEqual(client.get('/api/reports/').status_code, 403)
 
     def test_post(self) -> None:
         """
@@ -699,9 +699,9 @@ class BMReportViewTestCase(TestCase):
         # Check anon user does not have GET
         client = APIClient()
         self.assertEqual(client.get('/api/bmreports/').status_code, 401)
-        # Check rando user has GET
+        # Check rando user has no GET
         client.credentials(HTTP_AUTHORIZATION='Token ' + self.rando_token.key)
-        self.assertEqual(client.get('/api/bmreports/').status_code, 200)
+        self.assertEqual(client.get('/api/bmreports/').status_code, 403)
 
         # Check staff GET works as expected
         client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)

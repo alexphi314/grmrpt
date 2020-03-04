@@ -64,8 +64,8 @@ def create_sns_topic(instance: Resort, created: bool, **kwargs) -> None:
                               aws_secret_access_key=os.getenv('SECRET_ACCESS_KEY'))
         response = client.create_topic(
             Name='{}_{}_bmgrm'.format(os.getenv('ENVIRON_TYPE', ''),
-                                          instance.name.lower().replace(' ', '_')
-                                          ),
+                                      instance.name.lower().replace(' ', '_')
+                                      ),
             Attributes={
                 'DisplayName': '{} Blue Moon Grooming Report:'.format(instance.name)
             },
@@ -212,9 +212,9 @@ def update_bmreport(instance: Union[Report, Run], action: str, reverse: bool, **
             report.bm_report.runs.set(bmreport_runs)
 
 
-phone_regex = RegexValidator(regex=r'^\+1\d{9,15}$',
+phone_regex = RegexValidator(regex=r'^\+\d{9,16}$',
                              message="Phone number must be entered in the format: '+999999999'. "
-                                     "Up to 15 digits allowed.")
+                                     "Up to 16 digits allowed.")
 class BMGUser(models.Model):
     """
     Extend the User model to include a few more fields
