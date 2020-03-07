@@ -1234,9 +1234,9 @@ class NotifyUsersTestCase(TestCase):
         rpt.runs.set([run1])
         bm2.runs.set([run1])
 
-        # Confirm no notifications to go out
+        # Confirm notification goes out even though the previous day's report has the same blue moon runs on it
         resorts = get_resorts_to_notify(get_wrapper, 'http://testserver/api', client, {})
-        self.assertListEqual(resorts, [])
+        self.assertListEqual(resorts, ['http://testserver/api/bmreports/{}/'.format(bm2.id)])
 
         bm2.runs.add(run2)
         # Confirm notification ready to go out

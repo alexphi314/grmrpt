@@ -359,8 +359,7 @@ def get_resorts_to_notify(get_api_wrapper, api_url, request_client, headers) -> 
 
     for resort in resorts:
         try:
-            bm_report_data, most_recent_report_url, yesterday_runs = get_most_recent_reports(resort,
-                                                                                             get_api_wrapper)
+            bm_report_data, most_recent_report_url, _ = get_most_recent_reports(resort, get_api_wrapper)
         except TypeError:
             continue
 
@@ -375,8 +374,7 @@ def get_resorts_to_notify(get_api_wrapper, api_url, request_client, headers) -> 
         assert len(notification_response) <= 1
 
         if (len(notification_response) == 0 or
-                (len(notification_response) == 1 and notification_response[0]['type'] == 'no_runs')) \
-                and Counter(bm_report_data['runs']) != Counter(yesterday_runs):
+                (len(notification_response) == 1 and notification_response[0]['type'] == 'no_runs')):
             # No notification posted for this report
             contact_list.append(most_recent_report_url)
 
@@ -386,11 +384,6 @@ def get_resorts_to_notify(get_api_wrapper, api_url, request_client, headers) -> 
                                              headers=headers)
                 if resp.status_code != 204:
                     raise APIError('Unable to delete notification: {}'.format(resp.text))
-
-        elif Counter(bm_report_data['runs']) == Counter(yesterday_runs):
-            logger.info('BM report run list identical to yesterday for {} -- not sending notification'.format(
-                resort['name']
-            ))
 
     return contact_list
 

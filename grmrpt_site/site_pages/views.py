@@ -291,7 +291,7 @@ def run_stats(request, run_id: int):
     num_reports = run.reports.count()
     num_bm_reports = run.bm_reports.count()
 
-    if num_bm_reports > 1:
+    if num_bm_reports > 0:
         last_bm_report = run.bm_reports.all()[num_bm_reports-1].date.strftime('%a %b %d')
     else:
         last_bm_report = ''
