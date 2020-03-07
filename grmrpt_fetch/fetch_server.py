@@ -307,13 +307,13 @@ def create_report(date: dt.datetime, groomed_runs: List[str], resort_id: int,
 
 
 def get_most_recent_reports(resort: Dict[str, str], get_api_wrapper) -> \
-        Union[None, Tuple[Dict[str, str], str, List[Dict[str, str]]]]:
+        Union[None, Tuple[Dict[str, str], str]]:
     """
     Fetch the most recent report for the input resort, as well as yesterday's report
 
     :param resort: data representation of resort
     :param get_api_wrapper: wrapper function used to make GET requests of api
-    :return: data dict of most recent BMReport, url to most recent BMReport, and list of runs groomed yesterday
+    :return: data dict of most recent BMReport, url to most recent BMReport
     """
     reports = get_api_wrapper('reports/?resort={}'.format(resort['name'].replace(' ', '%20')))
     # Only include reports with run objects attached
@@ -329,19 +329,7 @@ def get_most_recent_reports(resort: Dict[str, str], get_api_wrapper) -> \
     most_recent_report_url = most_recent_report['bm_report']
     bm_report_data = get_api_wrapper(most_recent_report_url)
 
-    # Get the bm report for yesterday, if it exists, and get the run list
-    yesterday = max(report_dates_list) - dt.timedelta(days=1)
-    yesterday_report = get_api_wrapper('reports/?date={}&resort={}'.format(
-        yesterday.strftime('%Y-%m-%d'),
-        resort['name']
-    ))
-    if len(yesterday_report) > 0:
-        assert len(yesterday_report) == 1
-        yesterday_runs = get_api_wrapper(yesterday_report[0]['bm_report'])['runs']
-    else:
-        yesterday_runs = []
-
-    return bm_report_data, most_recent_report_url, yesterday_runs
+    return bm_report_data, most_recent_report_url
 
 
 def get_resorts_to_notify(get_api_wrapper, api_url, request_client, headers) -> List[str]:
@@ -359,7 +347,7 @@ def get_resorts_to_notify(get_api_wrapper, api_url, request_client, headers) -> 
 
     for resort in resorts:
         try:
-            bm_report_data, most_recent_report_url, _ = get_most_recent_reports(resort, get_api_wrapper)
+            bm_report_data, most_recent_report_url = get_most_recent_reports(resort, get_api_wrapper)
         except TypeError:
             continue
 
@@ -402,7 +390,7 @@ def get_resorts_no_bmruns(time: dt.datetime, api_wrapper) -> List[str]:
 
         for resort in resorts:
             try:
-                bm_report_data, most_recent_report_url, _ = get_most_recent_reports(resort, api_wrapper)
+                bm_report_data, most_recent_report_url = get_most_recent_reports(resort, api_wrapper)
             except TypeError:
                 continue
 
@@ -438,7 +426,7 @@ def get_resort_alerts(time: dt.datetime, api_wrapper: get_api, api_url: str,
 
         for resort in resorts:
             try:
-                bm_report_data, most_recent_report_url, _ = get_most_recent_reports(resort, api_wrapper)
+                bm_report_data, most_recent_report_url = get_most_recent_reports(resort, api_wrapper)
             except TypeError:
                 continue
 
