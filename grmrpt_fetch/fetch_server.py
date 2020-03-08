@@ -490,6 +490,27 @@ def get_topic_subs(topic_arn: str) -> int:
     return int(topic_attrs['Attributes']['SubscriptionsConfirmed'])
 
 
+def post_notification(report: str, api_url: str, headers: Dict[str, str], notif_type: str = None) -> None:
+    """
+    Post a notification record for the input BMReport url
+
+    :param report: url for a given BMReport
+    :param api_url: api url
+    :param headers: auth headers to include with post request
+    :param notif_type: optionally include type field specifying type of notif
+    """
+    notification_data = {'bm_report': report}
+    if notif_type is not None:
+        notification_data['type'] = notif_type
+
+    response = requests.post('{}/notifications/'.format(api_url), data=notification_data,
+                             headers=headers)
+    if response.status_code != 201:
+        raise APIError('Unable to create notification record in api: {}'.format(
+            response.text
+        ))
+
+
 def post_messages(contact_list: List[str], headers: Dict[str, str], api_url: str) -> None:
     """
     Post a BMReport to each SNS topic on the contact_list
@@ -539,8 +560,9 @@ def post_messages(contact_list: List[str], headers: Dict[str, str], api_url: str
                     )
 
         if get_topic_subs(resort_data['sns_arn']) == 0:
-            logging.info('The topic for {} has zero subs, not sending message'.format(resort_data['name']))
-            return
+            logger.info('The topic for {} has zero subs, not sending message'.format(resort_data['name']))
+            post_notification(report, api_url, headers)
+            continue
 
         response = post_message_to_sns(sns, TopicArn=resort_data['sns_arn'], MessageStructure='json',
                                        Message=json.dumps({'email': email_msg, 'sms': phone_msg,
@@ -550,13 +572,7 @@ def post_messages(contact_list: List[str], headers: Dict[str, str], api_url: str
 
         if response['MessageId']:
             # Post notification record
-            notification_data = {'bm_report': report}
-            response = requests.post('{}/notifications/'.format(api_url), data=notification_data,
-                                     headers=headers)
-            if response.status_code != 201:
-                raise APIError('Unable to create notification record in api: {}'.format(
-                    response.text
-                ))
+            post_notification(report, api_url, headers)
 
 
 def post_no_bmrun_message(contact_list: List[str], headers: Dict[str, str], api_url: str) -> None:
@@ -604,8 +620,9 @@ def post_no_bmrun_message(contact_list: List[str], headers: Dict[str, str], api_
                     )
 
         if get_topic_subs(resort_data['sns_arn']) == 0:
-            logging.info('The topic for {} has zero subs, not sending message'.format(resort_data['name']))
-            return
+            logger.info('The topic for {} has zero subs, not sending message'.format(resort_data['name']))
+            post_notification(report, api_url, headers, notif_type='no_runs')
+            continue
 
         response = post_message_to_sns(sns, TopicArn=resort_data['sns_arn'], MessageStructure='json',
                                        Message=json.dumps({'email': email_msg, 'sms': phone_msg,
@@ -615,13 +632,7 @@ def post_no_bmrun_message(contact_list: List[str], headers: Dict[str, str], api_
 
         if response['MessageId']:
             # Post notification record
-            notification_data = {'bm_report': report, 'type': 'no_runs'}
-            response = requests.post('{}/notifications/'.format(api_url), data=notification_data,
-                                     headers=headers)
-            if response.status_code != 201:
-                raise APIError('Unable to create notification record in api: {}'.format(
-                    response.text
-                ))
+            post_notification(report, api_url, headers, notif_type='no_runs')
 
 
 def post_alert_message(alert_list: List[str], headers: Dict[str, str], api_url: str) -> None:
