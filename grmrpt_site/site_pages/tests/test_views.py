@@ -23,7 +23,7 @@ class SignupTestCase(TestCase):
             'password1': 'barfoobas',
             'password2': 'barfoobas',
             'phone': '+13038776576',
-            'contact_method': 'EM',
+            'contact_method': 'email',
             'contact_days': ["Mon"],
             'resorts': ['test1']
         }
@@ -39,7 +39,7 @@ class SignupTestCase(TestCase):
         self.assertEqual(usr.last_name, 'bill')
         self.assertEqual(usr.email, 'AP_TEST_foo@gmail.com')
         self.assertEqual(usr.bmg_user.phone, '+13038776576')
-        self.assertEqual(usr.bmg_user.contact_method, 'EM')
+        self.assertEqual(usr.bmg_user.contact_method, 'email')
         self.assertListEqual(json.loads(usr.bmg_user.contact_days.replace('\'', '\"')), ['Mon'])
 
         user_data['phone'] = '+13038776577'
@@ -91,7 +91,7 @@ class SignupTestCase(TestCase):
 
         # Include contact_method only causes error
         del user_data['contact_days']
-        user_data['contact_method'] = 'EM'
+        user_data['contact_method'] = 'email'
         resp = self.client.post(reverse('signup'), data=user_data)
         self.assertEqual(resp.status_code, 200)
 

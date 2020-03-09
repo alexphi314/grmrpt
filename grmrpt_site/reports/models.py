@@ -1,5 +1,5 @@
 import datetime as dt
-from typing import List, Union, Set
+from typing import List, Union, FrozenSet, Set
 import logging
 import os
 import json
@@ -227,13 +227,13 @@ class BMGUser(models.Model):
     sub_arn = models.CharField("AWS SNS Subscription arns", max_length=1000, blank=True, null=True)
     contact_days = models.CharField("string array of allowed contact days", max_length=1000, blank=True, null=True)
 
-    PHONE = 'PH'
-    EMAIL = 'EM'
+    PHONE = 'sms'
+    EMAIL = 'email'
     CONTACT_METHOD_CHOICES = [
         (PHONE, 'Phone'),
         (EMAIL, 'Email')
     ]
-    contact_method = models.CharField(max_length=2, choices=CONTACT_METHOD_CHOICES, default=EMAIL)
+    contact_method = models.CharField(max_length=5, choices=CONTACT_METHOD_CHOICES, default=EMAIL)
 
     def __str__(self) -> str:
         return self.user.username
@@ -273,11 +273,9 @@ def subscribe_user_to_topic(instance: BMGUser, client: boto3.client) -> List[str
     :param client: boto3 sns client
     :return: list of subscription arns
     """
-    if instance.contact_method == 'PH':
-        protl = 'sms'
+    if instance.contact_method == 'sms':
         endpt = instance.phone
     else:
-        protl = 'email'
         endpt = instance.user.email
 
     dow_arry = unpack_json_field(instance.contact_days)
@@ -286,8 +284,8 @@ def subscribe_user_to_topic(instance: BMGUser, client: boto3.client) -> List[str
     if endpt != '' and 'AP_TEST' not in endpt:
         for resort in instance.resorts.all():
             # Include attributes here to create filter policy
-            params = {'TopicArn': resort.sns_arn, 'Protocol': protl, 'ReturnSubscriptionArn': True,
-                      'Endpoint': endpt}
+            params = {'TopicArn': resort.sns_arn, 'Protocol': instance.contact_method,
+                      'ReturnSubscriptionArn': True, 'Endpoint': endpt}
             if len(dow_arry) > 0:
                 params['Attributes'] = {'FilterPolicy': json.dumps({'day_of_week': dow_arry})}
 
@@ -366,36 +364,69 @@ def unsubscribe_all(instance: BMGUser, **kwargs) -> None:
 
 
 @receiver(post_save, sender=BMGUser)
-def update_subscription_attrs(instance: BMGUser, created: bool, **kwargs) -> None:
+def update_subscription_attrs(instance: BMGUser, created: bool, update_fields: Union[None, FrozenSet[str]], **kwargs) \
+        -> None:
     """
     For model updates -- Check if contact_days was updated; if so,
-    update the subscription attributes on SNS
+    update the subscription attributes on SNS. Also check if contact_method was changed.
 
     :param instance: BMGUser instance being saved
     :param created: True if a new record was created
+    :param update_fields: Set of update field names passed to save or None if update_fields not given
     """
-    if not created:
+    if not created and (update_fields is None or list(update_fields) != ['sub_arn']):
         sub_arns = unpack_json_field(instance.sub_arn)
         contact_days = unpack_json_field(instance.contact_days)
 
         sns = boto3.client('sns', region_name='us-west-2', aws_access_key_id=os.getenv('ACCESS_ID'),
                            aws_secret_access_key=os.getenv('SECRET_ACCESS_KEY'))
 
-        for sub_arn in sub_arns:
+        for indx, sub_arn in enumerate(sub_arns):
             response = sns.get_subscription_attributes(SubscriptionArn=sub_arn)
             try:
                 filter_policy = json.loads(response['Attributes']['FilterPolicy'])
             except KeyError:
                 filter_policy = {'day_of_week': []}
+            contact_method = response['Attributes']['Protocol']
+            topic_arn = response['Attributes']['TopicArn']
+            filter_policy_update = False
 
-            # If the filter policy doesn't match, update it (as long as the new val for contact_days is > 0)
-            if filter_policy['day_of_week'] != contact_days and len(contact_days) > 0:
+            # If the filter policy doesn't match, update it
+            if filter_policy['day_of_week'] != contact_days:
                 filter_policy['day_of_week'] = contact_days
+                filter_policy_update = True
+
+            # If the contact_method doesn't match, update it
+            if contact_method != instance.contact_method:
+                # Delete the old subscription
+                unsubscribe_arn(sns, sub_arn)
+                # Create a new subscription
+                if instance.contact_method == BMGUser.PHONE:
+                    endpt = instance.phone
+                else:
+                    endpt = instance.user.email
+
+                params = {'TopicArn': topic_arn, 'Protocol': instance.contact_method,
+                          'ReturnSubscriptionArn': True, 'Endpoint': endpt}
+                if len(filter_policy['day_of_week']) > 0:
+                    params['Attributes'] = {'FilterPolicy': json.dumps(filter_policy)}
+
+                response = sns.subscribe(**params)
+                sub_arns[indx] = response['SubscriptionArn']
+                continue
+
+            elif filter_policy_update and len(filter_policy['day_of_week']) > 0:
+                # Update the filter policy
                 sns.set_subscription_attributes(
                     SubscriptionArn=sub_arn,
                     AttributeName='FilterPolicy',
                     AttributeValue=json.dumps(filter_policy)
                 )
+
+        # Update sub_arn field
+        if instance.sub_arn != json.dumps(sub_arns):
+            instance.sub_arn = json.dumps(sub_arns)
+            instance.save(update_fields=['sub_arn'])
 
 
 @receiver(m2m_changed, sender=BMGUser.resorts.through)
