@@ -1,9 +1,9 @@
-import datetime as dt
-from typing import List, Union, FrozenSet, Set
-import logging
 import os
+from typing import Union, FrozenSet, Set, List
 import json
 from json.decoder import JSONDecodeError
+import logging
+import datetime as dt
 
 from django.db import models
 from django.contrib.auth.models import User
@@ -49,6 +49,97 @@ class Resort(models.Model):
                 'If json-vail parse mode is selected, site_id is required',
                 code='missing_site_id'
             )
+
+
+class Report(models.Model):
+    """
+    Object model for grooming report
+    """
+    date = models.DateField("Date of Grooming Report")
+    resort = models.ForeignKey(Resort, on_delete=models.CASCADE, related_name='reports')
+
+    def __str__(self) -> str:
+        return '{}: {}'.format(self.resort, self.date.strftime('%Y-%m-%d'))
+
+
+class Run(models.Model):
+    """
+    Object model for ski run
+    """
+    name = models.CharField("Name of the run", max_length=1000)
+    difficulty = models.CharField("Difficulty of run, green/blue/black", max_length=100, blank=True, null=True)
+    resort = models.ForeignKey(Resort, on_delete=models.CASCADE, related_name='runs')
+    reports = models.ManyToManyField(Report, related_name='runs')
+
+    def __str__(self) -> str:
+        return self.name
+
+
+class BMReport(models.Model):
+    """
+    Object model for processed Hidden Diamond grooming report
+    """
+    date = models.DateField("Date of Grooming Report")
+    resort = models.ForeignKey(Resort, on_delete=models.CASCADE, related_name='bm_reports')
+    runs = models.ManyToManyField(Run, related_name='bm_reports')
+    full_report = models.OneToOneField(Report, on_delete=models.CASCADE, related_name='bm_report')
+
+    def __str__(self) -> str:
+        return '{}: {}'.format(self.resort, self.date.strftime('%Y-%m-%d'))
+
+
+phone_regex = RegexValidator(regex=r'^\+\d{9,16}$',
+                             message="Phone number must be entered in the format: '+999999999'. "
+                                     "Up to 16 digits allowed.")
+class BMGUser(models.Model):
+    """
+    Extend the User model to include a few more fields
+    """
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='bmg_user')
+    favorite_runs = models.ManyToManyField(Run, related_name='users_favorited')
+    phone = models.CharField("Phone Number", blank=True, null=True, max_length=17, unique=True,
+                             validators=[phone_regex])
+    resorts = models.ManyToManyField(Resort, related_name='bmg_users')
+    sub_arn = models.CharField("AWS SNS Subscription arns", max_length=1000, blank=True, null=True)
+    contact_days = models.CharField("string array of allowed contact days", max_length=1000, blank=True, null=True)
+
+    PHONE = 'sms'
+    EMAIL = 'email'
+    CONTACT_METHOD_CHOICES = [
+        (PHONE, 'Phone'),
+        (EMAIL, 'Email')
+    ]
+    contact_method = models.CharField(max_length=5, choices=CONTACT_METHOD_CHOICES, default=EMAIL)
+
+    def __str__(self) -> str:
+        return self.user.username
+
+
+class Notification(models.Model):
+    """
+    Model a notification sent about a report
+    """
+    bm_report = models.OneToOneField(BMReport, related_name='notification', on_delete=models.CASCADE)
+    sent = models.DateTimeField("Time when the notification was sent", auto_now_add=True)
+    type = models.CharField("Type of notification", max_length=100, blank=True, null=True)
+
+    def __str__(self) -> str:
+        return '{}'.format(self.bm_report.date.strftime('%Y-%m-%d'))
+
+
+class Alert(models.Model):
+    """
+    Model an alert sent to developers about application errors
+    """
+    bm_report = models.OneToOneField(BMReport, related_name='alert', on_delete=models.CASCADE)
+    sent = models.DateTimeField("Time when alert was sent", auto_now_add=True)
+
+    def __str__(self) -> str:
+        return '{}'.format(self.sent.strftime('%Y-%m-%dT%H:%M:%S'))
+
+############################
+### Define Model Signals ###
+############################
 
 
 @receiver(post_save, sender=Resort)
@@ -99,75 +190,6 @@ def remove_sns_topic(instance: Resort, **kwargs) -> None:
         client.delete_topic(TopicArn=instance.sns_arn)
 
 
-class Report(models.Model):
-    """
-    Object model for grooming report
-    """
-    date = models.DateField("Date of Grooming Report")
-    resort = models.ForeignKey(Resort, on_delete=models.CASCADE, related_name='reports')
-
-    def __str__(self) -> str:
-        return '{}: {}'.format(self.resort, self.date.strftime('%Y-%m-%d'))
-
-
-class Run(models.Model):
-    """
-    Object model for ski run
-    """
-    name = models.CharField("Name of the run", max_length=1000)
-    difficulty = models.CharField("Difficulty of run, green/blue/black", max_length=100, blank=True, null=True)
-    resort = models.ForeignKey(Resort, on_delete=models.CASCADE, related_name='runs')
-    reports = models.ManyToManyField(Report, related_name='runs')
-
-    def __str__(self) -> str:
-        return self.name
-
-
-class BMReport(models.Model):
-    """
-    Object model for processed Hidden Diamond grooming report
-    """
-    date = models.DateField("Date of Grooming Report")
-    resort = models.ForeignKey(Resort, on_delete=models.CASCADE, related_name='bm_reports')
-    runs = models.ManyToManyField(Run, related_name='bm_reports')
-    full_report = models.OneToOneField(Report, on_delete=models.CASCADE, related_name='bm_report')
-
-    def __str__(self) -> str:
-        return '{}: {}'.format(self.resort, self.date.strftime('%Y-%m-%d'))
-
-
-def get_bm_runs(report: Report) -> List[Run]:
-    """
-    Extract the blue moon runs from the current report data, based on past data. Return the runs that were
-    groomed today that have been groomed less than 90% of the past 7 days.
-
-    :param report: Report object bm_runs are pulled from
-    :return: list of blue moon run objects
-    """
-    # Get logger
-    logger = logging.getLogger(__name__)
-
-    # Get past reports for the last 7 days
-    date = report.date
-    resort = report.resort
-    past_reports = Report.objects.filter(date__lt=date, date__gt=(date - dt.timedelta(days=8)),
-                                         resort=resort)
-
-    # If enough past reports, compare runs between reports and create BMReport
-    bmreport_runs = []
-    if len(past_reports) > 0:
-        # Look at each run in today's report
-        for run in report.runs.all():
-            num_shared_reports = len(list(set(run.reports.all()).intersection(past_reports)))
-            ratio = float(num_shared_reports) / float(len(past_reports))
-
-            logger.debug('Run {} groomed {:.2%} over the last week'.format(run.name, ratio))
-            if ratio < 0.2:
-                bmreport_runs.append(run)
-
-    return bmreport_runs
-
-
 @receiver(post_save, sender=Report)
 def create_update_bmreport(instance: Report, created: bool, **kwargs) -> None:
     """
@@ -212,33 +234,6 @@ def update_bmreport(instance: Union[Report, Run], action: str, reverse: bool, **
             report.bm_report.runs.set(bmreport_runs)
 
 
-phone_regex = RegexValidator(regex=r'^\+\d{9,16}$',
-                             message="Phone number must be entered in the format: '+999999999'. "
-                                     "Up to 16 digits allowed.")
-class BMGUser(models.Model):
-    """
-    Extend the User model to include a few more fields
-    """
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='bmg_user')
-    favorite_runs = models.ManyToManyField(Run, related_name='users_favorited')
-    phone = models.CharField("Phone Number", blank=True, null=True, max_length=17, unique=True,
-                             validators=[phone_regex])
-    resorts = models.ManyToManyField(Resort, related_name='bmg_users')
-    sub_arn = models.CharField("AWS SNS Subscription arns", max_length=1000, blank=True, null=True)
-    contact_days = models.CharField("string array of allowed contact days", max_length=1000, blank=True, null=True)
-
-    PHONE = 'sms'
-    EMAIL = 'email'
-    CONTACT_METHOD_CHOICES = [
-        (PHONE, 'Phone'),
-        (EMAIL, 'Email')
-    ]
-    contact_method = models.CharField(max_length=5, choices=CONTACT_METHOD_CHOICES, default=EMAIL)
-
-    def __str__(self) -> str:
-        return self.user.username
-
-
 @receiver(post_save, sender=User)
 def create_update_bmguser(instance: User, created: bool, **kwargs) -> None:
     """
@@ -263,88 +258,6 @@ def create_user_token(instance: User, created: bool, **kwargs) -> None:
     """
     if created:
         Token.objects.create(user=instance)
-
-
-def subscribe_user_to_topic(instance: BMGUser, client: boto3.client) -> List[str]:
-    """
-    Subscribe a BMGUser to a topic
-
-    :param instance: BMGUser instance
-    :param client: boto3 sns client
-    :return: list of subscription arns
-    """
-    if instance.contact_method == 'sms':
-        endpt = instance.phone
-    else:
-        endpt = instance.user.email
-
-    dow_arry = unpack_json_field(instance.contact_days)
-
-    sub_arns = []
-    if endpt != '' and 'AP_TEST' not in endpt:
-        for resort in instance.resorts.all():
-            # Include attributes here to create filter policy
-            params = {'TopicArn': resort.sns_arn, 'Protocol': instance.contact_method,
-                      'ReturnSubscriptionArn': True, 'Endpoint': endpt}
-            if len(dow_arry) > 0:
-                params['Attributes'] = {'FilterPolicy': json.dumps({'day_of_week': dow_arry})}
-
-            response = client.subscribe(**params)
-            sub_arns.append(response['SubscriptionArn'])
-
-    return sub_arns
-
-
-def unsubscribe_arn(client: boto3.client, sub_arn: str) -> None:
-    """
-    Unsubscribe the specific arn
-
-    :param client: boto3 sns client instance
-    :param sub_arn: arn string
-    """
-    logger = logging.getLogger(__name__)
-    try:
-        resp = client.unsubscribe(SubscriptionArn=sub_arn)
-        logger.info('Successfully unsubscribed, with status code {}'.format(resp['ResponseMetadata']
-                                                                            ['HTTPStatusCode']))
-    except Exception as e:
-        logger.warning('Unable to unsubscribe user:\n {}'.format(e))
-
-
-def unpack_json_field(json_str: str) -> List[str]:
-    """
-    Unpack a JSON string representation into an array
-
-    :param json_str: raw string representation
-    :return: Python array representation of string
-    """
-    try:
-        list_obj = json.loads(json_str)
-    except (TypeError, JSONDecodeError):
-        list_obj = []
-
-    return list_obj
-
-
-def unsubscribe_user_to_topic(instance: BMGUser, client: boto3.client, resort: Resort) -> List[str]:
-    """
-    Unsubscribe a BMGUser to a topic
-
-    :param instance: BMGUser instance
-    :param client: boto3 sns client
-    :param resort: resort instance that is being unsubscribed from
-    :return: list of subscription arns with arn for removed resort removed
-    """
-    # Loop through subscription arns for user and delete the one that corresponds to this resort
-    sub_arns = unpack_json_field(instance.sub_arn)
-
-    for sub_arn in sub_arns:
-        response = client.get_subscription_attributes(SubscriptionArn=sub_arn)
-        if response['Attributes']['TopicArn'] == resort.sns_arn:
-            sub_arns.remove(sub_arn)
-            unsubscribe_arn(client, sub_arn)
-
-    return sub_arns
 
 
 @receiver(pre_delete, sender=BMGUser)
@@ -480,25 +393,120 @@ def subscribe_sns_topic(instance: Union[BMGUser, Resort], action: str, reverse: 
             user.sub_arn = json.dumps(sub_arns)
             user.save()
 
+############################
+### Supporting Functions ###
+############################
 
-class Notification(models.Model):
+
+def get_bm_runs(report: Report) -> List[Run]:
     """
-    Model a notification sent about a report
+    Extract the blue moon runs from the current report data, based on past data. Return the runs that were
+    groomed today that have been groomed less than 90% of the past 7 days.
+
+    :param report: Report object bm_runs are pulled from
+    :return: list of blue moon run objects
     """
-    bm_report = models.OneToOneField(BMReport, related_name='notification', on_delete=models.CASCADE)
-    sent = models.DateTimeField("Time when the notification was sent", auto_now_add=True)
-    type = models.CharField("Type of notification", max_length=100, blank=True, null=True)
+    # Get logger
+    logger = logging.getLogger(__name__)
 
-    def __str__(self) -> str:
-        return '{}'.format(self.bm_report.date.strftime('%Y-%m-%d'))
+    # Get past reports for the last 7 days
+    date = report.date
+    resort = report.resort
+    past_reports = Report.objects.filter(date__lt=date, date__gt=(date - dt.timedelta(days=8)),
+                                         resort=resort)
+
+    # If enough past reports, compare runs between reports and create BMReport
+    bmreport_runs = []
+    if len(past_reports) > 0:
+        # Look at each run in today's report
+        for run in report.runs.all():
+            num_shared_reports = len(list(set(run.reports.all()).intersection(past_reports)))
+            ratio = float(num_shared_reports) / float(len(past_reports))
+
+            logger.debug('Run {} groomed {:.2%} over the last week'.format(run.name, ratio))
+            if ratio < 0.2:
+                bmreport_runs.append(run)
+
+    return bmreport_runs
 
 
-class Alert(models.Model):
+def subscribe_user_to_topic(instance: BMGUser, client: boto3.client) -> List[str]:
     """
-    Model an alert sent to developers about application errors
-    """
-    bm_report = models.OneToOneField(BMReport, related_name='alert', on_delete=models.CASCADE)
-    sent = models.DateTimeField("Time when alert was sent", auto_now_add=True)
+    Subscribe a BMGUser to a topic
 
-    def __str__(self) -> str:
-        return '{}'.format(self.sent.strftime('%Y-%m-%dT%H:%M:%S'))
+    :param instance: BMGUser instance
+    :param client: boto3 sns client
+    :return: list of subscription arns
+    """
+    if instance.contact_method == 'sms':
+        endpt = instance.phone
+    else:
+        endpt = instance.user.email
+
+    dow_arry = unpack_json_field(instance.contact_days)
+
+    sub_arns = []
+    if endpt != '' and 'AP_TEST' not in endpt:
+        for resort in instance.resorts.all():
+            # Include attributes here to create filter policy
+            params = {'TopicArn': resort.sns_arn, 'Protocol': instance.contact_method,
+                      'ReturnSubscriptionArn': True, 'Endpoint': endpt}
+            if len(dow_arry) > 0:
+                params['Attributes'] = {'FilterPolicy': json.dumps({'day_of_week': dow_arry})}
+
+            response = client.subscribe(**params)
+            sub_arns.append(response['SubscriptionArn'])
+
+    return sub_arns
+
+
+def unsubscribe_arn(client: boto3.client, sub_arn: str) -> None:
+    """
+    Unsubscribe the specific arn
+
+    :param client: boto3 sns client instance
+    :param sub_arn: arn string
+    """
+    logger = logging.getLogger(__name__)
+    try:
+        resp = client.unsubscribe(SubscriptionArn=sub_arn)
+        logger.info('Successfully unsubscribed, with status code {}'.format(resp['ResponseMetadata']
+                                                                            ['HTTPStatusCode']))
+    except Exception as e:
+        logger.warning('Unable to unsubscribe user:\n {}'.format(e))
+
+
+def unpack_json_field(json_str: str) -> List[str]:
+    """
+    Unpack a JSON string representation into an array
+
+    :param json_str: raw string representation
+    :return: Python array representation of string
+    """
+    try:
+        list_obj = json.loads(json_str)
+    except (TypeError, JSONDecodeError):
+        list_obj = []
+
+    return list_obj
+
+
+def unsubscribe_user_to_topic(instance: BMGUser, client: boto3.client, resort: Resort) -> List[str]:
+    """
+    Unsubscribe a BMGUser to a topic
+
+    :param instance: BMGUser instance
+    :param client: boto3 sns client
+    :param resort: resort instance that is being unsubscribed from
+    :return: list of subscription arns with arn for removed resort removed
+    """
+    # Loop through subscription arns for user and delete the one that corresponds to this resort
+    sub_arns = unpack_json_field(instance.sub_arn)
+
+    for sub_arn in sub_arns:
+        response = client.get_subscription_attributes(SubscriptionArn=sub_arn)
+        if response['Attributes']['TopicArn'] == resort.sns_arn:
+            sub_arns.remove(sub_arn)
+            unsubscribe_arn(client, sub_arn)
+
+    return sub_arns
