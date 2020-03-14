@@ -37,9 +37,10 @@ if __name__ == "__main__":
     logger.info('Getting list of resorts from api')
 
     # Get list of resorts from api
-    resorts = get_api('resorts/', headers={'Authorization': 'Token {}'.format(TOKEN)}, api_url=API_URL)
+    headers = {'Authorization': 'Token {}'.format(TOKEN)}
+    resorts = get_api('resorts/', headers=headers, api_url=API_URL)
     time = dt.datetime.now(tz=pytz.timezone('US/Mountain'))
-    get_api_wrapper = lambda x: get_api(x, headers={'Authorization': 'Token {}'.format(TOKEN)},
+    get_api_wrapper = lambda x: get_api(x, headers=headers,
                                         api_url=API_URL)
 
     # Fetch grooming report for each resort
@@ -58,20 +59,23 @@ if __name__ == "__main__":
     #     else:
     #         date, groomed_runs = get_grooming_report(parse_mode, url=report_url)
     #
+    #     logger.info('Got grooming report for {} on {}'.format(resort, date.strftime('%Y-%m-%d')))
     #     create_report(date, groomed_runs, resort_dict['id'], API_URL, {'Authorization': 'Token {}'.format(TOKEN)},
     #                   get_api_wrapper, time)
     #
     # Check for notif
-    resort_list = get_resorts_to_notify(get_api_wrapper, API_URL, requests, {'Authorization': 'Token {}'.format(TOKEN)})
-    post_messages(resort_list, headers={'Authorization': 'Token {}'.format(TOKEN)}, api_url=API_URL)
+    resort_list = get_resorts_to_notify(get_api_wrapper, API_URL,
+                                        requests, headers)
+    post_messages(resort_list, headers=headers,
+                  api_url=API_URL)
 
     # Check for no bmrun notifications
     no_bmruns_list = get_resorts_no_bmruns(time, get_api_wrapper)
-    post_no_bmrun_message(no_bmruns_list, headers={'Authorization': 'Token {}'.format(TOKEN)},
+    post_no_bmrun_message(no_bmruns_list, headers=headers,
                           api_url=API_URL)
     #
     # # Check for alerts
-    # time = dt.datetime.now(tz=pytz.timezone('US/Mountain'))
-    # alert_list = get_resort_alerts(time, get_api_wrapper)
-    # post_alert_message(alert_list, headers={'Authorization': 'Token {}'.format(TOKEN)},
-    #                    api_url=API_URL)
+    alert_list = get_resort_alerts(time, get_api_wrapper, headers={'Authorization': 'Token {}'.format(TOKEN)},
+                                   api_url=API_URL)
+    post_alert_message(alert_list, headers={'Authorization': 'Token {}'.format(TOKEN)},
+                       api_url=API_URL)

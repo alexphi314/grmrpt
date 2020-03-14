@@ -29,7 +29,7 @@ class ResortViewTestCase(TestCase):
 
         # Create resort object
         cls.resort_data = {'name': 'Beaver Creek TEST', 'location': 'CO', 'report_url': 'foo',
-                           'parse_mode': 'tika'}
+                           'parse_mode': 'tika', 'reports': []}
         resort_response = cls.client.post('/api/resorts/', cls.resort_data, format='json')
         assert resort_response.status_code == 201
 
@@ -52,11 +52,12 @@ class ResortViewTestCase(TestCase):
         self.resort_data['id'] = 1
         response[0].pop('sns_arn')
         response[0].pop('display_url')
+        response[0].pop('site_id')
         self.assertDictEqual(response[0], self.resort_data)
 
-        # Check random user has get access
+        # Check random user has no get access
         client.credentials(HTTP_AUTHORIZATION='Token ' + self.rando_token.key)
-        self.assertEqual(client.get('/api/resorts/').status_code, 200)
+        self.assertEqual(client.get('/api/resorts/').status_code, 403)
 
     def test_post(self) -> None:
         """
@@ -65,7 +66,8 @@ class ResortViewTestCase(TestCase):
         client = APIClient()
 
         # Check no user cannot post
-        resort_data = {'name': 'Vail TEST', 'location': 'CO', 'report_url': 'bar', 'parse_mode': 'tika'}
+        resort_data = {'name': 'Vail TEST', 'location': 'CO', 'report_url': 'bar', 'parse_mode': 'tika',
+                       'reports': []}
         self.assertEqual(client.post('/api/resorts/', resort_data, format='json').status_code, 401)
 
         # Check POST behavior for logged in staff user
@@ -81,6 +83,7 @@ class ResortViewTestCase(TestCase):
         response.pop('id')
         response.pop('sns_arn')
         response.pop('display_url')
+        response.pop('site_id')
         self.assertDictEqual(resort_data, response)
 
         # Check random user has no post access
@@ -122,7 +125,8 @@ class ResortViewTestCase(TestCase):
         client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
 
         # Check logged in staff DELETE works
-        resort_data = {'name': 'Vail TEST', 'location': 'CO', 'report_url': 'bar'}
+        resort_data = {'name': 'Vail TEST', 'location': 'CO', 'report_url': 'bar',
+                           'reports': []}
         response = client.post('/api/resorts/', resort_data, format='json')
         id = response.json()['id']
 
@@ -162,7 +166,8 @@ class RunViewTestCase(TestCase):
         cls.rando_token = Token.objects.get(user__username='test2')
 
         # Create resort, report, and run objects
-        cls.resort_data = {'name': 'Beaver Creek TEST', 'location': 'CO', 'report_url': 'foo'}
+        cls.resort_data = {'name': 'Beaver Creek TEST', 'location': 'CO', 'report_url': 'foo',
+                           'reports': []}
         resort_response = cls.client.post('/api/resorts/', cls.resort_data, format='json')
         assert resort_response.status_code == 201
         cls.resort_url = 'http://testserver/api/resorts/{}/'.format(resort_response.json()['id'])
@@ -198,9 +203,9 @@ class RunViewTestCase(TestCase):
         response.pop('id')
         self.assertEqual(response, self.run_data)
 
-        # Check random user has get access
+        # Check random user has no get access
         client.credentials(HTTP_AUTHORIZATION='Token ' + self.rando_token.key)
-        self.assertEqual(client.get('/api/runs/').status_code, 200)
+        self.assertEqual(client.get('/api/runs/').status_code, 403)
 
     def test_post(self) -> None:
         """
@@ -311,7 +316,8 @@ class ReportViewTestCase(TestCase):
         cls.rando_token = Token.objects.get(user__username='test2')
 
         # Create report, run, and resort objects
-        cls.resort_data = {'name': 'Beaver Creek TEST', 'location': 'CO', 'report_url': 'foo'}
+        cls.resort_data = {'name': 'Beaver Creek TEST', 'location': 'CO', 'report_url': 'foo',
+                           'reports': []}
         resort_response = cls.client.post('/api/resorts/', cls.resort_data, format='json')
         assert resort_response.status_code == 201
         cls.resort_url = 'http://testserver/api/resorts/{}/'.format(resort_response.json()['id'])
@@ -537,9 +543,9 @@ class ReportViewTestCase(TestCase):
         response.pop('bm_report')
         self.assertEqual(response, self.report_data)
 
-        # Check rando user has GEt
+        # Check rando user has no GET
         client.credentials(HTTP_AUTHORIZATION='Token ' + self.rando_token.key)
-        self.assertEqual(client.get('/api/reports/').status_code, 200)
+        self.assertEqual(client.get('/api/reports/').status_code, 403)
 
     def test_post(self) -> None:
         """
@@ -646,7 +652,8 @@ class BMReportViewTestCase(TestCase):
         cls.rando_token = Token.objects.get(user__username='test2')
 
         # Create report, resort, run objects
-        cls.resort_data = {'name': 'Beaver Creek TEST', 'location': 'CO', 'report_url': 'foo'}
+        cls.resort_data = {'name': 'Beaver Creek TEST', 'location': 'CO', 'report_url': 'foo',
+                           'reports': []}
         resort_response = cls.client.post('/api/resorts/', cls.resort_data, format='json')
         assert resort_response.status_code == 201
         cls.resort_url = 'http://testserver/api/resorts/{}/'.format(resort_response.json()['id'])
@@ -692,9 +699,9 @@ class BMReportViewTestCase(TestCase):
         # Check anon user does not have GET
         client = APIClient()
         self.assertEqual(client.get('/api/bmreports/').status_code, 401)
-        # Check rando user has GET
+        # Check rando user has no GET
         client.credentials(HTTP_AUTHORIZATION='Token ' + self.rando_token.key)
-        self.assertEqual(client.get('/api/bmreports/').status_code, 200)
+        self.assertEqual(client.get('/api/bmreports/').status_code, 403)
 
         # Check staff GET works as expected
         client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
@@ -953,7 +960,8 @@ class BMGUserViewTestCase(TestCase):
         # Create report, resort, run objects
         cls.client = APIClient()
         cls.client.credentials(HTTP_AUTHORIZATION='Token ' + cls.token.key)
-        cls.resort_data = {'name': 'Beaver Creek TEST', 'location': 'CO', 'report_url': 'foo'}
+        cls.resort_data = {'name': 'Beaver Creek TEST', 'location': 'CO', 'report_url': 'foo',
+                           'reports': []}
         resort_response = cls.client.post('/api/resorts/', cls.resort_data, format='json')
         assert resort_response.status_code == 201
         cls.resort_url = 'http://testserver/api/resorts/{}/'.format(resort_response.json()['id'])
@@ -1094,12 +1102,14 @@ class NotifyUsersTestCase(TestCase):
         cls.client.credentials(HTTP_AUTHORIZATION='Token ' + cls.token.key)
 
         # Create report, resort, run objects
-        cls.resort_data = {'name': 'Beaver Creek TEST', 'location': 'CO', 'report_url': 'foo'}
+        cls.resort_data = {'name': 'Beaver Creek TEST', 'location': 'CO', 'report_url': 'foo',
+                           'reports': []}
         resort_response = cls.client.post('/api/resorts/', cls.resort_data, format='json')
         assert resort_response.status_code == 201
         cls.resort_url = 'http://testserver/api/resorts/{}/'.format(resort_response.json()['id'])
 
-        cls.resort_data2 = {'name': 'Vail TEST', 'location': 'CO', 'report_url': 'foo'}
+        cls.resort_data2 = {'name': 'Vail TEST', 'location': 'CO', 'report_url': 'foo',
+                            'reports': []}
         resort_response2 = cls.client.post('/api/resorts/', cls.resort_data2, format='json')
         assert resort_response2.status_code == 201
         cls.resort_url2 = 'http://testserver/api/resorts/{}/'.format(resort_response2.json()['id'])
@@ -1224,9 +1234,9 @@ class NotifyUsersTestCase(TestCase):
         rpt.runs.set([run1])
         bm2.runs.set([run1])
 
-        # Confirm no notifications to go out
+        # Confirm notification goes out even though the previous day's report has the same blue moon runs on it
         resorts = get_resorts_to_notify(get_wrapper, 'http://testserver/api', client, {})
-        self.assertListEqual(resorts, [])
+        self.assertListEqual(resorts, ['http://testserver/api/bmreports/{}/'.format(bm2.id)])
 
         bm2.runs.add(run2)
         # Confirm notification ready to go out

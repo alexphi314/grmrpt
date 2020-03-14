@@ -69,7 +69,7 @@ class BMGUserCreationUpdateForm(forms.ModelForm):
     contact_method = forms.ChoiceField(help_text="Required if resorts are selected. "
                                                  "How you wish to receive notifications",
                                        required=False,
-                                       choices=[('EM', 'Email'), ('PH', 'SMS')],
+                                       choices=[(BMGUser.EMAIL, 'Email'), (BMGUser.PHONE, 'SMS')],
                                        label='Contact Method')
     contact_days = forms.MultipleChoiceField(help_text='Required if resorts are selected. '
                                                        'Days when you want to receive reports',

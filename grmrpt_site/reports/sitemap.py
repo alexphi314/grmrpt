@@ -1,6 +1,7 @@
 from django.contrib.sitemaps import Sitemap
 from django.db.models.query import QuerySet
 from django.urls import reverse
+from typing import List
 
 from reports.models import *
 

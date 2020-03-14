@@ -7,3 +7,4 @@ tika
 boto3
 django-health-check
 pytz
+matplotlib

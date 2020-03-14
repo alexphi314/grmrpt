@@ -24,7 +24,7 @@ logger.setLevel(logging.INFO)
 
 # Handler
 LOG_FILE = '/opt/python/log/fetch-app.log'
-handler = logging.handlers.RotatingFileHandler(LOG_FILE, maxBytes=1048576, backupCount=5)
+handler = logging.handlers.RotatingFileHandler(LOG_FILE, maxBytes=1048576, backupCount=5, encoding='utf-8')
 handler.setLevel(logging.INFO)
 
 # Formatter
@@ -171,18 +171,25 @@ def get_grooming_report(parse_mode: str, url: str = None,
             if 'weather' in line.lower() or 'snowfall' in line.lower():
                 break
 
+    elif parse_mode == 'json':
+        response = response.json()
+
+        date = dt.datetime.strptime(response['LastUpdate'], '%Y-%m-%dT%H:%M:%S%z').date()
+        runs = []
+        for area in response['MountainAreas']:
+            for trail in area['Trails']:
+                if trail['Grooming'] == 'Yes' or trail['Grooming'] == 'Second Shift' or trail['Grooming'] == 'Top':
+                    runs.append(trail['Name'].strip())
+
     else:
         response = response.json()
 
-        date_options = []
+        date = dt.datetime.strptime(response['Date'], '%Y-%m-%dT%H:%M:%S').date()
         runs = []
-        for area in response['MountainAreas']:
-            date_options.append(dt.datetime.strptime(area['LastUpdate'], '%Y-%m-%dT%H:%M:%S%z'))
-            for trial in area['Trails']:
-                if trial['Grooming'] == 'Yes':
-                    runs.append(trial['Name'].strip())
-
-        date = min(date_options).date()
+        for area in response['GroomingAreas']:
+            for trail in area['Runs']:
+                if trail['IsGroomed']:
+                    runs.append(trail['Name'].strip())
 
     return date, runs
 
@@ -212,14 +219,20 @@ def create_report(date: dt.datetime, groomed_runs: List[str], resort_id: int,
     if len(reports) > 0:
         assert len(reports) == 1
         report_id = reports[0]['id']
-        logger.info('Report object already present in api')
+        logger.info('Report object already present in api for {} on {}'.format(
+            resort_name.replace('%20', ' '),
+            date.strftime('%Y-%m-%d')
+        ))
     else:
         report_dict = {'date': date.strftime('%Y-%m-%d'), 'resort': '/'.join([api_url, resort_url])}
         report_response = request_client.post('/'.join([api_url, 'reports/']), data=report_dict,
                                               headers=head)
 
         if report_response.status_code == 201:
-            logger.info('Successfully created report object in api')
+            logger.info('Successfully created report object in api for {} on {}'.format(
+                resort_name.replace('%20', ' '),
+                date.strftime('%Y-%m-%d')
+            ))
             report_id = report_response.json()['id']
         else:
             raise APIError('Failed to create report object:\n{}'.format(report_response.text))
@@ -294,13 +307,13 @@ def create_report(date: dt.datetime, groomed_runs: List[str], resort_id: int,
 
 
 def get_most_recent_reports(resort: Dict[str, str], get_api_wrapper) -> \
-        Union[None, Tuple[Dict[str, str], str, List[Dict[str, str]]]]:
+        Union[None, Tuple[Dict[str, str], str]]:
     """
     Fetch the most recent report for the input resort, as well as yesterday's report
 
     :param resort: data representation of resort
     :param get_api_wrapper: wrapper function used to make GET requests of api
-    :return: data dict of most recent BMReport, url to most recent BMReport, and list of runs groomed yesterday
+    :return: data dict of most recent BMReport, url to most recent BMReport
     """
     reports = get_api_wrapper('reports/?resort={}'.format(resort['name'].replace(' ', '%20')))
     # Only include reports with run objects attached
@@ -316,19 +329,7 @@ def get_most_recent_reports(resort: Dict[str, str], get_api_wrapper) -> \
     most_recent_report_url = most_recent_report['bm_report']
     bm_report_data = get_api_wrapper(most_recent_report_url)
 
-    # Get the bm report for yesterday, if it exists, and get the run list
-    yesterday = max(report_dates_list) - dt.timedelta(days=1)
-    yesterday_report = get_api_wrapper('reports/?date={}&resort={}'.format(
-        yesterday.strftime('%Y-%m-%d'),
-        resort['name']
-    ))
-    if len(yesterday_report) > 0:
-        assert len(yesterday_report) == 1
-        yesterday_runs = get_api_wrapper(yesterday_report[0]['bm_report'])['runs']
-    else:
-        yesterday_runs = []
-
-    return bm_report_data, most_recent_report_url, yesterday_runs
+    return bm_report_data, most_recent_report_url
 
 
 def get_resorts_to_notify(get_api_wrapper, api_url, request_client, headers) -> List[str]:
@@ -346,8 +347,7 @@ def get_resorts_to_notify(get_api_wrapper, api_url, request_client, headers) -> 
 
     for resort in resorts:
         try:
-            bm_report_data, most_recent_report_url, yesterday_runs = get_most_recent_reports(resort,
-                                                                                             get_api_wrapper)
+            bm_report_data, most_recent_report_url = get_most_recent_reports(resort, get_api_wrapper)
         except TypeError:
             continue
 
@@ -362,8 +362,7 @@ def get_resorts_to_notify(get_api_wrapper, api_url, request_client, headers) -> 
         assert len(notification_response) <= 1
 
         if (len(notification_response) == 0 or
-                (len(notification_response) == 1 and notification_response[0]['type'] == 'no_runs')) \
-                and Counter(bm_report_data['runs']) != Counter(yesterday_runs):
+                (len(notification_response) == 1 and notification_response[0]['type'] == 'no_runs')):
             # No notification posted for this report
             contact_list.append(most_recent_report_url)
 
@@ -373,11 +372,6 @@ def get_resorts_to_notify(get_api_wrapper, api_url, request_client, headers) -> 
                                              headers=headers)
                 if resp.status_code != 204:
                     raise APIError('Unable to delete notification: {}'.format(resp.text))
-
-        elif Counter(bm_report_data['runs']) == Counter(yesterday_runs):
-            logger.info('BM report run list identical to yesterday for {} -- not sending notification'.format(
-                resort['name']
-            ))
 
     return contact_list
 
@@ -396,7 +390,7 @@ def get_resorts_no_bmruns(time: dt.datetime, api_wrapper) -> List[str]:
 
         for resort in resorts:
             try:
-                bm_report_data, most_recent_report_url, _ = get_most_recent_reports(resort, api_wrapper)
+                bm_report_data, most_recent_report_url = get_most_recent_reports(resort, api_wrapper)
             except TypeError:
                 continue
 
@@ -432,7 +426,7 @@ def get_resort_alerts(time: dt.datetime, api_wrapper: get_api, api_url: str,
 
         for resort in resorts:
             try:
-                bm_report_data, most_recent_report_url, _ = get_most_recent_reports(resort, api_wrapper)
+                bm_report_data, most_recent_report_url = get_most_recent_reports(resort, api_wrapper)
             except TypeError:
                 continue
 
@@ -479,9 +473,47 @@ def post_message_to_sns(sns, **kwargs) -> Dict[str, str]:
     return response
 
 
+def get_topic_subs(topic_arn: str) -> int:
+    """
+    Get the number of confirmed subscribers to the input SNS topic arn
+
+    :param topic_arn: topic arn identifier
+    :return: number of confirmed subs
+    """
+    sns = boto3.client('sns', region_name='us-west-2', aws_access_key_id=os.getenv('ACCESS_ID'),
+                       aws_secret_access_key=os.getenv('SECRET_ACCESS_KEY'))
+
+    topic_attrs = sns.get_topic_attributes(
+        TopicArn=topic_arn
+    )
+
+    return int(topic_attrs['Attributes']['SubscriptionsConfirmed'])
+
+
+def post_notification(report: str, api_url: str, headers: Dict[str, str], notif_type: str = None) -> None:
+    """
+    Post a notification record for the input BMReport url
+
+    :param report: url for a given BMReport
+    :param api_url: api url
+    :param headers: auth headers to include with post request
+    :param notif_type: optionally include type field specifying type of notif
+    """
+    notification_data = {'bm_report': report}
+    if notif_type is not None:
+        notification_data['type'] = notif_type
+
+    response = requests.post('{}/notifications/'.format(api_url), data=notification_data,
+                             headers=headers)
+    if response.status_code != 201:
+        raise APIError('Unable to create notification record in api: {}'.format(
+            response.text
+        ))
+
+
 def post_messages(contact_list: List[str], headers: Dict[str, str], api_url: str) -> None:
     """
-    Post the input messages to the SNS queue
+    Post a BMReport to each SNS topic on the contact_list
 
     :param contact_list: list of bm_report urls to notify
     :param headers: http request headers for authentication
@@ -527,6 +559,11 @@ def post_messages(contact_list: List[str], headers: Dict[str, str], api_url: str
                         report_link
                     )
 
+        if get_topic_subs(resort_data['sns_arn']) == 0:
+            logger.info('The topic for {} has zero subs, not sending message'.format(resort_data['name']))
+            post_notification(report, api_url, headers)
+            continue
+
         response = post_message_to_sns(sns, TopicArn=resort_data['sns_arn'], MessageStructure='json',
                                        Message=json.dumps({'email': email_msg, 'sms': phone_msg,
                                                            'default': email_msg}), Subject=email_subj,
@@ -535,18 +572,12 @@ def post_messages(contact_list: List[str], headers: Dict[str, str], api_url: str
 
         if response['MessageId']:
             # Post notification record
-            notification_data = {'bm_report': report}
-            response = requests.post('{}/notifications/'.format(api_url), data=notification_data,
-                                     headers=headers)
-            if response.status_code != 201:
-                raise APIError('Unable to create notification record in api: {}'.format(
-                    response.text
-                ))
+            post_notification(report, api_url, headers)
 
 
 def post_no_bmrun_message(contact_list: List[str], headers: Dict[str, str], api_url: str) -> None:
     """
-    Post the input messages to the SQS queue
+    Post a 'no bm runs' message to the SNS topics on the contact_list
 
     :param contact_list: list of resorts with no bmruns on today's report
     :param headers: http request headers for authentication
@@ -588,6 +619,11 @@ def post_no_bmrun_message(contact_list: List[str], headers: Dict[str, str], api_
                         report_link
                     )
 
+        if get_topic_subs(resort_data['sns_arn']) == 0:
+            logger.info('The topic for {} has zero subs, not sending message'.format(resort_data['name']))
+            post_notification(report, api_url, headers, notif_type='no_runs')
+            continue
+
         response = post_message_to_sns(sns, TopicArn=resort_data['sns_arn'], MessageStructure='json',
                                        Message=json.dumps({'email': email_msg, 'sms': phone_msg,
                                                            'default': email_msg}), Subject=email_subj,
@@ -596,18 +632,12 @@ def post_no_bmrun_message(contact_list: List[str], headers: Dict[str, str], api_
 
         if response['MessageId']:
             # Post notification record
-            notification_data = {'bm_report': report, 'type': 'no_runs'}
-            response = requests.post('{}/notifications/'.format(api_url), data=notification_data,
-                                     headers=headers)
-            if response.status_code != 201:
-                raise APIError('Unable to create notification record in api: {}'.format(
-                    response.text
-                ))
+            post_notification(report, api_url, headers, notif_type='no_runs')
 
 
 def post_alert_message(alert_list: List[str], headers: Dict[str, str], api_url: str) -> None:
     """
-    Post a message to the dev topic for each alert in alert_list
+    Post an alert to the SNS topics on alert_list
 
     :param alert_list: list of BMReports with no notifications sent out
     :param headers: authentication headers to provide with GET requests

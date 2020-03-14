@@ -10204,6 +10204,11 @@ a.text-dark:hover, a.text-dark:focus {
   color: var(--uclablue);
 }
 
+.text-ucla:hover, .text-ucla:focus {
+  color: var(--uclablue);
+  text-decoration: underline;
+}
+
 .text-cornflower {
   color: var(--cornflower);
 }
@@ -10337,5 +10342,30 @@ a.text-dark:hover, a.text-dark:focus {
 .navbar-nav .nav-item:hover .nav-link {
     color: white;
     text-decoration: none;
+}
+
+.alert-link-dark {
+  color: var(--bluejeans);
+}
+
+.alert-link-dark:hover, .alert-link-dark:focus {
+  text-decoration: underline;
+  color: var(--bluejeans);
+}
+
+.text-blackcoral{
+  color: var(--blackcoral);
+}
+
+.text-uclablue{
+  color: var(--uclablue);
+}
+
+.text-cornflower{
+  color: var(--cornflower);
+}
+
+.text-bluejeans{
+  color: var(--bluejeans);
 }
 /*# sourceMappingURL=bootstrap.css.map */

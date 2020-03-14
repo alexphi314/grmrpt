@@ -1,12 +1,17 @@
+from collections import Counter
+import io
+
 from django.contrib.auth.models import User
 from django.contrib.auth import logout, login
 from django.shortcuts import render
 from django.db import transaction
-from django.http import HttpResponseBadRequest, HttpResponseRedirect, HttpResponseNotFound
+from django.http import HttpResponseBadRequest, HttpResponseRedirect, HttpResponseNotFound, HttpResponse
 from django.urls import reverse as django_reverse
 from django.contrib.auth.decorators import login_required
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_agg import FigureCanvasAgg
 
-from reports.models import Resort
+from reports.models import Resort, Run
 from site_pages.forms import BMGUserCreationUpdateForm, SignupForm, UpdateForm
 from grmrptcore.settings import LOGIN_REDIRECT_URL
 
@@ -184,6 +189,7 @@ def delete(request):
     else:
         return HttpResponseBadRequest()
 
+
 @login_required()
 def reports(request):
     """
@@ -200,7 +206,7 @@ def reports(request):
 
         # Make a list of run names for each report
         report_runs = [
-            [run.name for run in report.runs.all()]
+            [[run.name, '/runs/{}'.format(run.id)] for run in report.runs.all()]
             for report in most_recent_reports
         ]
 
@@ -232,3 +238,94 @@ def reports(request):
 
     else:
         return HttpResponseBadRequest()
+
+
+@login_required()
+def run_stats_img(request, run_id: int) -> HttpResponse:
+    """
+    Plot the stats of a specific run
+
+    :param request: http request
+    :param run_id: run record ID in db
+    :return: image as HttpResponse
+    """
+    run = Run.objects.get(id=run_id)
+    f = plt.figure()
+    FigureCanvasAgg(f)
+
+    # Calculate DoW distro
+    dow = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+    dow_array = [rpt.date.strftime('%a') for rpt in run.reports.all()]
+    dow_dict = Counter(dow_array)
+
+    # Create data array for plotting including all days of week
+    dow_data = [
+        dow_dict.get(day, 0) for day in dow
+    ]
+
+    plt.plot(dow, dow_data)
+    plt.ylabel('Number of Grooms')
+    plt.title('Grooming Frequency Per Day of Week')
+    plt.tight_layout()
+
+    # Generate canvas and return
+    buf = io.BytesIO()
+    plt.savefig(buf, format='png')
+    plt.close(f)
+    response = HttpResponse(buf.getvalue(), content_type='image/png')
+
+    return response
+
+
+@login_required()
+def run_stats(request, run_id: int):
+    """
+    Display season stats for a specific run
+
+    :param request: http request
+    :param run_id: run record ID in db
+    :return: rendered html page
+    """
+    run = Run.objects.get(id=run_id)
+
+    num_reports = run.reports.count()
+    num_bm_reports = run.bm_reports.count()
+
+    if num_bm_reports > 0:
+        last_bm_report = run.bm_reports.all()[num_bm_reports-1].date.strftime('%a %b %d')
+    else:
+        last_bm_report = ''
+
+    if num_reports > 0:
+        last_report = run.reports.all()[num_reports-1].date.strftime('%a %b %d')
+    else:
+        last_report = ''
+
+    # Get list of groom dates, tracking which were 'blue moon' days
+    rpt_list = []
+    bm_dates = [rpt.date for rpt in run.bm_reports.all()]
+    for rpt in run.reports.all():
+        if rpt.date in bm_dates:
+            color = 'bm'
+        else:
+            color = ''
+
+        rpt_list.append([rpt.date.strftime('%a %b %d'), color])
+
+    params = {}
+    params['num_reports'] = num_reports
+    params['num_bm_reports'] = num_bm_reports
+    params['last_bm_report'] = last_bm_report
+    params['last_report'] = last_report
+    params['plot_image'] = django_reverse('run-stats-plot', kwargs={'run_id': run_id})
+    params['name'] = run.name
+    params['rpt_list'] = rpt_list
+
+    return render(
+        request,
+        'run_stats.html',
+        params
+    )
+
+
+

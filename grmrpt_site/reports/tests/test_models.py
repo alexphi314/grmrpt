@@ -8,7 +8,7 @@ from rest_framework.test import APIClient
 
 sys.path.append('../grmrpt_fetch')
 from reports.models import *
-from grmrpt_fetch.fetch_server import get_api, get_resorts_no_bmruns
+from grmrpt_fetch.fetch_server import get_api, get_resorts_no_bmruns, get_topic_subs
 
 
 class ResortTestCase(TestCase):
@@ -133,6 +133,17 @@ class BMGUserTestCase(TestCase):
         self.assertEqual(bmg_user.user, self.user)
         self.assertEqual(bmg_user.favorite_runs.count(), 0)
 
+    def test_phone_regex(self) -> None:
+        bmg_user = self.user.bmg_user
+        bmg_user.phone = '+13036708900'
+        bmg_user.full_clean()
+
+        bmg_user.phone = '+48708790067'
+        bmg_user.full_clean()
+
+        bmg_user.phone = '8005764532'
+        self.assertRaises(ValidationError, bmg_user.full_clean)
+
     def test_str(self) -> None:
         self.assertEqual(str(BMGUser.objects.all()[0]), 'foo')
 
@@ -169,14 +180,14 @@ class SNSTopicSubscriptionTestCase(TestCase):
 
         # Create 2 users
         cls.user = User.objects.create(username='foo', email='foo@gmail.com')
-        cls.user.bmg_user.contact_method = 'PH'
+        cls.user.bmg_user.contact_method = 'sms'
         cls.user.bmg_user.contact_days = json.dumps(['Tue'])
-        cls.user.bmg_user.phone = '18006756833'
+        cls.user.bmg_user.phone = '+18006756833'
         cls.user.bmg_user.save()
 
         cls.user2 = User.objects.create(username='bar', email='foobar@gmail.com')
-        cls.user2.bmg_user.contact_method = 'PH'
-        cls.user2.bmg_user.phone = '18001234567'
+        cls.user2.bmg_user.contact_method = 'sms'
+        cls.user2.bmg_user.phone = '+18001234567'
         cls.user2.save()
 
     def test_sns_topic_creation(self) -> None:
@@ -201,6 +212,11 @@ class SNSTopicSubscriptionTestCase(TestCase):
         self.user2.bmg_user.resorts.set([self.resort])
         self.user.bmg_user.save()
 
+        # Check topic arns show correct number of subs
+        time.sleep(60)
+        self.assertEqual(get_topic_subs(self.resort.sns_arn), 2)
+        self.assertEqual(get_topic_subs(self.resort2.sns_arn), 1)
+
         for indx, subscription in enumerate(json.loads(self.user.bmg_user.sub_arn)):
             response = sns.get_subscription_attributes(SubscriptionArn=subscription)
             if indx == 0:
@@ -209,16 +225,32 @@ class SNSTopicSubscriptionTestCase(TestCase):
                 arn = self.resort2.sns_arn
 
             self.assertEqual(response['Attributes']['TopicArn'], arn)
+            self.assertEqual(response['Attributes']['Protocol'], 'sms')
+            self.assertEqual(response['Attributes']['Endpoint'], self.user.bmg_user.phone)
+
+        # check user2
+        resp = sns.get_subscription_attributes(SubscriptionArn=json.loads(self.user2.bmg_user.sub_arn)[0])
+        self.assertEqual(resp['Attributes']['Protocol'], 'sms')
+        self.assertEqual(resp['Attributes']['Endpoint'], self.user2.bmg_user.phone)
+
+        #
 
         # Link user to resort3
         resort3 = Resort.objects.create(name='resort3', report_url='foo', location='Vail')
         self.user.bmg_user.resorts.add(resort3)
         self.assertEqual(len(json.loads(self.user.bmg_user.sub_arn)), 3)
+        time.sleep(60)
+        self.assertEqual(get_topic_subs(resort3.sns_arn), 1)
 
         # Remove link to resort2
         self.user.bmg_user.resorts.remove(self.resort2)
         self.user2.bmg_user.resorts.remove(self.resort)
         self.assertEqual(len(json.loads(self.user.bmg_user.sub_arn)), 2)
+
+        # Check sub numbers
+        time.sleep(60)
+        self.assertEqual(get_topic_subs(self.resort.sns_arn), 1)
+        self.assertEqual(get_topic_subs(self.resort2.sns_arn), 0)
 
         for indx, subscription in enumerate(json.loads(self.user.bmg_user.sub_arn)):
             response = sns.get_subscription_attributes(SubscriptionArn=subscription)
@@ -253,8 +285,8 @@ class SNSTopicSubscriptionTestCase(TestCase):
         # Link user2 to resort2
         self.resort2.bmg_users.add(self.user2.bmg_user)
         self.assertEqual(len(json.loads(self.user2.bmg_user.sub_arn)), 1)
-        response = sns.get_subscription_attributes(SubscriptionArn=self.user2.bmg_user.sub_arn[0])
-        self.assertEqual(response['Attributes']['TopicArn'], self.resort2.sns_arn)
+        response = sns.get_subscription_attributes(SubscriptionArn=json.loads(self.user2.bmg_user.sub_arn)[0])
+        self.assertEqual(self.resort2.sns_arn, response['Attributes']['TopicArn'])
 
         response = sns.get_topic_attributes(TopicArn=self.resort2.sns_arn)
         self.assertEqual(response['Attributes']['SubscriptionsConfirmed'], '1')
@@ -264,7 +296,7 @@ class SNSTopicSubscriptionTestCase(TestCase):
         test deleting user removes subscription
         """
         usr3 = User.objects.create(username='bas', email='foobar1@gmail.com')
-        usr3.bmg_user.contact_method = 'PH'
+        usr3.bmg_user.contact_method = 'sms'
         usr3.bmg_user.phone = '13037765456'
         usr3.bmg_user.save()
 
@@ -279,7 +311,7 @@ class SNSTopicSubscriptionTestCase(TestCase):
 
         # Confirm deleting BMGUser directly also removes sub
         usr3 = User.objects.create(username='basfoo', email='foobar2@gmail.com')
-        usr3.bmg_user.contact_method = 'PH'
+        usr3.bmg_user.contact_method = 'sms'
         usr3.bmg_user.phone = '13037765456'
         usr3.bmg_user.save()
         usr3.bmg_user.resorts.set([self.resort2, self.resort])
@@ -290,9 +322,9 @@ class SNSTopicSubscriptionTestCase(TestCase):
         for sub_arn in sub_arns:
             self.assertRaises(ClientError, sns.get_subscription_attributes, SubscriptionArn=sub_arn)
 
-    def test_contact_day_update(self) -> None:
+    def test_update_contact_day_contact_method(self) -> None:
         """
-        test updating contact days causes subscription to update attrs
+        test updating contact days or contact method causes subscription to update attrs
         """
         sns = boto3.client('sns', region_name='us-west-2', aws_access_key_id=os.getenv('ACCESS_ID'),
                            aws_secret_access_key=os.getenv('SECRET_ACCESS_KEY'))
@@ -332,6 +364,42 @@ class SNSTopicSubscriptionTestCase(TestCase):
             filter_policy = json.loads(response['Attributes']['FilterPolicy'])
 
             self.assertListEqual(filter_policy['day_of_week'], ['Thu'])
+
+        # Update contact method
+        self.user2.bmg_user.contact_method = 'email'
+        self.user2.save()
+        # Check contact method set
+        sub_arns = json.loads(self.user2.bmg_user.sub_arn)
+        self.assertTrue(len(sub_arns) > 1)
+        for sub_arn in sub_arns:
+            response = sns.get_subscription_attributes(SubscriptionArn=sub_arn)
+            self.assertEqual(response['Attributes']['Protocol'], 'email')
+            self.assertEqual(response['Attributes']['Endpoint'], self.user2.email)
+
+        # For multiple subscriptions -> change the contact method and contact days
+        self.user2.bmg_user.contact_method = 'sms'
+        self.user2.bmg_user.contact_days = json.dumps(['Mon', 'Sun'])
+        self.user2.save()
+        sub_arns = json.loads(self.user2.bmg_user.sub_arn)
+        self.assertTrue(len(sub_arns) > 1)
+        for sub_arn in sub_arns:
+            response = sns.get_subscription_attributes(SubscriptionArn=sub_arn)
+            self.assertEqual('sms', response['Attributes']['Protocol'])
+            self.assertEqual(self.user2.bmg_user.phone, response['Attributes']['Endpoint'])
+            self.assertListEqual(['Mon', 'Sun'], json.loads(response['Attributes']['FilterPolicy'])['day_of_week'])
+
+        # Confirm it won't update contact days if it is empty -> will have an empty dict
+        self.user2.bmg_user.contact_method = 'email'
+        self.user2.bmg_user.contact_days = json.dumps([])
+        self.user2.save()
+        sub_arns = json.loads(self.user2.bmg_user.sub_arn)
+        self.assertTrue(len(sub_arns) > 1)
+        for sub_arn in sub_arns:
+            response = sns.get_subscription_attributes(SubscriptionArn=sub_arn)
+            self.assertEqual('email', response['Attributes']['Protocol'])
+            self.assertEqual(self.user2.email, response['Attributes']['Endpoint'])
+            # This is weird -> I'm guessing it pulls an existing subscription made earlier that wasn't deleted
+            self.assertListEqual(['Thu'], json.loads(response['Attributes']['FilterPolicy'])['day_of_week'])
 
         self.user2.bmg_user.resorts.set([])
 

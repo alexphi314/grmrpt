@@ -1,0 +1,72 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+    <div class="container-fluid float-left pt-4">
+        <a href="{% url 'reports' %}">
+            <button class="btn btn-light active">
+                <i class="fa fa-angle-left" aria-hidden="true"></i>
+                Return to Blue Moon Reports
+            </button>
+        </a>
+        <p></p>
+        <h2 class="text-vivid">{{ name }}</h2>
+        <div class="row">
+            <div class="col-md-4 pt-2">
+                <h6 class="text-dark">Season Totals</h6>
+                <table class="table">
+                    <tbody>
+                        <tr>
+                            <td>Number of Grooms</td>
+                            <td>{{ num_reports }}</td>
+                        </tr>
+                        <tr>
+                            <td>Appearances on Blue Moon Report</td>
+                            <td>{{ num_bm_reports }}</td>
+                        </tr>
+                        {% if last_report != '' %}
+                            <tr>
+                                <td>Last Groomed</td>
+                                <td>{{ last_report }}</td>
+                            </tr>
+                        {% endif %}
+                        {% if last_bm_report != '' %}
+                            <tr>
+                                <td>Last Blue Moon Report</td>
+                                <td>{{ last_bm_report }}</td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="col-md-5">
+                <img src="{{ plot_image }}" class="img-fluid">
+            </div>
+            {% if rpt_list|length > 0 %}
+                <div class="col-md-3 pt-2">
+                    <h6 class="text-dark">Groom Dates</h6>
+                    <table class="table">
+                        <tbody>
+                            {% for entry in rpt_list %}
+                                {% if entry.1 == 'bm' %}
+                                    <tr>
+                                        <td class="text-primary">{{ entry.0 }}</td>
+                                    </tr>
+                                {% else %}
+                                    <tr>
+                                        <td>{{ entry.0 }}</td>
+                                    </tr>
+                                {% endif %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    <div class="container-sm">
+                        <p class="text-primary small text-right">Blue Moon Groom</p>
+                        <p class="small text-right">Regular Groom</p>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+{% endblock %}
