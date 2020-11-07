@@ -52,27 +52,26 @@ class CommandError(Exception):
     pass
 
 
-def resolve_response(url: str, headers: Dict[str, str], api_url: str, request_client) -> Dict:
+def resolve_response(url: str, headers: Dict[str, str], api_url: str) -> Dict:
     """
     Execute a GET request from the api of the given relative url and return a Dict object
 
     :param url: url to fetch - either a relative or absolute url
     :param headers: http request headers
     :param api_url: url for api server
-    :param request_client: client used to make HTTP requests
     :return: dict containing response data
     """
     if api_url not in url:
         url = '/'.join([api_url, url])
 
-    response = request_client.get(url, headers=headers)
+    response = requests.get(url, headers=headers)
     if response.status_code != 200:
         raise APIError('Did not receive valid response from api:\n{}'.format(response.text))
 
     return response.json()
 
 
-def get_api(relative_url: str, headers: Dict[str, str], api_url: str, request_client=requests) -> Dict:
+def get_api(relative_url: str, headers: Dict[str, str], api_url: str) -> Dict:
     """
     Execute a GEt request for a relative url. Perform pagination tasks to ensure all results are returned.
 
@@ -82,13 +81,13 @@ def get_api(relative_url: str, headers: Dict[str, str], api_url: str, request_cl
     :param request_client: client used to make HTTP requests
     :return: dict containing response data
     """
-    response = resolve_response(relative_url, headers, api_url, request_client)
+    response = resolve_response(relative_url, headers, api_url)
 
     if 'results' in response.keys():
         data = response['results']
 
         while response['next'] is not None:
-            response = resolve_response(response['next'], headers, api_url, request_client)
+            response = resolve_response(response['next'], headers, api_url)
             data += response['results']
 
         return data
@@ -144,7 +143,7 @@ def get_grooming_report(parse_mode: str, url: str = None,
             content = parsed['content'].strip()
             trail_re = re.compile(r'^\d+\.?\s(?P<name>(?!\d).*\w+.+(?<!")+$)')
             date_re = re.compile(r'\d\d?,\s\d\d\d\d')
-        except AttributeError:
+        except (AttributeError, Exception):
             # This occurs when tika server doesn't respond with anything
             # Attempt to restart the server and re-run the function
             logger.info('Attempting to restart tika server, got bad response')
@@ -195,8 +194,7 @@ def get_grooming_report(parse_mode: str, url: str = None,
 
 
 def create_report(date: dt.datetime, groomed_runs: List[str], resort_id: int,
-                  api_url: str, head: Dict[str, str], get_api_wrapper, time: dt.datetime,
-                  request_client=requests) -> None:
+                  api_url: str, head: Dict[str, str], get_api_wrapper, time: dt.datetime) -> None:
     """
     Create the grooming report and push if not in api
 
@@ -225,7 +223,7 @@ def create_report(date: dt.datetime, groomed_runs: List[str], resort_id: int,
         ))
     else:
         report_dict = {'date': date.strftime('%Y-%m-%d'), 'resort': '/'.join([api_url, resort_url])}
-        report_response = request_client.post('/'.join([api_url, 'reports/']), data=report_dict,
+        report_response = requests.post('/'.join([api_url, 'reports/']), data=report_dict,
                                               headers=head)
 
         if report_response.status_code == 201:
@@ -283,7 +281,7 @@ def create_report(date: dt.datetime, groomed_runs: List[str], resort_id: int,
             # Otherwise, create the run and attach to report from this end
             else:
                 run_data = {'name': run, 'resort': '/'.join([api_url, resort_url])}
-                update_response = request_client.post('/'.join([api_url, 'runs/']), data=run_data,
+                update_response = requests.post('/'.join([api_url, 'runs/']), data=run_data,
                                                       headers=head)
 
                 if update_response.status_code != 201:
@@ -297,7 +295,7 @@ def create_report(date: dt.datetime, groomed_runs: List[str], resort_id: int,
         # Log groomed runs
         logger.info('Groomed runs: {}'.format(', '.join(groomed_runs)))
         report_response['runs'] = report_runs
-        update_report_response = request_client.put('/'.join([api_url, report_url]), data=report_response,
+        update_report_response = requests.put('/'.join([api_url, report_url]), data=report_response,
                                                     headers=head)
 
         if update_report_response.status_code == 200:
@@ -332,13 +330,12 @@ def get_most_recent_reports(resort: Dict[str, str], get_api_wrapper) -> \
     return bm_report_data, most_recent_report_url
 
 
-def get_resorts_to_notify(get_api_wrapper, api_url, request_client, headers) -> List[str]:
+def get_resorts_to_notify(get_api_wrapper, api_url, headers) -> List[str]:
     """
     Query the API to find the list of resorts that need to be notified about a new BM report.
 
     :param get_api_wrapper: lambda function that takes relative url for GET request and returns request in JSON
     :param api_url: url to api
-    :param request_client: client used to make HTTP requests
     :param headers: authentication headers to use in requests
     :return: list of bm_report urls to notify for
     """
@@ -368,7 +365,7 @@ def get_resorts_to_notify(get_api_wrapper, api_url, request_client, headers) -> 
 
             # Delete the no_run notif if it exists
             if len(notification_response) == 1:
-                resp = request_client.delete('{}/notifications/{}/'.format(api_url, notification_response[0]['id']),
+                resp = requests.delete('{}/notifications/{}/'.format(api_url, notification_response[0]['id']),
                                              headers=headers)
                 if resp.status_code != 204:
                     raise APIError('Unable to delete notification: {}'.format(resp.text))
@@ -407,7 +404,7 @@ def get_resorts_no_bmruns(time: dt.datetime, api_wrapper) -> List[str]:
 
 
 def get_resort_alerts(time: dt.datetime, api_wrapper: get_api, api_url: str,
-                      headers: Dict[str, str], client=requests) -> List[str]:
+                      headers: Dict[str, str]) -> List[str]:
     """
     Fetch the list of BMreports that have not sent out a notification
 
@@ -433,8 +430,7 @@ def get_resort_alerts(time: dt.datetime, api_wrapper: get_api, api_url: str,
             # Check the most recent BMreport is the same date as the current time
             if bm_report_data['date'] != time.date().strftime('%Y-%m-%d'):
                 # Create an empty report for today
-                create_report(time, [], resort['id'], api_url, headers, api_wrapper, time=time,
-                              request_client=client)
+                create_report(time, [], resort['id'], api_url, headers, api_wrapper, time=time)
                 # Get the created report
                 reports = api_wrapper('reports/?resort={}&date={}'.format(
                     resort['name'],
@@ -717,8 +713,7 @@ def application(environ, start_response):
                 logger.info("Received task %s scheduled at %s", environ['HTTP_X_AWS_SQSD_TASKNAME'],
                             environ['HTTP_X_AWS_SQSD_SCHEDULED_AT'])
 
-                resort_list = get_resorts_to_notify(get_api_wrapper, API_URL,
-                                                    requests, headers)
+                resort_list = get_resorts_to_notify(get_api_wrapper, API_URL, headers)
                 post_messages(resort_list, headers=headers,
                               api_url=API_URL)
 
