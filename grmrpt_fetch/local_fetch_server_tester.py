@@ -44,28 +44,27 @@ if __name__ == "__main__":
                                         api_url=API_URL)
 
     # Fetch grooming report for each resort
-    # for resort_dict in resorts:
-    #     resort = resort_dict['name']
-    #
-    #     report_url = resort_dict['report_url']
-    #     parse_mode = resort_dict['parse_mode']
-    #
-    #     if parse_mode == 'json':
-    #         response = requests.get(report_url)
-    #         if response.status_code != 200:
-    #             raise ValueError('Unable to fetch grooming report: {}'.format(response.text))
-    #
-    #         date, groomed_runs = get_grooming_report(parse_mode, response=response)
-    #     else:
-    #         date, groomed_runs = get_grooming_report(parse_mode, url=report_url)
-    #
-    #     logger.info('Got grooming report for {} on {}'.format(resort, date.strftime('%Y-%m-%d')))
-    #     create_report(date, groomed_runs, resort_dict['id'], API_URL, {'Authorization': 'Token {}'.format(TOKEN)},
-    #                   get_api_wrapper, time)
+    for resort_dict in resorts:
+        resort = resort_dict['name']
+
+        report_url = resort_dict['report_url']
+        parse_mode = resort_dict['parse_mode']
+
+        if parse_mode == 'json':
+            response = requests.get(report_url)
+            if response.status_code != 200:
+                raise ValueError('Unable to fetch grooming report: {}'.format(response.text))
+
+            date, groomed_runs = get_grooming_report(parse_mode, response=response)
+        else:
+            date, groomed_runs = get_grooming_report(parse_mode, url=report_url)
+
+        logger.info('Got grooming report for {} on {}'.format(resort, date.strftime('%Y-%m-%d')))
+        create_report(date, groomed_runs, resort_dict['id'], API_URL, {'Authorization': 'Token {}'.format(TOKEN)},
+                      get_api_wrapper, time)
     #
     # Check for notif
-    resort_list = get_resorts_to_notify(get_api_wrapper, API_URL,
-                                        requests, headers)
+    resort_list = get_resorts_to_notify(get_api_wrapper, API_URL, headers)
     post_messages(resort_list, headers=headers,
                   api_url=API_URL)
 
