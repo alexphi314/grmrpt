@@ -183,7 +183,7 @@ def get_grooming_report(parse_mode: str, url: str = None,
     else:
         response = response.json()
 
-        date = dt.datetime.strptime(response['Date'], '%Y-%m-%dT%H:%M:%S').date()
+        date = dt.datetime.strptime(response['Date'][:-7], '%Y-%m-%dT%H:%M:%S.%f').date()
         runs = []
         for area in response['GroomingAreas']:
             for trail in area['Runs']:
@@ -700,8 +700,14 @@ def application(environ, start_response):
                             raise ValueError('Unable to fetch grooming report: {}'.format(response.text))
 
                         date, groomed_runs = get_grooming_report(parse_mode, response=response)
-                    else:
+                    elif parse_mode == 'tika':
                         date, groomed_runs = get_grooming_report(parse_mode, url=report_url)
+                    else:
+                        response = requests.post(report_url, data={'ResortId': resort_dict['site_id']})
+                        if response.status_code != 200 or not response.json()['IsSuccessful']:
+                            raise ValueError('Unable to fetch grooming report: {}'.format(response.text))
+
+                        date, groomed_runs = get_grooming_report(parse_mode, response=response)
 
                     logger.info('Got grooming report for {} on {}'.format(resort, date.strftime('%Y-%m-%d')))
                     time = dt.datetime.now(tz=pytz.timezone('US/Mountain'))

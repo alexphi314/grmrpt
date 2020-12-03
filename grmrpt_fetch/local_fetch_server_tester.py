@@ -56,8 +56,14 @@ if __name__ == "__main__":
                 raise ValueError('Unable to fetch grooming report: {}'.format(response.text))
 
             date, groomed_runs = get_grooming_report(parse_mode, response=response)
-        else:
+        elif parse_mode == 'tika':
             date, groomed_runs = get_grooming_report(parse_mode, url=report_url)
+        else:
+            response = requests.post(report_url, data={'ResortId': resort_dict['site_id']})
+            if response.status_code != 200 or not response.json()['IsSuccessful']:
+                raise ValueError('Unable to fetch grooming report: {}'.format(response.text))
+
+            date, groomed_runs = get_grooming_report(parse_mode, response=response)
 
         logger.info('Got grooming report for {} on {}'.format(resort, date.strftime('%Y-%m-%d')))
         create_report(date, groomed_runs, resort_dict['id'], API_URL, {'Authorization': 'Token {}'.format(TOKEN)},
