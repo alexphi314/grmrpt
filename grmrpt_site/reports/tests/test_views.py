@@ -200,9 +200,20 @@ class RunViewTestCase(TestCase):
         response = response.json()['results']
         self.assertEqual(len(response), 1)
         response = response[0]
-
         response.pop('id')
         self.assertEqual(response, self.run_data)
+
+        # Create a run with '#' in the name and confirm it can be found
+        def get_wrapper(x: str):
+            return get_api(x, {}, 'http://testserver/api')
+
+        with patch('grmrpt_fetch.fetch_server.requests', autospec=True) as fake_requests:
+            fake_requests.get = client.get
+            run = Run.objects.create(name='Ch. #2', resort_id=1)
+            run.save()
+            response = get_wrapper('runs/?name={}&resort={}'.format('Ch. #2', 'Beaver Creek TEST'))
+            self.assertEqual(1, len(response))
+            self.assertEqual(run.id, response[0]['id'])
 
         # Check random user has no get access
         client.credentials(HTTP_AUTHORIZATION='Token ' + self.rando_token.key)

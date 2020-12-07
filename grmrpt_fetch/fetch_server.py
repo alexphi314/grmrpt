@@ -13,6 +13,7 @@ import json
 import traceback
 import subprocess
 import time
+from urllib.parse import quote, unquote
 
 from tika import parser
 import requests
@@ -78,10 +79,9 @@ def get_api(relative_url: str, headers: Dict[str, str], api_url: str) -> Dict:
     :param relative_url: relative url from base api url
     :param headers: http request headers
     :param api_url: url for api server
-    :param request_client: client used to make HTTP requests
     :return: dict containing response data
     """
-    response = resolve_response(relative_url, headers, api_url)
+    response = resolve_response(quote(relative_url, safe='/?=&:'), headers, api_url)
 
     if 'results' in response.keys():
         data = response['results']
@@ -208,7 +208,7 @@ def create_report(date: dt.datetime, groomed_runs: List[str], resort_id: int,
     :param request_client: class used to make HTTP requests
     """
     resort_url = '/'.join(['resorts', str(resort_id), ''])
-    resort_name = get_api_wrapper('resorts/{}/'.format(resort_id))['name'].replace(' ', '%20')
+    resort_name = unquote(get_api_wrapper('resorts/{}/'.format(resort_id))['name'])
 
     # Get list of reports already in api and don't create a new report if it already exists
     reports = get_api_wrapper('reports/?resort={}&date={}'.format(
@@ -313,7 +313,7 @@ def get_most_recent_reports(resort: Dict[str, str], get_api_wrapper) -> \
     :param get_api_wrapper: wrapper function used to make GET requests of api
     :return: data dict of most recent BMReport, url to most recent BMReport
     """
-    reports = get_api_wrapper('reports/?resort={}'.format(resort['name'].replace(' ', '%20')))
+    reports = get_api_wrapper('reports/?resort={}'.format(resort['name']))
     # Only include reports with run objects attached
     reports = [report for report in reports if len(report['runs']) > 0]
     report_dates_list = [dt.datetime.strptime(report['date'], '%Y-%m-%d').date() for report in
