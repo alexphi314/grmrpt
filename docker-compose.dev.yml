@@ -1,0 +1,79 @@
+version: '3.7'
+
+services:
+  django:
+    container_name: django
+    build: ./grmrpt_site
+    command: python3 manage.py runserver 0.0.0.0:8000
+    entrypoint: /src/copy-static.sh
+    volumes:
+      - ./grmrpt_site/:/src
+      - static_volume:/src/static_vol
+    restart: always
+    expose:
+      - 8000
+    environment:
+      - PYTHONPATH=/usr/local/bin:/bin/
+      - CELERY_BROKER=redis://redis:6379/0
+      - CELERY_BACKEND=redis://redis:6379/0
+    depends_on:
+      - pgdb
+      - migrate
+    env_file:
+      - env.secret
+  celery:
+    container_name: celery
+    build: ./grmrpt_site
+    restart: always
+    command: celery -A grmrptcore worker -l INFO -B
+    volumes:
+      - ./grmrpt_site:/src
+    environment:
+      - PYTHONPATH=/usr/local/bin:/bin/
+      - CELERY_BROKER=redis://redis:6379/0
+      - CELERY_BACKEND=redis://redis:6379/0
+    env_file:
+      - env.secret
+    depends_on:
+      - migrate
+      - pgdb
+      - redis
+  migrate:
+    build: ./grmrpt_site
+    command: python3 manage.py migrate
+    restart: "no"
+    environment:
+      - PYTHONPATH=/usr/local/bin:/bin/
+    env_file:
+      - env.secret
+    depends_on:
+      - pgdb
+  pgdb:
+    image: postgres
+    container_name: pgdb
+    restart: always
+    environment:
+      - POSTGRES_DB=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    volumes:
+      - pgdata:/var/lib/postgresql/data/
+  redis:
+    container_name: redis
+    restart: always
+    image: "redis:alpine"
+  nginx:
+    container_name: nginx
+    restart: always
+    build: ./nginx
+    ports:
+      - "80:80"
+    volumes:
+      - static_volume:/src/static
+      - /var/log/nginx/:/var/log/nginx/
+    depends_on:
+      - django
+
+volumes:
+  pgdata:
+  static_volume:

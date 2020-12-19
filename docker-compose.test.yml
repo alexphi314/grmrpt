@@ -1,0 +1,16 @@
+version: '3.7'
+
+services:
+  django:
+    container_name: django
+    build: ./grmrpt_site
+    command: python3 manage.py test
+    volumes:
+      - ./grmrpt_site/:/src
+    ports:
+      - 8000:8000
+    environment:
+      - PYTHONPATH=/usr/local/bin:/bin/
+    env_file:
+      - test.secret
+    working_dir: /src

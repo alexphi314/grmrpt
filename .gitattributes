@@ -1,5 +1,0 @@
-grmrpt_site/.ebextensions/db-migrate.config merge=ours
-grmrpt_site/.ebextensions/env.config merge=ours
-grmrpt_site/.ebextensions/https_redirect.config merge=ours
-grmrpt_site/.ebextensions/securelistener-clb.config merge=ours
-grmrpt_fetch/.ebextensions/env.config merge=ours

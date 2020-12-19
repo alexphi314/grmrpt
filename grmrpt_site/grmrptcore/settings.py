@@ -40,6 +40,7 @@ DEBUG = False
 ALLOWED_HOSTS = [
     '.elasticbeanstalk.com',
     '127.0.0.1',
+    '0.0.0.0',
     '.bluemoongroom.com',
     'localhost',
 ]
@@ -67,7 +68,8 @@ INSTALLED_APPS = [
     'health_check.db',
     'health_check.cache',
     'health_check.storage',
-    'site_pages.apps.SitePagesConfig'
+    'site_pages.apps.SitePagesConfig',
+    'django_nose'
 ]
 
 REST_FRAMEWORK = {
@@ -128,11 +130,22 @@ if 'RDS_HOSTNAME' in os.environ:
             'PORT': os.environ['RDS_PORT'],
         }
     }
-else:
+elif 'ENVIRON_TYPE' in os.environ.keys() and os.environ['ENVIRON_TYPE'] == 'test':
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
+            'NAME': os.path.join(BASE_DIR, 'db.sqlite3')
+        }
+    }
+else:
+    DATABASES = {
+        'default': {
+           'ENGINE': 'django.db.backends.postgresql_psycopg2',
+           'NAME': 'postgres',
+           'USER': 'postgres',
+           'PASSWORD': 'postgres',
+           'HOST': 'pgdb',
+           'PORT': '5432',
         }
     }
 
@@ -221,6 +234,16 @@ LOGGING = {
             'level': 'INFO',
             'propagate': False,
         },
+        'reports.tasks': {
+            'handlers': ['console', 'file'],
+            'level': 'INFO',
+            'propagate': False
+        },
+        'celery': {
+            'handlers': ['console', 'file'],
+            'level': 'INFO',
+            'propagate': False
+        }
     }
 }
 
@@ -229,3 +252,13 @@ LOGIN_URL = '/login/'
 
 EMAIL_BACKEND = 'site_pages.email.SESEmailBackend'
 DEFAULT_FROM_EMAIL = 'do_not_reply@bluemoongroom.com'
+
+CELERY_BROKER_URL = os.environ.get("CELERY_BROKER", "redis://redis:6379/0")
+CELERY_RESULT_BACKEND = os.environ.get("CELERY_BROKER", "redis://redis:6379/0")
+
+TEST_RUNNER = 'django_nose.NoseTestSuiteRunner'
+NOSE_ARGS = [
+    '--with-coverage',
+    '--cover-package=reports,site_pages',
+    '--cover-html',
+]

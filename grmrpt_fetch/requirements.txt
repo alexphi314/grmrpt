@@ -1,5 +1,0 @@
-# Requirements for fetch worker
-tika
-requests
-boto3
-pytz

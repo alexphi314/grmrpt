@@ -134,10 +134,12 @@ def index(request):
     """
     if request.method == 'GET':
         num_resorts = Resort.objects.count()
-        return render(request, 'index.html', {'resorts_str': ', and '.join([
+
+        resorts_str = 'Coming Soon' if num_resorts == 0 else ', and '.join([
             ', '.join([resort.name for resort in Resort.objects.all().order_by('id')[:num_resorts-1]]),
             Resort.objects.all()[num_resorts-1].name
-        ])})
+        ])
+        return render(request, 'index.html', {'resorts_str': resorts_str})
     else:
         return HttpResponseNotFound(request)
 
@@ -206,26 +208,29 @@ def reports(request):
 
         # Make a list of run names for each report
         report_runs = [
-            [[run.name, '/runs/{}'.format(run.id)] for run in report.runs.all()]
+            [[run.name, '/runs/{}'.format(run.id), 'difficulty_images/{}.png'.format(
+                run.difficulty if run.difficulty is not None else 'none')
+              ]
+             for run in report.runs.all()]
             for report in most_recent_reports
         ]
 
         # Create a master list with resort name, report date, report url, and run list
-        reports_runs = []
+        resort_report_run_list = []
         for indx, report_run in enumerate(report_runs):
             if resorts[indx].display_url is None or len(resorts[indx].display_url) == 0:
                 url = resorts[indx].report_url
             else:
                 url = resorts[indx].display_url
 
-            reports_runs.append([resorts[indx].name, most_recent_reports[indx].date.strftime('%b %d, %Y'),
-                                 url, report_run])
+            resort_report_run_list.append([resorts[indx].name, most_recent_reports[indx].date.strftime('%b %d, %Y'),
+                                           url, report_run])
 
         # Group the reports and runs into groups of 2
         # The two groups are put next to each other on the site
         num_reports = 2
         reports_runs_grouped = [
-            reports_runs[i:i+num_reports] for i in range(0, len(reports_runs), num_reports)
+            resort_report_run_list[i:i+num_reports] for i in range(0, len(resort_report_run_list), num_reports)
         ]
 
         return render(

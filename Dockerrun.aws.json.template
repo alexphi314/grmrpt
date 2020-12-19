@@ -1,0 +1,208 @@
+{
+    "AWSEBDockerrunVersion": 2,
+    "containerDefinitions": [
+        {
+            "command": [
+                "celery",
+                "-A",
+                "grmrptcore",
+                "worker",
+                "-l",
+                "INFO",
+                "-B"
+            ],
+            "environment": [
+                {
+                    "name": "PYTHONPATH",
+                    "value": "/usr/local/bin:/bin/"
+                },
+                {
+                    "name": "CELERY_BROKER",
+                    "value": "redis://redis:6379/0"
+                },
+                {
+                    "name": "CELERY_BACKEND",
+                    "value": "redis://redis:6379/0"
+                },
+                {
+                    "name": "ALERT_ARN",
+                    "value": "arn:aws:sns:us-west-2:133264740537:dev_alert"
+                },
+                {
+                    "name": "NORUNS_NOTIF_HOUR",
+                    "value": 8
+                },
+                {
+                    "name": "ALERT_NOTIF_MIN",
+                    "value": 15
+                },
+                {
+                    "name": "REPORT_URL",
+                    "value": "http://dockerdev.exm5cdp7tw.us-west-2.elasticbeanstalk.com/bmreports/"
+                },
+                {
+                    "name": "ENVIRON_TYPE",
+                    "value": "dev"
+                }
+            ],
+            "essential": true,
+            "image": "alexphi981/grmrptcore:${ENV}",
+            "memory": 1024,
+            "mountPoints": [
+                {
+                    "containerPath": "/opt/python/log/",
+                    "sourceVolume": "celery_log"
+                }
+            ],
+            "name": "celery",
+            "links": ["redis"]
+        },
+        {
+            "command": [
+                "python3",
+                "manage.py",
+                "runserver",
+                "0.0.0.0:8000"
+            ],
+            "environment": [
+                {
+                    "name": "PYTHONPATH",
+                    "value": "/usr/local/bin:/bin/"
+                },
+                {
+                    "name": "CELERY_BROKER",
+                    "value": "redis://redis:6379/0"
+                },
+                {
+                    "name": "CELERY_BACKEND",
+                    "value": "redis://redis:6379/0"
+                },
+                {
+                    "name": "ALERT_ARN",
+                    "value": "arn:aws:sns:us-west-2:133264740537:dev_alert"
+                },
+                {
+                    "name": "NORUNS_NOTIF_HOUR",
+                    "value": 8
+                },
+                {
+                    "name": "ALERT_NOTIF_MIN",
+                    "value": 15
+                },
+                {
+                    "name": "REPORT_URL",
+                    "value": "http://dockerdev.exm5cdp7tw.us-west-2.elasticbeanstalk.com/bmreports/"
+                },
+                {
+                    "name": "ENVIRON_TYPE",
+                    "value": "dev"
+                }
+            ],
+            "essential": true,
+            "image": "alexphi981/grmrptcore:${ENV}",
+            "memory": 1024,
+            "mountPoints": [
+                {
+                    "containerPath": "/opt/python/log/",
+                    "sourceVolume": "django_log"
+                },
+                {
+                    "containerPath": "/src/static_vol",
+                    "sourceVolume": "Static_Volume"
+                }
+            ],
+            "name": "django",
+            "portMappings": [
+                {
+                    "containerPort": 8000,
+                    "hostPort": 8000
+                }
+            ],
+            "entryPoint": ["/src/copy-static.sh"]
+        },
+        {
+            "command": [
+                "python3",
+                "manage.py",
+                "migrate"
+            ],
+            "environment": [
+                {
+                    "name": "PYTHONPATH",
+                    "value": "/usr/local/bin:/bin/"
+                }
+            ],
+            "essential": false,
+            "image": "alexphi981/grmrptcore:${ENV}",
+            "memory": 200,
+            "mountPoints": [
+                {
+                    "containerPath": "/opt/python/log/",
+                    "sourceVolume": "migrate_log"
+                }
+            ],
+            "name": "migrate"
+        },
+        {
+            "essential": true,
+            "image": "alexphi981/nginx:${ENV}",
+            "memory": 200,
+            "mountPoints": [
+                {
+                    "containerPath": "/src/static",
+                    "sourceVolume": "Static_Volume"
+                },
+                {
+                    "containerPath": "/var/log/nginx/",
+                    "sourceVolume": "VarLogNginx"
+                }
+            ],
+            "name": "nginx",
+            "links": ["django"],
+            "portMappings": [
+                {
+                    "containerPort": 80,
+                    "hostPort": 80
+                }
+            ]
+        },
+        {
+            "essential": true,
+            "image": "redis:alpine",
+            "memory": 200,
+            "name": "redis"
+        }
+    ],
+    "volumes": [
+        {
+            "host": {
+                "sourcePath": "/var/log/containers/django"
+            },
+            "name": "django_log"
+        },
+        {
+            "host": {
+                "sourcePath": "static_volume"
+            },
+            "name": "Static_Volume"
+        },
+        {
+            "host": {
+                "sourcePath": "/var/log/containers/celery"
+            },
+            "name": "celery_log"
+        },
+        {
+            "host": {
+                "sourcePath": "/var/log/containers/migrate"
+            },
+            "name": "migrate_log"
+        },
+        {
+            "host": {
+                "sourcePath": "/var/log/nginx/"
+            },
+            "name": "VarLogNginx"
+        }
+    ]
+}

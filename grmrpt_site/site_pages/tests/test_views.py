@@ -1,19 +1,24 @@
 import json
+from unittest.mock import patch
 
-from django.test import TestCase, Client
+from django.test import Client
 from django.urls import reverse
 from django.contrib.auth.models import User
 
 from reports.models import *
+from reports.tests.test_classes import MockTestCase
 
 
-class SignupTestCase(TestCase):
+class SignupTestCase(MockTestCase):
     @classmethod
     def setUpTestData(cls):
+        super().setUpTestData()
+
         # Create resort
         cls.resort = Resort.objects.create(name='test1')
 
-    def test_signup(self) -> None:
+    @patch('reports.models.update_resort_user_subs', autospec=True)
+    def test_signup(self, mock_update) -> None:
         # Attempt to signup
         user_data = {
             'username': 'alexphi',
@@ -62,7 +67,8 @@ class SignupTestCase(TestCase):
         self.client.force_login(user=usr)
         self.client.get(reverse('profile'))
 
-    def test_signup_required_fields(self) -> None:
+    @patch('reports.models.update_resort_user_subs', autospec=True)
+    def test_signup_required_fields(self, mock_update) -> None:
         """
         Test that the form fails when resorts is supplied but no contact_days or contact_method.
         """
@@ -104,9 +110,11 @@ class SignupTestCase(TestCase):
         self.assertEqual(resp.status_code, 302)
 
 
-class ReportsViewTestCase(TestCase):
+class ReportsViewTestCase(MockTestCase):
     @classmethod
     def setUpTestData(cls):
+        super().setUpTestData()
+
         # Create a user
         cls.usr = User.objects.create_user(username='wildbill')
 
@@ -120,7 +128,7 @@ class ReportsViewTestCase(TestCase):
 
         # Create 2 runs
         cls.run1 = Run.objects.create(name='foo', resort_id=1)
-        cls.run2 = Run.objects.create(name='bar', resort_id=2)
+        cls.run2 = Run.objects.create(name='bar', resort_id=2, difficulty='blue')
 
         # Add runs to BMReport
         cls.report.bm_report.runs.add(cls.run1)
@@ -132,8 +140,10 @@ class ReportsViewTestCase(TestCase):
 
         resp = client.get(reverse('reports'))
         resorts_runs = resp.context['resorts_runs']
-        self.assertListEqual(resorts_runs, [[['test1', 'Feb 01, 2020', None, [['foo', '/runs/1']]],
-                                            ['test2', 'Jan 31, 2020', None, [['bar', '/runs/2']]]]])
+        self.assertListEqual(resorts_runs, [[['test1', 'Feb 01, 2020', None, [['foo', '/runs/1',
+                                                                               'difficulty_images/none.png']]],
+                                            ['test2', 'Jan 31, 2020', None, [['bar', '/runs/2',
+                                                                              'difficulty_images/blue.png']]]]])
 
         # Create a new report for resort2
         rpt = Report.objects.create(date=dt.datetime(2020, 2, 2), resort_id=2)
@@ -141,8 +151,10 @@ class ReportsViewTestCase(TestCase):
 
         resp = client.get(reverse('reports'))
         resorts_runs = resp.context['resorts_runs']
-        self.assertListEqual(resorts_runs, [[['test1', 'Feb 01, 2020', None, [['foo', '/runs/1']]],
-                                             ['test2', 'Feb 02, 2020', None, [['bar', '/runs/2']]]]])
+        self.assertListEqual(resorts_runs, [[['test1', 'Feb 01, 2020', None, [['foo', '/runs/1',
+                                                                               'difficulty_images/none.png']]],
+                                             ['test2', 'Feb 02, 2020', None, [['bar', '/runs/2',
+                                                                              'difficulty_images/blue.png']]]]])
 
         # Add a third resort
         Resort.objects.create(name='test3')
@@ -151,6 +163,9 @@ class ReportsViewTestCase(TestCase):
 
         resp = client.get(reverse('reports'))
         resorts_runs = resp.context['resorts_runs']
-        self.assertListEqual(resorts_runs, [[['test1', 'Feb 01, 2020', None, [['foo', '/runs/1']]],
-                                             ['test2', 'Feb 02, 2020', None, [['bar', '/runs/2']]]],
-                                            [['test3', 'Feb 01, 2020', None, [['foo', '/runs/1']]]]])
+        self.assertListEqual(resorts_runs, [[['test1', 'Feb 01, 2020', None, [['foo', '/runs/1',
+                                                                               'difficulty_images/none.png']]],
+                                             ['test2', 'Feb 02, 2020', None, [['bar', '/runs/2',
+                                                                              'difficulty_images/blue.png']]]],
+                                            [['test3', 'Feb 01, 2020', None, [['foo', '/runs/1',
+                                                                               'difficulty_images/none.png']]]]])
