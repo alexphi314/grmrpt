@@ -25,24 +25,12 @@
                     "value": "redis://redis:6379/0"
                 },
                 {
-                    "name": "ALERT_ARN",
-                    "value": "arn:aws:sns:us-west-2:133264740537:dev_alert"
-                },
-                {
                     "name": "NORUNS_NOTIF_HOUR",
                     "value": 8
                 },
                 {
                     "name": "ALERT_NOTIF_MIN",
                     "value": 15
-                },
-                {
-                    "name": "REPORT_URL",
-                    "value": "http://dockerdev.exm5cdp7tw.us-west-2.elasticbeanstalk.com/bmreports/"
-                },
-                {
-                    "name": "ENVIRON_TYPE",
-                    "value": "dev"
                 }
             ],
             "essential": true,
@@ -78,24 +66,12 @@
                     "value": "redis://redis:6379/0"
                 },
                 {
-                    "name": "ALERT_ARN",
-                    "value": "arn:aws:sns:us-west-2:133264740537:dev_alert"
-                },
-                {
                     "name": "NORUNS_NOTIF_HOUR",
                     "value": 8
                 },
                 {
                     "name": "ALERT_NOTIF_MIN",
                     "value": 15
-                },
-                {
-                    "name": "REPORT_URL",
-                    "value": "http://dockerdev.exm5cdp7tw.us-west-2.elasticbeanstalk.com/bmreports/"
-                },
-                {
-                    "name": "ENVIRON_TYPE",
-                    "value": "dev"
                 }
             ],
             "essential": true,
