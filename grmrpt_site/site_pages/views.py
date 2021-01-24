@@ -208,8 +208,8 @@ def reports(request):
 
         # Make a list of run names for each report
         report_runs = [
-            [[run.name, '/runs/{}'.format(run.id), 'difficulty_images/{}.png'.format(
-                run.difficulty if run.difficulty is not None else 'none')
+            [[run.name, '/runs/{}'.format(run.id), 'difficulty_images/{}.png'.format(run.difficulty)
+                                                   if run.difficulty is not None else None
               ]
              for run in report.runs.all()]
             for report in most_recent_reports

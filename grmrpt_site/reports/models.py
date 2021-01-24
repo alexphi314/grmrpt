@@ -71,6 +71,7 @@ class Run(models.Model):
     DOUBLE_BLACK = 'doubleblack'
     SNOWSHOE = 'snowshoe'
     TERRAIN_PARK = 'park'
+    GREENBLUE = 'greenblack'
     DIFFICULTY_CHOICES = [
         (GREEN, 'Green'),
         (BLUE, 'Blue'),
@@ -78,7 +79,8 @@ class Run(models.Model):
         (BLACK, 'Black'),
         (DOUBLE_BLACK, 'Double Black'),
         (SNOWSHOE, 'Snowshoe'),
-        (TERRAIN_PARK, 'Terrain Park')
+        (TERRAIN_PARK, 'Terrain Park'),
+        (GREENBLUE, 'Green/Blue')
     ]
     name = models.CharField("Name of the run", max_length=1000)
     difficulty = models.CharField("Difficulty of run, green/blue/black", max_length=20, blank=True, null=True,

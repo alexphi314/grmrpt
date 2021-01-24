@@ -18,8 +18,10 @@
                         {% for run_run_id in item.3 %}
                             <a href="{{ run_run_id.1 }}" class="alert-link alert-link-dark">
                                 <li class="list-group-item text-bluejeans d-flex flex-wrap align-items-center">
-                                    <img src="{% static run_run_id.2 %}" class="img-fluid"
-                                         style="width: 17px; vertical-align: text-top; padding-right: 5px">
+                                    {% if run_run_id.2 is not None %}
+                                        <img src="{% static run_run_id.2 %}" class="img-fluid"
+                                             style="width: 17px; vertical-align: text-top; padding-right: 5px">
+                                    {% endif %}
                                     <span>{{ run_run_id.0 }}</span>
                                 </li>
                             </a>

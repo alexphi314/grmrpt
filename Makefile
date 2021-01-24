@@ -12,6 +12,8 @@ setup:
 
 build:
 	python grmrpt_site/manage.py collectstatic --noinput
+	docker-compose -f docker-compose.dev.yml run django python3 /src/manage.py makemigrations
+	docker-compose -f docker-compose.dev.yml down
 	docker-compose -f docker-compose.dev.yml build
 	./generate_dockerrun.sh Dockerrun.aws.json.template $(IMAGE_TAG)
 

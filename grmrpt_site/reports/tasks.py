@@ -18,21 +18,44 @@ from .models import Run, Resort, Report, BMReport, Alert, Notification
 logger = logging.getLogger(__name__)
 
 JSON_DIFF = {
-    'Easy': 'green',
-    'Snowshoe': 'snowshoe',
-    'LargePark': 'park',
-    'Intermediate': 'blue',
-    'Advanced Intermediate': 'blueblack',
-    'Expert': 'black',
-    'Extreme Terrain': 'doubleblack'
+    'Easy': Run.GREEN,
+    'Snowshoe': Run.SNOWSHOE,
+    'LargePark': Run.TERRAIN_PARK,
+    'Intermediate': Run.BLUE,
+    'Advanced Intermediate': Run.BLUEBLACK,
+    'Expert': Run.BLACK,
+    'Extreme Terrain': Run.DOUBLE_BLACK,
+    'MediumPark': Run.TERRAIN_PARK,
+    'Very difficult': Run.BLACK,
+    'SmallPark': Run.TERRAIN_PARK
+}
+
+MAMMOTH_DIFF = {
+    'Easy': Run.GREEN,
+    'Expert': Run.DOUBLE_BLACK,
+    'Intermediate': Run.BLUE,
+    'Very difficult': Run.BLACK,
+    'Difficult': Run.BLUEBLACK,
+    'MediumPark': Run.TERRAIN_PARK,
+    'Easier': Run.GREENBLUE
+}
+
+CRYSTAL_DIFF = {
+    'Easy': Run.GREEN,
+    'Intermediate': Run.BLUE,
+    'Difficult': Run.BLACK,
+    'Very difficult': Run.BLACK,
+    'Expert': Run.DOUBLE_BLACK,
+    'Snowshoe': Run.SNOWSHOE,
+    'Easier': Run.GREENBLUE
 }
 
 JSON_VAIL_DIFF = {
-    'Green': 'green',
-    'Blue': 'blue',
-    'Black': 'black',
-    'DoubleBlack': 'doubleblack',
-    'TerrainPark': 'park'
+    'Green': Run.GREEN,
+    'Blue': Run.BLUE,
+    'Black': Run.BLACK,
+    'DoubleBlack': Run.DOUBLE_BLACK,
+    'TerrainPark': Run.TERRAIN_PARK
 }
 
 
@@ -88,9 +111,9 @@ def check_for_report(resort_id: int) -> None:
         elif notify_resort_no_runs(resort):
             post_no_bmrun_message(resort)
 
-    except:
-        logger.warning('Got exception while processing task')
-        logger.warning(traceback.print_exc())
+    except Exception as error:
+        logger.warning('Got error while checking report for {}'.format(resort.name))
+        logger.exception(error)
 
 
 @app.task
@@ -102,9 +125,9 @@ def check_for_alerts() -> None:
         alert_list = get_resort_alerts()
         post_alert_message(alert_list)
 
-    except:
-        logger.warning('Got exception while processing task')
-        logger.warning(traceback.print_exc())
+    except Exception as error:
+        logger.warning('Got error while checking alerts')
+        logger.exception(error)
 
 
 def get_grooming_report(parse_mode: str, response: dict) -> Tuple[dt.date, List[Tuple[str, str]]]:
@@ -122,11 +145,17 @@ def get_grooming_report(parse_mode: str, response: dict) -> Tuple[dt.date, List[
             for trail in area['Trails']:
                 if trail['Grooming'] == 'Yes' or trail['Grooming'] == 'Second Shift' or trail['Grooming'] == 'Top':
                     try:
-                        difficulty = JSON_DIFF[trail['Difficulty']]
+                        # Mammoth Mountain has a unique naming style
+                        if response['Name'] == 'Mammoth Mountain':
+                            difficulty = MAMMOTH_DIFF[trail['Difficulty']]
+                        elif response['Name'] == 'Crystal Mountain' or response['Name'] == 'Solitude':
+                            difficulty = CRYSTAL_DIFF[trail['Difficulty']]
+                        else:
+                            difficulty = JSON_DIFF[trail['Difficulty']]
                     except KeyError:
                         difficulty = None
-                        logger.warning('Unable to find matching difficulty string for run {} with difficulty {}'
-                                       .format(trail['Name'], trail['Difficulty']))
+                        logger.warning('Unable to find matching difficulty string for run {} with difficulty {} at {}'
+                                       .format(trail['Name'], trail['Difficulty'], response['Name']))
                     run_tuple = (trail['Name'].strip(), difficulty)
                     runs.append(run_tuple)
 

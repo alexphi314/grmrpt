@@ -27,19 +27,23 @@ class ReportFuncTestCase(TestCase):
             ('Yoo Hoo', 'green'), ('Round About', 'snowshoe'), ('Tower', 'blue'), ('Flying Z Gulch', 'blueblack'),
             ('Between', 'blue'), ('Corridor', 'black'), ('Betwixt', 'blue'), ('Calf Roper', 'blue'),
             ("Jess' Cut-Off", 'blue'), ('Broadway', 'green'), ('Vagabond', 'blue'), ('Spur Run', 'green'),
-            ('NASTAR Race Area', 'blue'), ('Duster', 'snowshoe'), ('West Side', 'black'), ('Tomahawk Face', 'blue'),
+            ('NASTAR Race Area', 'blue'), ('Duster', 'snowshoe'), ('West Side', 'black'),
+            ('Tomahawk Face', 'blue'),
             ("Ted's Ridge", 'black'), ('Moonlight', 'blue'), ('Lightning', 'blue'), ('So What', 'green'),
             ('Half Hitch', 'blueblack'), ('Beeline', 'green'), ('Tomahawk', 'green'), ('Main Drag', 'blue'),
-            ('Valley View', 'black'), ('Headwall North', 'blue'), ('Valley View Lower', 'black'), ('Stampede', 'green'),
+            ('Valley View', 'black'), ('Headwall North', 'blue'), ('Valley View Lower', 'black'),
+            ('Stampede', 'green'),
             ('Eagles Nest', 'blue'), ('Tornado Lane', 'blue'), ('Rabbit Ears Terrain Park', 'park'),
             ('Why Not', 'green'), ('Chuckwagon', 'black'), ('Longhorn', 'blueblack'), ('Dusk', 'blue'),
             ('Blizzard', 'blue'), ('Ego', 'blue'), ('Flying Z', 'black'), ('Cyclone', 'black'),
-            ('Heavenly Daze', 'blue'), ('Vogue', 'blue'), ('Sunset', 'blueblack'), ('Storm Peak Catwalk', 'black'),
+            ('Heavenly Daze', 'blue'), ('Vogue', 'blue'), ('Sunset', 'blueblack'),
+            ('Storm Peak Catwalk', 'black'),
             ('Spike', 'blue'), ('Snooze Bar', 'blue'), ("Two O'Clock", 'blueblack'), ('Sunshine Lift Line', 'blue'),
             ('Sundial', 'green'), ('Rough Rider Basin', 'green'), ('Traverse', 'blue'), ('B.C. Ski Way', 'green'),
             ('Flintlock', 'blue'), ('Rendezvous Way', 'green'), ('Rowel', 'blue'), ("Rudi's Run", 'blue'),
             ('Kit', 'blue'), ('Giggle Gulch', 'green'), ('Sitz', 'blue'), ('Sitzback', 'green'),
-            ('South Peak Flats', 'green'), ('Storm Peak South', 'black'), ('Rainbow', 'blue'), ('Pup', 'blue')
+            ('South Peak Flats', 'green'), ('Storm Peak South', 'black'), ('Rainbow', 'blue'), ('Pup', 'blue'),
+            ('Ambush', 'black'), ('Bear Claw', 'blueblack'), ('No Names', 'doubleblack'), ("Perry Park", 'park')
         ]
         self.report_url4 = 'test_files/sb_jan16.json'
 
@@ -61,6 +65,20 @@ class ReportFuncTestCase(TestCase):
         ]
         self.report_url8_pdf = 'test_files/bc_mar3.pdf'
 
+        self.report_url9 = 'test_files/cm_jan24.json'
+        self.exp_groomed_runs9 = [
+            ('After Burn', 'blue'), ('Boondoggle', 'black'), ('Broadway', 'green'), ('Little Magoo', 'blue'),
+            ('Berry Patch', 'black'), ('Bill\'s Face', 'black'), ('Blazing Elk', 'doubleblack'),
+            ('Little Magoo2', 'snowshoe'), ('Alex', 'greenblack')
+        ]
+
+        self.report_url10 = 'test_files/mm_jan24.json'
+        self.exp_groomed_runs10 = [
+            ('Agee\'s Run', 'black'), ('Apple Pie', 'green'), ('Arriba (Lower)', 'blueblack'),
+            ('Avalanche', 'blueblack'), ('Avalanche Chutes', 'doubleblack'), ('Back for More (Lower)', 'greenblack'),
+            ('Bluejay', 'black'), ('Bridges', 'blue'), ('Carousel', 'park')
+        ]
+
     def test_get_grooming_report(self) -> None:
         """
         Test function properly strips the run names from the file
@@ -76,6 +94,18 @@ class ReportFuncTestCase(TestCase):
         date, groomed_runs = get_grooming_report('json-vail', response=data)
         self.assertEqual(date, dt.datetime(2020, 3, 3).date())
         self.assertEqual(Counter(groomed_runs), Counter(self.exp_groomed_runs8))
+
+        with open('reports/tests/{}'.format(self.report_url9)) as fin:
+            data = json.load(fin)
+        date, groomed_runs = get_grooming_report('json', response=data)
+        self.assertEqual(date, dt.datetime(2021, 1, 24).date())
+        self.assertEqual(Counter(groomed_runs), Counter(self.exp_groomed_runs9))
+
+        with open('reports/tests/{}'.format(self.report_url10)) as fin:
+            data = json.load(fin)
+        date, groomed_runs = get_grooming_report('json', response=data)
+        self.assertEqual(date, dt.datetime(2021, 1, 24).date())
+        self.assertEqual(Counter(groomed_runs), Counter(self.exp_groomed_runs10))
 
 
 class NotifyNoRunTestCase(MockTestCase):

@@ -141,7 +141,7 @@ class ReportsViewTestCase(MockTestCase):
         resp = client.get(reverse('reports'))
         resorts_runs = resp.context['resorts_runs']
         self.assertListEqual(resorts_runs, [[['test1', 'Feb 01, 2020', None, [['foo', '/runs/1',
-                                                                               'difficulty_images/none.png']]],
+                                                                               None]]],
                                             ['test2', 'Jan 31, 2020', None, [['bar', '/runs/2',
                                                                               'difficulty_images/blue.png']]]]])
 
@@ -152,7 +152,7 @@ class ReportsViewTestCase(MockTestCase):
         resp = client.get(reverse('reports'))
         resorts_runs = resp.context['resorts_runs']
         self.assertListEqual(resorts_runs, [[['test1', 'Feb 01, 2020', None, [['foo', '/runs/1',
-                                                                               'difficulty_images/none.png']]],
+                                                                               None]]],
                                              ['test2', 'Feb 02, 2020', None, [['bar', '/runs/2',
                                                                               'difficulty_images/blue.png']]]]])
 
@@ -164,8 +164,8 @@ class ReportsViewTestCase(MockTestCase):
         resp = client.get(reverse('reports'))
         resorts_runs = resp.context['resorts_runs']
         self.assertListEqual(resorts_runs, [[['test1', 'Feb 01, 2020', None, [['foo', '/runs/1',
-                                                                               'difficulty_images/none.png']]],
+                                                                               None]]],
                                              ['test2', 'Feb 02, 2020', None, [['bar', '/runs/2',
                                                                               'difficulty_images/blue.png']]]],
                                             [['test3', 'Feb 01, 2020', None, [['foo', '/runs/1',
-                                                                               'difficulty_images/none.png']]]]])
+                                                                               None]]]]])

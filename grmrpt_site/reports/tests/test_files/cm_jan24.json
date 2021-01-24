@@ -1,0 +1,624 @@
+{
+  "Name": "Crystal Mountain",
+  "LastUpdate": "2021-01-24T14:25:37-0800",
+  "MountainAreas": [
+    {
+      "Name": "Lower Mountain",
+      "LastUpdate": "2021-01-23T09:01:46-0800",
+      "OpenTrailsCount": 20,
+      "TotalTrailsCount": 20,
+      "Trails": [
+        {
+          "Name": "After Burn",
+          "MountainAreaName": "Lower Mountain",
+          "Status": "Open",
+          "StatusEnglish": "open",
+          "UpdateDate": "2021-01-24T05:05:18-0800",
+          "Difficulty": "Intermediate",
+          "TrailIcon": "BlueSquare",
+          "SnowMaking": "No",
+          "Grooming": "Yes",
+          "NightSkiing": "No",
+          "Moguls": "No",
+          "Glades": "No",
+          "Touring": "No",
+          "Nordic": "No"
+        },
+        {
+          "Name": "Boondoggle",
+          "MountainAreaName": "Lower Mountain",
+          "Status": "Open",
+          "StatusEnglish": "open",
+          "UpdateDate": "2021-01-24T05:05:18-0800",
+          "Difficulty": "Difficult",
+          "TrailIcon": "BlackDiamond",
+          "SnowMaking": "No",
+          "Grooming": "Yes",
+          "NightSkiing": "No",
+          "Moguls": "No",
+          "Glades": "No",
+          "Touring": "No",
+          "Nordic": "No"
+        },
+        {
+          "Name": "Broadway",
+          "MountainAreaName": "Lower Mountain",
+          "Status": "Open",
+          "StatusEnglish": "open",
+          "UpdateDate": "2021-01-24T05:05:18-0800",
+          "Difficulty": "Easy",
+          "TrailIcon": "GreenCircle",
+          "SnowMaking": "No",
+          "Grooming": "Yes",
+          "NightSkiing": "No",
+          "Moguls": "No",
+          "Glades": "No",
+          "Touring": "No",
+          "Nordic": "No"
+        },
+        {
+          "Name": "Discover Meadow",
+          "MountainAreaName": "Lower Mountain",
+          "Status": "Open",
+          "StatusEnglish": "open",
+          "UpdateDate": "2021-01-24T05:05:18-0800",
+          "Difficulty": "Easy",
+          "TrailIcon": "GreenCircle",
+          "SnowMaking": "No",
+          "Grooming": "No",
+          "NightSkiing": "No",
+          "Moguls": "No",
+          "Glades": "No",
+          "Touring": "No",
+          "Nordic": "No"
+        },
+        {
+          "Name": "Downhill",
+          "MountainAreaName": "Lower Mountain",
+          "Status": "Open",
+          "StatusEnglish": "open",
+          "UpdateDate": "2021-01-24T05:05:18-0800",
+          "Difficulty": "Intermediate",
+          "TrailIcon": "BlueSquare",
+          "SnowMaking": "No",
+          "Grooming": "No",
+          "NightSkiing": "No",
+          "Moguls": "No",
+          "Glades": "No",
+          "Touring": "No",
+          "Nordic": "No"
+        },
+        {
+          "Name": "Gold Hills",
+          "MountainAreaName": "Lower Mountain",
+          "Status": "Open",
+          "StatusEnglish": "open",
+          "UpdateDate": "2021-01-24T05:05:18-0800",
+          "Difficulty": "Intermediate",
+          "TrailIcon": "BlueSquare",
+          "SnowMaking": "No",
+          "Grooming": "No",
+          "NightSkiing": "No",
+          "Moguls": "No",
+          "Glades": "No",
+          "Touring": "No",
+          "Nordic": "No"
+        },
+        {
+          "Name": "Little Magoo",
+          "MountainAreaName": "Lower Mountain",
+          "Status": "Open",
+          "StatusEnglish": "open",
+          "UpdateDate": "2021-01-24T05:05:18-0800",
+          "Difficulty": "Intermediate",
+          "TrailIcon": "BlueSquare",
+          "SnowMaking": "No",
+          "Grooming": "Yes",
+          "NightSkiing": "No",
+          "Moguls": "No",
+          "Glades": "No",
+          "Touring": "No",
+          "Nordic": "No"
+        },
+        {
+          "Name": "Little Magoo2",
+          "MountainAreaName": "Lower Mountain",
+          "Status": "Open",
+          "StatusEnglish": "open",
+          "UpdateDate": "2021-01-24T05:05:18-0800",
+          "Difficulty": "Snowshoe",
+          "TrailIcon": "BlueSquare",
+          "SnowMaking": "No",
+          "Grooming": "Yes",
+          "NightSkiing": "No",
+          "Moguls": "No",
+          "Glades": "No",
+          "Touring": "No",
+          "Nordic": "No"
+        },
+        {
+          "Name": "Alex",
+          "MountainAreaName": "Lower Mountain",
+          "Status": "Open",
+          "StatusEnglish": "open",
+          "UpdateDate": "2021-01-24T05:05:18-0800",
+          "Difficulty": "Easier",
+          "TrailIcon": "BlueSquare",
+          "SnowMaking": "No",
+          "Grooming": "Yes",
+          "NightSkiing": "No",
+          "Moguls": "No",
+          "Glades": "No",
+          "Touring": "No",
+          "Nordic": "No"
+        }
+      ],
+      "Lifts": [
+        {
+          "Name": "Discovery",
+          "MountainAreaName": "Lower Mountain",
+          "Status": "Open",
+          "StatusEnglish": "open",
+          "FirstTracks": "No",
+          "UpdateDate": "2021-01-18T08:11:42-0800",
+          "LiftType": "Triple Chair",
+          "Hours": {
+            "Sunday": {
+              "Open": "8:30 AM",
+              "Close": "6:00 PM"
+            },
+            "Monday": {
+              "Open": "9:00 AM",
+              "Close": "6:00 PM"
+            },
+            "Tuesday": {
+              "Open": "9:00 AM",
+              "Close": "4:00 PM"
+            },
+            "Wednesday": {
+              "Open": "9:00 AM",
+              "Close": "4:00 PM"
+            },
+            "Thursday": {
+              "Open": "9:00 AM",
+              "Close": "4:00 PM"
+            },
+            "Friday": {
+              "Open": "9:00 AM",
+              "Close": "8:00 PM"
+            },
+            "Saturday": {
+              "Open": "8:30 AM",
+              "Close": "8:00 PM"
+            }
+          },
+          "WaitTime": "--",
+          "WaitTimeString": "--",
+          "WaitTimeStatus": "--"
+        },
+        {
+          "Name": "Discovery Conveyor",
+          "MountainAreaName": "Lower Mountain",
+          "Status": "Open",
+          "StatusEnglish": "open",
+          "FirstTracks": "No",
+          "UpdateDate": "2021-01-14T07:31:23-0800",
+          "LiftType": "Magic Carpet",
+          "Hours": {
+            "Sunday": {
+              "Open": "9:00 AM",
+              "Close": "4:00 PM"
+            },
+            "Monday": {
+              "Open": "9:00 AM",
+              "Close": "4:00 PM"
+            },
+            "Tuesday": {
+              "Open": "9:00 AM",
+              "Close": "4:00 PM"
+            },
+            "Wednesday": {
+              "Open": "9:00 AM",
+              "Close": "4:00 PM"
+            },
+            "Thursday": {
+              "Open": "9:00 AM",
+              "Close": "4:00 PM"
+            },
+            "Friday": {
+              "Open": "9:00 AM",
+              "Close": "4:00 PM"
+            },
+            "Saturday": {
+              "Open": "9:00 AM",
+              "Close": "4:00 PM"
+            }
+          },
+          "WaitTime": "--",
+          "WaitTimeString": "--",
+          "WaitTimeStatus": "--"
+        },
+        {
+          "Name": "Forest Queen Express",
+          "MountainAreaName": "Lower Mountain",
+          "Status": "Open",
+          "StatusEnglish": "open",
+          "FirstTracks": "No",
+          "UpdateDate": "2021-01-14T07:16:59-0800",
+          "LiftType": "High-Speed Quad",
+          "Hours": {
+            "Sunday": {
+              "Open": "8:30 AM",
+              "Close": "4:00 PM"
+            },
+            "Monday": {
+              "Open": "9:00 AM",
+              "Close": "4:00 PM"
+            },
+            "Tuesday": {
+              "Open": "9:00 AM",
+              "Close": "4:00 PM"
+            },
+            "Wednesday": {
+              "Open": "9:00 AM",
+              "Close": "4:00 PM"
+            },
+            "Thursday": {
+              "Open": "9:00 AM",
+              "Close": "4:00 PM"
+            },
+            "Friday": {
+              "Open": "9:00 AM",
+              "Close": "4:00 PM"
+            },
+            "Saturday": {
+              "Open": "8:30 AM",
+              "Close": "4:00 PM"
+            }
+          },
+          "WaitTime": "--",
+          "WaitTimeString": "--",
+          "WaitTimeStatus": "--"
+        },
+        {
+          "Name": "Gold Hills",
+          "MountainAreaName": "Lower Mountain",
+          "Status": "Open",
+          "StatusEnglish": "open",
+          "FirstTracks": "No",
+          "UpdateDate": "2021-01-23T07:22:32-0800",
+          "LiftType": "Triple Chair",
+          "Hours": {
+            "Sunday": {
+              "Open": "8:30 AM",
+              "Close": "6:00 PM"
+            },
+            "Monday": {
+              "Open": "9:00 AM",
+              "Close": "6:00 PM"
+            },
+            "Tuesday": {
+              "Open": "9:00 AM",
+              "Close": "4:00 PM"
+            },
+            "Wednesday": {
+              "Open": "9:00 AM",
+              "Close": "4:00 PM"
+            },
+            "Thursday": {
+              "Open": "9:00 AM",
+              "Close": "4:00 PM"
+            },
+            "Friday": {
+              "Open": "4:00 AM",
+              "Close": "8:00 PM"
+            },
+            "Saturday": {
+              "Open": "8:30 AM",
+              "Close": "8:00 PM"
+            }
+          },
+          "WaitTime": "--",
+          "WaitTimeString": "--",
+          "WaitTimeStatus": "--"
+        },
+        {
+          "Name": "Quicksilver",
+          "MountainAreaName": "Lower Mountain",
+          "Status": "Open",
+          "StatusEnglish": "open",
+          "FirstTracks": "No",
+          "UpdateDate": "2021-01-18T08:43:15-0800",
+          "LiftType": "Quad Chair",
+          "Hours": {
+            "Sunday": {
+              "Open": "8:30 AM",
+              "Close": "6:00 PM"
+            },
+            "Monday": {
+              "Open": "9:00 AM",
+              "Close": "6:00 PM"
+            },
+            "Tuesday": {
+              "Open": "9:00 AM",
+              "Close": "4:00 PM"
+            },
+            "Wednesday": {
+              "Open": "9:00 AM",
+              "Close": "4:00 PM"
+            },
+            "Thursday": {
+              "Open": "9:00 AM",
+              "Close": "4:00 PM"
+            },
+            "Friday": {
+              "Open": "9:00 AM",
+              "Close": "8:00 PM"
+            },
+            "Saturday": {
+              "Open": "8:30 AM",
+              "Close": "8:00 PM"
+            }
+          },
+          "WaitTime": "--",
+          "WaitTimeString": "--",
+          "WaitTimeStatus": "--"
+        }
+      ],
+      "Activities": [
+        {
+          "Name": "Discovery Meadow",
+          "Status": "Open",
+          "StatusEnglish": "open",
+          "LinkUrl": "https://www.crystalmountainresort.com/the-mountain/mountain-safety/uphill-travel",
+          "UpdateDate": "2021-01-24T05:05:22-0800",
+          "Hours": {
+            "Sunday": {
+              "Open": "Uphill Travel",
+              "Close": "Open"
+            },
+            "Monday": {
+              "Open": "Uphill Travel",
+              "Close": "Open"
+            },
+            "Tuesday": {
+              "Open": "Uphill Travel",
+              "Close": "Open"
+            },
+            "Wednesday": {
+              "Open": "Uphill Travel",
+              "Close": "Open"
+            },
+            "Thursday": {
+              "Open": "Uphill Travel",
+              "Close": "Open"
+            },
+            "Friday": {
+              "Open": "Uphill Travel",
+              "Close": "Open"
+            },
+            "Saturday": {
+              "Open": "Uphill Travel",
+              "Close": "Open"
+            }
+          }
+        },
+        {
+          "Name": "Lower Arwines",
+          "Status": "Closed",
+          "StatusEnglish": "closed",
+          "LinkUrl": "https://www.crystalmountainresort.com/the-mountain/mountain-safety/uphill-travel",
+          "UpdateDate": "2021-01-24T05:05:22-0800",
+          "Hours": {
+            "Sunday": {
+              "Open": "Uphill Travel",
+              "Close": "Open"
+            },
+            "Monday": {
+              "Open": "Uphill Travel",
+              "Close": "Open"
+            },
+            "Tuesday": {
+              "Open": "Uphill Travel",
+              "Close": "Open"
+            },
+            "Wednesday": {
+              "Open": "Uphill Travel",
+              "Close": "Open"
+            },
+            "Thursday": {
+              "Open": "Uphill Travel",
+              "Close": "Open"
+            },
+            "Friday": {
+              "Open": "Uphill Travel",
+              "Close": "Open"
+            },
+            "Saturday": {
+              "Open": "Uphill Travel",
+              "Close": "Open"
+            }
+          }
+        },
+        {
+          "Name": "Queens",
+          "Status": "Closed",
+          "StatusEnglish": "closed",
+          "LinkUrl": "https://www.crystalmountainresort.com/the-mountain/mountain-safety/uphill-travel",
+          "UpdateDate": "2021-01-24T05:05:22-0800",
+          "Hours": {
+            "Sunday": {
+              "Open": "Uphill Travel",
+              "Close": "Open"
+            },
+            "Monday": {
+              "Open": "Uphill Travel",
+              "Close": "Open"
+            },
+            "Tuesday": {
+              "Open": "Uphill Travel",
+              "Close": "Open"
+            },
+            "Wednesday": {
+              "Open": "Uphill Travel",
+              "Close": "Open"
+            },
+            "Thursday": {
+              "Open": "Uphill Travel",
+              "Close": "Open"
+            },
+            "Friday": {
+              "Open": "Uphill Travel",
+              "Close": "Open"
+            },
+            "Saturday": {
+              "Open": "Uphill Travel",
+              "Close": "Open"
+            }
+          }
+        },
+        {
+          "Name": "Quicksilver",
+          "Status": "Open",
+          "StatusEnglish": "open",
+          "LinkUrl": "https://www.crystalmountainresort.com/the-mountain/mountain-safety/uphill-travel",
+          "UpdateDate": "2021-01-24T05:05:22-0800",
+          "Hours": {
+            "Sunday": {
+              "Open": "Uphill Travel",
+              "Close": "Open"
+            },
+            "Monday": {
+              "Open": "Uphill Travel",
+              "Close": "Open"
+            },
+            "Tuesday": {
+              "Open": "Uphill Travel",
+              "Close": "Open"
+            },
+            "Wednesday": {
+              "Open": "Uphill Travel",
+              "Close": "Open"
+            },
+            "Thursday": {
+              "Open": "Uphill Travel",
+              "Close": "Open"
+            },
+            "Friday": {
+              "Open": "Uphill Travel",
+              "Close": "Open"
+            },
+            "Saturday": {
+              "Open": "Uphill Travel",
+              "Close": "Open"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "Name": "Frontside",
+      "LastUpdate": "2021-01-24T05:21:39-0800",
+      "OpenTrailsCount": 37,
+      "TotalTrailsCount": 37,
+      "Trails": [
+        {
+          "Name": "Berry Patch",
+          "MountainAreaName": "Frontside",
+          "Status": "Open",
+          "StatusEnglish": "open",
+          "UpdateDate": "2021-01-24T05:05:18-0800",
+          "Difficulty": "Difficult",
+          "TrailIcon": "BlackDiamond",
+          "SnowMaking": "No",
+          "Grooming": "Yes",
+          "NightSkiing": "No",
+          "Moguls": "No",
+          "Glades": "No",
+          "Touring": "No",
+          "Nordic": "No"
+        },
+        {
+          "Name": "Bill's Face",
+          "MountainAreaName": "Frontside",
+          "Status": "Open",
+          "StatusEnglish": "open",
+          "UpdateDate": "2021-01-24T05:05:18-0800",
+          "Difficulty": "Very difficult",
+          "TrailIcon": "BlackDiamond",
+          "SnowMaking": "No",
+          "Grooming": "Yes",
+          "NightSkiing": "No",
+          "Moguls": "No",
+          "Glades": "No",
+          "Touring": "No",
+          "Nordic": "No"
+        },
+        {
+          "Name": "Blazing Elk",
+          "MountainAreaName": "Frontside",
+          "Status": "Open",
+          "StatusEnglish": "open",
+          "UpdateDate": "2021-01-24T05:05:18-0800",
+          "Difficulty": "Expert",
+          "TrailIcon": "BlackDiamond",
+          "SnowMaking": "No",
+          "Grooming": "Yes",
+          "NightSkiing": "No",
+          "Moguls": "No",
+          "Glades": "No",
+          "Touring": "No",
+          "Nordic": "No"
+        },
+        {
+          "Name": "Buck",
+          "MountainAreaName": "Frontside",
+          "Status": "Open",
+          "StatusEnglish": "open",
+          "UpdateDate": "2021-01-24T05:05:18-0800",
+          "Difficulty": "Intermediate",
+          "TrailIcon": "BlueSquare",
+          "SnowMaking": "No",
+          "Grooming": "No",
+          "NightSkiing": "No",
+          "Moguls": "No",
+          "Glades": "No",
+          "Touring": "No",
+          "Nordic": "No"
+        },
+        {
+          "Name": "Bull Run",
+          "MountainAreaName": "Frontside",
+          "Status": "Open",
+          "StatusEnglish": "open",
+          "UpdateDate": "2021-01-24T05:05:18-0800",
+          "Difficulty": "Very difficult",
+          "TrailIcon": "BlackDiamond",
+          "SnowMaking": "No",
+          "Grooming": "No",
+          "NightSkiing": "No",
+          "Moguls": "No",
+          "Glades": "No",
+          "Touring": "No",
+          "Nordic": "No"
+        },
+        {
+          "Name": "Deer Fly",
+          "MountainAreaName": "Frontside",
+          "Status": "Open",
+          "StatusEnglish": "open",
+          "UpdateDate": "2021-01-24T05:21:39-0800",
+          "Difficulty": "Expert",
+          "TrailIcon": "BlackDiamond",
+          "SnowMaking": "No",
+          "Grooming": "No",
+          "NightSkiing": "No",
+          "Moguls": "No",
+          "Glades": "No",
+          "Touring": "No",
+          "Nordic": "No"
+        }
+      ]
+    }
+  ]
+}
