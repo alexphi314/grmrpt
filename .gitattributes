@@ -1,0 +1,2 @@
+.ebextensions/https_redirect.config merge=ours
+.ebextensions/securelistener-clb.config merge=ours
