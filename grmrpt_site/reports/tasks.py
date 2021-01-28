@@ -229,6 +229,8 @@ def create_report(date: dt.date, groomed_runs: List[Tuple[str, str]], resort: Re
                     'assuming it is accurate and appending to report.')
 
     if Counter([run.name for run in report.runs.all()]) != Counter(current_report_run_names):
+        logger.debug([run.name for run in report.runs.all()])
+        logger.debug(current_report_run_names)
         runs_to_append = []
         for run_tuple in groomed_runs:
             run_objs = Run.objects.filter(resort=resort).filter(name=run_tuple[0])
