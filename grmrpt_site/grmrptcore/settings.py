@@ -236,12 +236,12 @@ LOGGING = {
         },
         'reports.tasks': {
             'handlers': ['console', 'file'],
-            'level': 'DEBUG',
+            'level': 'INFO',
             'propagate': False
         },
         'celery': {
             'handlers': ['console', 'file'],
-            'level': 'DEBUG',
+            'level': 'INFO',
             'propagate': False
         }
     }
