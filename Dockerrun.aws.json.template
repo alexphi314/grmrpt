@@ -35,7 +35,7 @@
             ],
             "essential": true,
             "image": "alexphi981/grmrptcore:${ENV}",
-            "memory": 1024,
+            "memory": 400,
             "mountPoints": [
                 {
                     "containerPath": "/opt/python/log/",
@@ -76,7 +76,7 @@
             ],
             "essential": true,
             "image": "alexphi981/grmrptcore:${ENV}",
-            "memory": 1024,
+            "memory": 400,
             "mountPoints": [
                 {
                     "containerPath": "/opt/python/log/",
@@ -110,7 +110,7 @@
             ],
             "essential": false,
             "image": "alexphi981/grmrptcore:${ENV}",
-            "memory": 200,
+            "memory": 10,
             "mountPoints": [
                 {
                     "containerPath": "/opt/python/log/",
@@ -122,7 +122,7 @@
         {
             "essential": true,
             "image": "alexphi981/nginx:${ENV}",
-            "memory": 200,
+            "memory": 10,
             "mountPoints": [
                 {
                     "containerPath": "/src/static",
@@ -145,7 +145,7 @@
         {
             "essential": true,
             "image": "redis:alpine",
-            "memory": 200,
+            "memory": 10,
             "name": "redis"
         }
     ],
