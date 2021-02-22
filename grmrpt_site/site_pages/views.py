@@ -1,5 +1,6 @@
 from collections import Counter
 import io
+import datetime as dt
 
 from django.contrib.auth.models import User
 from django.contrib.auth import logout, login
@@ -293,8 +294,8 @@ def run_stats(request, run_id: int):
     """
     run = Run.objects.get(id=run_id)
 
-    num_reports = run.reports.count()
-    num_bm_reports = run.bm_reports.count()
+    num_reports = run.reports.filter(date__gte=dt.datetime.now()-dt.timedelta(days=6*30)).count()
+    num_bm_reports = run.bm_reports.filter(date__gte=dt.datetime.now()-dt.timedelta(days=6*30)).count()
 
     if num_bm_reports > 0:
         last_bm_report = run.bm_reports.all()[num_bm_reports-1].date.strftime('%a %b %d')
@@ -308,7 +309,7 @@ def run_stats(request, run_id: int):
 
     # Get list of groom dates, tracking which were 'blue moon' days
     rpt_list = []
-    bm_dates = [rpt.date for rpt in run.bm_reports.all()]
+    bm_dates = [rpt.date for rpt in run.bm_reports.filter(date__gte=dt.datetime.now()-dt.timedelta(days=6*30)).all()]
     for rpt in run.reports.all():
         if rpt.date in bm_dates:
             color = 'bm'
