@@ -4,6 +4,7 @@ from unittest.mock import patch, call
 
 from freezegun import freeze_time
 from django.test import TestCase
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from reports.tasks import get_grooming_report, notify_resort_no_runs, notify_resort, create_report, get_resort_alerts, \
@@ -137,11 +138,11 @@ class NotifyNoRunTestCase(MockTestCase):
         check reports flagged for no_run notification works correctly
         """
         # Check eval before 8 am returns no reports
-        with freeze_time('2020-01-03 13:00:00'):
+        with freeze_time('2020-01-03 6:00:00'):
             self.assertFalse(notify_resort_no_runs(self.resort))
             self.assertFalse(notify_resort_no_runs(self.resort2))
 
-        with freeze_time('2020-01-03 16:00:00'):
+        with freeze_time('2020-01-03 9:00:00'):
             # Check eval after 8 am returns both reports
             self.assertTrue(notify_resort_no_runs(self.resort))
             self.assertTrue(notify_resort_no_runs(self.resort2))
@@ -224,6 +225,7 @@ class NotifyUsersTestCase(MockTestCase):
         """
         client = APIClient()
         client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
+        time_freeze = timezone.now() + dt.timedelta(minutes=21)
 
         # Without BMrun linked to report, no notification sent
         resort1 = Resort.objects.get(pk=1)
@@ -235,9 +237,13 @@ class NotifyUsersTestCase(MockTestCase):
         bmr = BMReport.objects.get(pk=2)
         BMReport.objects.get(pk=1).runs.add(Run.objects.get(pk=1))
         bmr.runs.add(Run.objects.get(pk=1))
-        # Since first report has a notification, only second resort should have a notification
+        # Since report just updated, resort2 should still be false
         self.assertFalse(notify_resort(resort1))
-        self.assertTrue(notify_resort(resort2))
+        self.assertFalse(notify_resort(resort2))
+        # Since first report has a notification, only second resort should have a notification
+        with freeze_time(time_freeze):
+            self.assertFalse(notify_resort(resort1))
+            self.assertTrue(notify_resort(resort2))
 
         # Add report on 1-2
         report_data = {'date': '2020-01-02',
@@ -245,14 +251,16 @@ class NotifyUsersTestCase(MockTestCase):
                        'runs': [self.run1_url, self.run2_url]}
         report_response = client.post('/api/reports/', report_data, format='json')
         assert report_response.status_code == 201
-        self.assertFalse(notify_resort(resort1))
-        self.assertTrue(notify_resort(resort2))
+        with freeze_time(time_freeze):
+            self.assertFalse(notify_resort(resort1))
+            self.assertTrue(notify_resort(resort2))
 
         # Add run to BMR and check resort is now on notification list
         bmr = BMReport.objects.get(pk=client.get(report_response.json()['bm_report']).json()['id'])
         bmr.runs.add(Run.objects.get(pk=1))
-        self.assertTrue(notify_resort(resort1))
-        self.assertTrue(notify_resort(resort2))
+        with freeze_time(time_freeze):
+            self.assertTrue(notify_resort(resort1))
+            self.assertTrue(notify_resort(resort2))
 
         # Add report on 1-6
         report_data = {'date': '2020-01-06',
@@ -262,23 +270,26 @@ class NotifyUsersTestCase(MockTestCase):
         assert report_response.status_code == 201
         resort1_id = report_response.json()['id']
         # Without BMruns on BMReport, no notification
-        self.assertFalse(notify_resort(resort1))
-        self.assertTrue(notify_resort(resort2))
+        with freeze_time(time_freeze):
+            self.assertFalse(notify_resort(resort1))
+            self.assertTrue(notify_resort(resort2))
 
         bmr = BMReport.objects.get(pk=client.get(report_response.json()['bm_report']).json()['id'])
         bmr.runs.add(Run.objects.get(pk=1))
 
         # With new report, notify resort2 and updated report
-        self.assertTrue(notify_resort(resort1))
-        self.assertTrue(notify_resort(resort2))
+        with freeze_time(time_freeze):
+            self.assertTrue(notify_resort(resort1))
+            self.assertTrue(notify_resort(resort2))
 
         # Notify both
         Notification.objects.create(bm_report_id=resort1_id)
         Notification.objects.create(bm_report_id=self.resort2_id)
 
         # Confirm no notifications to go out
-        self.assertFalse(notify_resort(resort1))
-        self.assertFalse(notify_resort(resort2))
+        with freeze_time(time_freeze):
+            self.assertFalse(notify_resort(resort1))
+            self.assertFalse(notify_resort(resort2))
 
         # Create a bogus report with no runs attached
         report_data = {'date': '2020-01-07',
@@ -287,8 +298,9 @@ class NotifyUsersTestCase(MockTestCase):
         report_response = client.post('/api/reports/', report_data, format='json')
         assert report_response.status_code == 201
         # Confirm no notifications to go out
-        self.assertFalse(notify_resort(resort1))
-        self.assertFalse(notify_resort(resort2))
+        with freeze_time(time_freeze):
+            self.assertFalse(notify_resort(resort1))
+            self.assertFalse(notify_resort(resort2))
 
         # Create identical bm report and check no notification is readied
         run1 = Run.objects.get(pk=1)
@@ -303,20 +315,23 @@ class NotifyUsersTestCase(MockTestCase):
         bm2.runs.set([run1])
 
         # Confirm notification goes out even though the previous day's report has the same blue moon runs on it
-        self.assertTrue(notify_resort(resort1))
-        self.assertFalse(notify_resort(resort2))
+        with freeze_time(time_freeze):
+            self.assertTrue(notify_resort(resort1))
+            self.assertFalse(notify_resort(resort2))
 
         bm2.runs.add(run2)
         # Confirm notification ready to go out
-        self.assertTrue(notify_resort(resort1))
-        self.assertFalse(notify_resort(resort2))
+        with freeze_time(time_freeze):
+            self.assertTrue(notify_resort(resort1))
+            self.assertFalse(notify_resort(resort2))
 
         # Send notification
         Notification.objects.create(bm_report_id=bm2.pk)
 
         # Confirm no notifications to go out
-        self.assertFalse(notify_resort(resort1))
-        self.assertFalse(notify_resort(resort2))
+        with freeze_time(time_freeze):
+            self.assertFalse(notify_resort(resort1))
+            self.assertFalse(notify_resort(resort2))
 
         # Create 2 reports next to each other
         rpt1 = Report.objects.create(date=dt.datetime(2020, 2, 1), resort_id=1)
@@ -327,26 +342,30 @@ class NotifyUsersTestCase(MockTestCase):
         rpt2.runs.set([Run.objects.get(id=1)])
 
         # Confirm no notification goes out because BMreport has no runs
-        self.assertFalse(notify_resort(resort1))
-        self.assertFalse(notify_resort(resort2))
+        with freeze_time(time_freeze):
+            self.assertFalse(notify_resort(resort1))
+            self.assertFalse(notify_resort(resort2))
 
         # Add run to BMreport
         rpt2.bm_report.runs.set([Run.objects.get(id=2)])
-        self.assertTrue(notify_resort(resort1))
-        self.assertFalse(notify_resort(resort2))
+        with freeze_time(time_freeze):
+            self.assertTrue(notify_resort(resort1))
+            self.assertFalse(notify_resort(resort2))
 
         # Post notification for 'no run' and confirm resort still queued for notification
         notif = Notification.objects.create(bm_report_id=rpt2.bm_report.id, type='no_runs')
-        self.assertTrue(notify_resort(resort1))
-        self.assertFalse(notify_resort(resort2))
+        with freeze_time(time_freeze):
+            self.assertTrue(notify_resort(resort1))
+            self.assertFalse(notify_resort(resort2))
         self.assertRaises(Notification.DoesNotExist, Notification.objects.get, id=notif.id)
 
         # add more recent report and confirm it is queued for notification
         rpt = Report.objects.create(date=dt.datetime(2020, 2, 3), resort_id=1)
         rpt.runs.add(Run.objects.get(id=1))
         rpt.bm_report.runs.add(Run.objects.get(id=1))
-        self.assertTrue(notify_resort(resort1))
-        self.assertFalse(notify_resort(resort2))
+        with freeze_time(time_freeze):
+            self.assertTrue(notify_resort(resort1))
+            self.assertFalse(notify_resort(resort2))
 
     @classmethod
     def tearDownClass(cls):
@@ -496,18 +515,18 @@ class CheckAlertTestCase(MockTestCase):
         """
         test get_list behaves as expected
         """
-        with freeze_time('2020-02-02 14:00:00'):
+        with freeze_time('2020-02-02 7:00:00'):
             alert_list = get_resort_alerts()
         self.assertListEqual(alert_list, [])
 
         # check returns 1 resort after 815
-        with freeze_time('2020-02-02 15:16:00'):
+        with freeze_time('2020-02-02 8:16:00'):
             alert_list = get_resort_alerts()
         self.assertListEqual(alert_list, [BMReport.objects.get(id=1)])
 
         # Add alert to report1
         Alert.objects.create(bm_report_id=1).save()
-        with freeze_time('2020-02-02 16:00:00'):
+        with freeze_time('2020-02-02 9:00:00'):
             alert_list = get_resort_alerts()
         self.assertListEqual(alert_list, [])
 
@@ -517,10 +536,10 @@ class CheckAlertTestCase(MockTestCase):
         res.runs.add(self.run1)
 
         # Check a new report object is created for a time in the future and an alert is queued
-        with freeze_time('2020-02-03 14:00:00'):
+        with freeze_time('2020-02-03 7:00:00'):
             alert_list = get_resort_alerts()
         self.assertListEqual(alert_list, [])
-        with freeze_time('2020-02-03 16:00:00'):
+        with freeze_time('2020-02-03 9:00:00'):
             alert_list = get_resort_alerts()
         self.assertListEqual(alert_list, [BMReport.objects.get(id=3), BMReport.objects.get(id=4)])
 
@@ -532,7 +551,7 @@ class CheckAlertTestCase(MockTestCase):
 
         # Check the most recent report is returned
         Alert.objects.get(id=1).delete()
-        with freeze_time('2020-02-03 16:00:00'):
+        with freeze_time('2020-02-03 9:00:00'):
             alert_list = get_resort_alerts()
         self.assertListEqual(alert_list, [res.bm_report])
         self.assertEqual(Report.objects.count(), 4)
@@ -540,7 +559,7 @@ class CheckAlertTestCase(MockTestCase):
         # Remove the runs from res and confirm it is not returned
         res.runs.set([])
         self.report.runs.set([])
-        with freeze_time('2020-02-03 16:00:00'):
+        with freeze_time('2020-02-03 9:00:00'):
             alert_list = get_resort_alerts()
         self.assertListEqual(alert_list, [])
         self.assertEqual(Report.objects.count(), 4)
@@ -630,7 +649,7 @@ class CheckReportTest(MockTestCase):
             check_for_report(self.resort.id)
         mock_grm_rpt.assert_called_with('json', response=good_data)
         mock_create.assert_called_with(dt.date(2020, 12, 28), ['run1', 'run2'], self.resort,
-                                       dt.datetime(2020, 12, 28, 9, tzinfo=pytz.timezone('US/Mountain')))
+                                       dt.datetime(2020, 12, 28, 16))
         mock_notify.assert_called_with(self.resort)
         mock_no_run_notify.assert_called_with(self.resort)
         self.assertFalse(mock_post_msg.called)
@@ -653,11 +672,11 @@ class CheckReportTest(MockTestCase):
 
         # Test resort2
         mock_post.side_effect = mocked_requests_get
-        with freeze_time('2020-12-28 16:00:00'):
+        with freeze_time('2020-12-28 9:00:00'):
             check_for_report(self.resort2.id)
             mock_grm_rpt.assert_called_with('json-vail', response=good_data)
             mock_create.assert_called_with(dt.date(2020, 12, 28), ['run1', 'run2'], self.resort2,
-                                           dt.datetime(2020, 12, 28, 9, tzinfo=pytz.timezone('US/Mountain')))
+                                           dt.datetime(2020, 12, 28, 9))
             mock_notify.assert_called_with(self.resort2)
             mock_no_run_notify.assert_called_with(self.resort2)
             self.assertFalse(mock_post_msg.called)

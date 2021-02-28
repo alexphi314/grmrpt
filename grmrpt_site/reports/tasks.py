@@ -5,11 +5,11 @@ import logging
 import os
 from collections import Counter
 import json
-import traceback
 
 import requests
 import boto3
 from django.db.models import Count
+from django.utils import timezone
 
 from grmrptcore.celery import app
 from .models import Run, Resort, Report, BMReport, Alert, Notification
@@ -103,7 +103,7 @@ def check_for_report(resort_id: int) -> None:
             date, groomed_runs = get_grooming_report(resort.parse_mode, response=response.json())
 
         logger.info('Got grooming report for {} on {}'.format(resort, date.strftime('%Y-%m-%d')))
-        time = dt.datetime.now(tz=pytz.timezone('US/Mountain'))
+        time = timezone.now()
         create_report(date, groomed_runs, resort, time)
 
         if notify_resort(resort):
@@ -278,7 +278,8 @@ def notify_resort(resort: Resort) -> bool:
     last_report = get_most_recent_reports(resort)
 
     # Only include reports with bm reports with runs on them
-    if last_report is None or last_report.bm_report.runs.count() == 0:
+    if last_report is None or last_report.bm_report.runs.count() == 0 or \
+            (timezone.now() - last_report.created) < dt.timedelta(minutes=20):
         return False
 
     # Check if notification sent for this report
@@ -299,7 +300,7 @@ def notify_resort_no_runs(resort: Resort) -> bool:
     :param resort: Resort to query
     :return: True if a notification should be sent
     """
-    time = dt.datetime.now(tz=pytz.timezone('US/Mountain'))
+    time = timezone.now()
     if time.hour >= int(os.getenv('NORUNS_NOTIF_HOUR')):
         last_report = get_most_recent_reports(resort)
 
@@ -318,7 +319,7 @@ def get_resort_alerts() -> List[BMReport]:
 
     :return: list of BMReport objs that are missing a notification
     """
-    time = dt.datetime.now(tz=pytz.timezone('US/Mountain'))
+    time = timezone.now()
     alert_list = []
     # Check after no run notifs should have gone out
     notif_time = dt.time(int(os.getenv('NORUNS_NOTIF_HOUR')), int(os.getenv('ALERT_NOTIF_MIN')))

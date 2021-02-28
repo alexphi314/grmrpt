@@ -55,6 +55,7 @@ class Report(models.Model):
     """
     date = models.DateField("Date of Grooming Report")
     resort = models.ForeignKey(Resort, on_delete=models.CASCADE, related_name='reports')
+    created = models.DateTimeField("Creation time", auto_now_add=True)
 
     def __str__(self) -> str:
         return '{}: {}'.format(self.resort, self.date.strftime('%Y-%m-%d'))
