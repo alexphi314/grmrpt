@@ -97,30 +97,6 @@
             "entryPoint": ["/src/copy-static.sh"]
         },
         {
-            "command": [
-                "python3",
-                "manage.py",
-                "migrate",
-                "--noinput"
-            ],
-            "environment": [
-                {
-                    "name": "PYTHONPATH",
-                    "value": "/usr/local/bin:/bin/"
-                }
-            ],
-            "essential": false,
-            "image": "alexphi981/grmrptcore:${ENV}",
-            "memory": 10,
-            "mountPoints": [
-                {
-                    "containerPath": "/opt/python/log/",
-                    "sourceVolume": "migrate_log"
-                }
-            ],
-            "name": "migrate"
-        },
-        {
             "essential": true,
             "image": "alexphi981/nginx:${ENV}",
             "memory": 10,
@@ -168,12 +144,6 @@
                 "sourcePath": "/var/log/containers/celery"
             },
             "name": "celery_log"
-        },
-        {
-            "host": {
-                "sourcePath": "/var/log/containers/migrate"
-            },
-            "name": "migrate_log"
         },
         {
             "host": {

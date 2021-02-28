@@ -221,7 +221,7 @@ LOGGING = {
             'level': 'INFO',
             'class': 'logging.FileHandler',
             'formatter': 'simple',
-            'filename': '/opt/python/log/reports.log'
+            'filename': '/opt/python/log/django.log'
         }
     },
     'loggers': {
