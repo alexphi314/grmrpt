@@ -243,6 +243,11 @@ LOGGING = {
             'handlers': ['console', 'file'],
             'level': 'INFO',
             'propagate': False
+        },
+        '': {
+            'handlers': ['console', 'file'],
+            'level': 'INFO',
+            'propagate': False
         }
     }
 }
