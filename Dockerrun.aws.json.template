@@ -100,7 +100,8 @@
             "command": [
                 "python3",
                 "manage.py",
-                "migrate"
+                "migrate",
+                "--noinput"
             ],
             "environment": [
                 {
