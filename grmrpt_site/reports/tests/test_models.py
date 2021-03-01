@@ -1,4 +1,6 @@
 from unittest.mock import patch, call
+from freezegun import freeze_time
+import pytz
 
 from reports.models import *
 from .test_classes import MockTestCase
@@ -117,6 +119,13 @@ class ReportTestCase(MockTestCase):
         self.report.resort = self.resort
         self.report.date = dt.datetime(2019, 1, 9)
         self.report.save()
+
+    def test_created(self) -> None:
+        with freeze_time('2021-02-01 16:00:00'):
+            report = Report.objects.create(date=dt.date(2021, 2, 1), resort=self.resort)
+            report.save()
+
+        self.assertEqual(dt.datetime(2021, 2, 1, 9, tzinfo=pytz.timezone('America/Denver')), report.created)
 
     @classmethod
     def tearDownClass(cls):

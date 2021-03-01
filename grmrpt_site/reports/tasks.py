@@ -1,6 +1,5 @@
 from typing import List, Tuple, Union, Dict
 import datetime as dt
-import pytz
 import logging
 import os
 from collections import Counter
@@ -103,7 +102,7 @@ def check_for_report(resort_id: int) -> None:
             date, groomed_runs = get_grooming_report(resort.parse_mode, response=response.json())
 
         logger.info('Got grooming report for {} on {}'.format(resort, date.strftime('%Y-%m-%d')))
-        time = timezone.now()
+        time = timezone.localtime(timezone.now())
         create_report(date, groomed_runs, resort, time)
 
         if notify_resort(resort):
@@ -279,7 +278,7 @@ def notify_resort(resort: Resort) -> bool:
 
     # Only include reports with bm reports with runs on them
     if last_report is None or last_report.bm_report.runs.count() == 0 or \
-            (timezone.now() - last_report.created) < dt.timedelta(minutes=20):
+            (timezone.localtime(timezone.now()) - last_report.created) < dt.timedelta(minutes=20):
         return False
 
     # Check if notification sent for this report
@@ -300,7 +299,7 @@ def notify_resort_no_runs(resort: Resort) -> bool:
     :param resort: Resort to query
     :return: True if a notification should be sent
     """
-    time = timezone.now()
+    time = timezone.localtime(timezone.now())
     if time.hour >= int(os.getenv('NORUNS_NOTIF_HOUR')):
         last_report = get_most_recent_reports(resort)
 
@@ -319,7 +318,7 @@ def get_resort_alerts() -> List[BMReport]:
 
     :return: list of BMReport objs that are missing a notification
     """
-    time = timezone.now()
+    time = timezone.localtime(timezone.now())
     alert_list = []
     # Check after no run notifs should have gone out
     notif_time = dt.time(int(os.getenv('NORUNS_NOTIF_HOUR')), int(os.getenv('ALERT_NOTIF_MIN')))
