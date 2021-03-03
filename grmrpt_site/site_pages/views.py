@@ -310,7 +310,7 @@ def run_stats(request, run_id: int):
     # Get list of groom dates, tracking which were 'blue moon' days
     rpt_list = []
     bm_dates = [rpt.date for rpt in run.bm_reports.filter(date__gte=dt.datetime.now()-dt.timedelta(days=6*30)).all()]
-    for rpt in run.reports.all():
+    for rpt in run.reports.filter(date__gte=dt.datetime.now()-dt.timedelta(days=6*30)):
         if rpt.date in bm_dates:
             color = 'bm'
         else:
