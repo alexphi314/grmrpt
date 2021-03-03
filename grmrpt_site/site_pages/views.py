@@ -261,7 +261,8 @@ def run_stats_img(request, run_id: int) -> HttpResponse:
 
     # Calculate DoW distro
     dow = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-    dow_array = [rpt.date.strftime('%a') for rpt in run.reports.all()]
+    dow_array = [rpt.date.strftime('%a') for rpt in
+                 run.reports.filter(date__gte=dt.datetime.now()-dt.timedelta(days=6*30))]
     dow_dict = Counter(dow_array)
 
     # Create data array for plotting including all days of week
@@ -309,7 +310,7 @@ def run_stats(request, run_id: int):
 
     # Get list of groom dates, tracking which were 'blue moon' days
     rpt_list = []
-    bm_dates = [rpt.date for rpt in run.bm_reports.filter(date__gte=dt.datetime.now()-dt.timedelta(days=6*30)).all()]
+    bm_dates = [rpt.date for rpt in run.bm_reports.filter(date__gte=dt.datetime.now()-dt.timedelta(days=6*30))]
     for rpt in run.reports.filter(date__gte=dt.datetime.now()-dt.timedelta(days=6*30)):
         if rpt.date in bm_dates:
             color = 'bm'
