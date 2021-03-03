@@ -298,15 +298,13 @@ def run_stats(request, run_id: int):
     num_reports = run.reports.filter(date__gte=dt.datetime.now()-dt.timedelta(days=6*30)).count()
     num_bm_reports = run.bm_reports.filter(date__gte=dt.datetime.now()-dt.timedelta(days=6*30)).count()
 
-    if num_bm_reports > 0:
-        last_bm_report = run.bm_reports.all()[num_bm_reports-1].date.strftime('%a %b %d')
-    else:
-        last_bm_report = ''
+    last_bm_report = run.bm_reports.filter(
+        date__gte=dt.datetime.now()-dt.timedelta(days=6*30)
+    ).order_by('-date').all()[0].date.strftime('%a %b %d') if num_bm_reports > 0 else ''
 
-    if num_reports > 0:
-        last_report = run.reports.all()[num_reports-1].date.strftime('%a %b %d')
-    else:
-        last_report = ''
+    last_report = run.reports.filter(
+        date__gte=dt.datetime.now()-dt.timedelta(days=6*30)
+    ).order_by('-date').all()[0].date.strftime('%a %b %d') if num_reports > 0 else ''
 
     # Get list of groom dates, tracking which were 'blue moon' days
     rpt_list = []
